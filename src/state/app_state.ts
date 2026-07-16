@@ -19,7 +19,7 @@ export class AppStateManager {
   private workspaceLayout: WorkspaceLayout = {
     leftWidth: 280,
     rightWidth: 320,
-    bottomHeight: 180,
+    bottomHeight: 250,
     timelineZoom: 1.0,
     canvasZoom: 100, // percentage, 100 = 100%
   };
