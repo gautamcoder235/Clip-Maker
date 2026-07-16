@@ -350,7 +350,7 @@ body {
 }
 
 #bottom-panel {
-  height: 250px;
+  height: 180px;
   flex-shrink: 0;
   border-top: 1px solid var(--panel-border);
   background: var(--panel-bg);
