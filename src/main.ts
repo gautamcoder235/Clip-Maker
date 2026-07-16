@@ -638,6 +638,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     appWindow.close();
   });
   document.getElementById("btn-welcome-import")?.addEventListener("click", triggerImport);
+
+  // Customize all type="number" inputs dynamically
+  customizeNumberInputs();
 });
 
 function syncConfigToUi() {
@@ -2717,5 +2720,108 @@ function openTrimModal(asset: ImportedAsset) {
 
   // Show Modal
   trimModal.style.display = "flex";
+}
+
+function customizeNumberInputs() {
+  document.querySelectorAll('input[type="number"]').forEach((input) => {
+    const numInput = input as HTMLInputElement;
+    if (numInput.parentElement?.classList.contains('custom-number-wrapper')) return;
+
+    // Create wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-number-wrapper';
+    
+    // Copy parent flex / margin/ layout properties to wrapper so layouts don't break
+    const computedStyle = window.getComputedStyle(numInput);
+    if (numInput.style.flex || computedStyle.flexGrow !== '0' || computedStyle.flexShrink !== '1') {
+      wrapper.style.flex = numInput.style.flex || computedStyle.flex;
+      numInput.style.flex = "1";
+    }
+    if (numInput.style.width || computedStyle.width !== 'auto') {
+      wrapper.style.width = numInput.style.width || computedStyle.width;
+      numInput.style.width = "100%";
+    }
+    if (numInput.style.margin) {
+      wrapper.style.margin = numInput.style.margin;
+      numInput.style.margin = "0";
+    }
+    if (numInput.style.marginTop) wrapper.style.marginTop = numInput.style.marginTop;
+    if (numInput.style.marginBottom) wrapper.style.marginBottom = numInput.style.marginBottom;
+    if (numInput.style.marginLeft) wrapper.style.marginLeft = numInput.style.marginLeft;
+    if (numInput.style.marginRight) wrapper.style.marginRight = numInput.style.marginRight;
+
+    // Move input inside wrapper
+    numInput.parentNode?.insertBefore(wrapper, numInput);
+    wrapper.appendChild(numInput);
+
+    // Create custom spinners container
+    const spinnerContainer = document.createElement('div');
+    spinnerContainer.className = 'custom-number-spinners';
+
+    // Up button
+    const btnUp = document.createElement('button');
+    btnUp.type = 'button';
+    btnUp.className = 'custom-spinner-btn custom-spinner-up';
+    btnUp.innerHTML = `<svg width="8" height="6" viewBox="0 0 24 16" fill="currentColor"><path d="M12 0L24 16H0L12 0Z"/></svg>`;
+    
+    // Down button
+    const btnDown = document.createElement('button');
+    btnDown.type = 'button';
+    btnDown.className = 'custom-spinner-btn custom-spinner-down';
+    btnDown.innerHTML = `<svg width="8" height="6" viewBox="0 0 24 16" fill="currentColor"><path d="M12 16L0 0H24L12 16Z"/></svg>`;
+
+    spinnerContainer.appendChild(btnUp);
+    spinnerContainer.appendChild(btnDown);
+    wrapper.appendChild(spinnerContainer);
+
+    const changeVal = (up: boolean) => {
+      if (numInput.disabled) return;
+      const step = parseFloat(numInput.step) || 1;
+      const val = parseFloat(numInput.value) || 0;
+      const min = numInput.min ? parseFloat(numInput.min) : -Infinity;
+      const max = numInput.max ? parseFloat(numInput.max) : Infinity;
+
+      let newVal = val + (up ? step : -step);
+      
+      const stepStr = numInput.step;
+      if (stepStr && stepStr.includes('.')) {
+        const decimals = stepStr.split('.')[1].length;
+        newVal = parseFloat(newVal.toFixed(decimals));
+      } else {
+        newVal = Math.round(newVal);
+      }
+
+      if (newVal >= min && newVal <= max) {
+        numInput.value = newVal.toString();
+        numInput.dispatchEvent(new Event('input', { bubbles: true }));
+        numInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+
+    // Long press support for convenience
+    let intervalId: any = null;
+    let timeoutId: any = null;
+
+    const startInterval = (up: boolean) => {
+      changeVal(up);
+      timeoutId = setTimeout(() => {
+        intervalId = setInterval(() => changeVal(up), 80);
+      }, 300);
+    };
+
+    const stopInterval = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+
+    btnUp.addEventListener('mousedown', (e) => {
+      if (e.button === 0) startInterval(true);
+    });
+    btnDown.addEventListener('mousedown', (e) => {
+      if (e.button === 0) startInterval(false);
+    });
+
+    window.addEventListener('mouseup', stopInterval);
+  });
 }
 
