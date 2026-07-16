@@ -2402,11 +2402,12 @@ function openTrimModal(asset: ImportedAsset) {
     trimEnabledCheckbox.checked = isTrimmed ? trim.enabled : false;
 
     trimTimeDuration.textContent = formatDuration(duration);
+    trimTimeCurrent.textContent = formatDuration(trimModalVideo.currentTime);
     
     // Custom controls slider initialization
     trimVideoProgress.max = duration.toString();
     trimVideoProgress.value = isTrimmed ? trim.start.toString() : "0";
-    trimVideoTimeDisplay.textContent = `00:00 / ${formatDuration(duration)}`;
+    trimVideoTimeDisplay.textContent = `${formatDuration(trimModalVideo.currentTime)} / ${formatDuration(duration)}`;
     
     updateProgressFill();
     updateRangeTrack();
@@ -2534,11 +2535,21 @@ function openTrimModal(asset: ImportedAsset) {
     window.addEventListener("mouseup", onMouseUp);
   };
 
+  const enableTrimCheckbox = () => {
+    if (!trimEnabledCheckbox.checked) {
+      trimEnabledCheckbox.checked = true;
+    }
+  };
+
   const onMouseMove = (e: MouseEvent) => {
     if (duration <= 0) return;
     const deltaX = e.clientX - dragStartX;
     const rect = trimTimelineTrack.getBoundingClientRect();
     const deltaSecs = (deltaX / rect.width) * duration;
+
+    if (isDraggingLeft || isDraggingRight || isDraggingRange) {
+      enableTrimCheckbox();
+    }
 
     if (isDraggingLeft) {
       let newStart = initialStartVal + deltaSecs;
@@ -2611,6 +2622,7 @@ function openTrimModal(asset: ImportedAsset) {
     let val = parseFloat(trimStartInput.value) || 0;
     if (val < 0) val = 0;
     trimStartInput.value = val.toFixed(2);
+    enableTrimCheckbox();
     updateRangeTrack();
   };
 
@@ -2618,6 +2630,7 @@ function openTrimModal(asset: ImportedAsset) {
     let val = parseFloat(trimEndInput.value) || duration;
     if (val > duration) val = duration;
     trimEndInput.value = val.toFixed(2);
+    enableTrimCheckbox();
     updateRangeTrack();
   };
 
@@ -2627,12 +2640,14 @@ function openTrimModal(asset: ImportedAsset) {
   const onSetStartClick = () => {
     const cur = parseFloat(trimModalVideo.currentTime.toFixed(2));
     trimStartInput.value = cur.toString();
+    enableTrimCheckbox();
     updateRangeTrack();
   };
 
   const onSetEndClick = () => {
     const cur = parseFloat(trimModalVideo.currentTime.toFixed(2));
     trimEndInput.value = cur.toString();
+    enableTrimCheckbox();
     updateRangeTrack();
   };
 
