@@ -89,8 +89,6 @@ let propParallel: HTMLInputElement;
 let propWorkers: HTMLInputElement;
 let propSkipStart: HTMLInputElement;
 let propStartClipNum: HTMLInputElement;
-let propExportFrom: HTMLInputElement;
-let propExportTo: HTMLInputElement;
 
 let txtQueueStatus: HTMLSpanElement;
 let selectTheme: HTMLSelectElement;
@@ -101,7 +99,10 @@ let trimModal: HTMLDivElement;
 let trimModalVideo: HTMLVideoElement;
 let trimModalFilename: HTMLSpanElement;
 let trimLoadingOverlay: HTMLDivElement;
+let trimTimelineTrack: HTMLDivElement;
 let trimTimelineRange: HTMLDivElement;
+let trimHandleLeft: HTMLDivElement;
+let trimHandleRight: HTMLDivElement;
 let trimTimeCurrent: HTMLSpanElement;
 let trimTimeDuration: HTMLSpanElement;
 let trimEnabledCheckbox: HTMLInputElement;
@@ -305,8 +306,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   propWorkers = document.querySelector("#prop-workers")!;
   propSkipStart = document.querySelector("#prop-skip-start")!;
   propStartClipNum = document.querySelector("#prop-start-clip-num")!;
-  propExportFrom = document.querySelector("#prop-export-from")!;
-  propExportTo = document.querySelector("#prop-export-to")!;
 
   txtQueueStatus = document.querySelector("#txt-queue-status")!;
   selectTheme = document.querySelector("#select-theme")!;
@@ -321,7 +320,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   trimModalVideo = document.querySelector("#trim-modal-video")!;
   trimModalFilename = document.querySelector("#trim-modal-filename")!;
   trimLoadingOverlay = document.querySelector("#trim-loading-overlay")!;
+  trimTimelineTrack = document.querySelector("#trim-timeline-track")!;
   trimTimelineRange = document.querySelector("#trim-timeline-range")!;
+  trimHandleLeft = document.querySelector("#trim-handle-left")!;
+  trimHandleRight = document.querySelector("#trim-handle-right")!;
   trimTimeCurrent = document.querySelector("#trim-time-current")!;
   trimTimeDuration = document.querySelector("#trim-time-duration")!;
   trimEnabledCheckbox = document.querySelector("#trim-enabled-checkbox")!;
@@ -2399,12 +2401,124 @@ function openTrimModal(asset: ImportedAsset) {
     trimTimeCurrent.textContent = formatDuration(trimModalVideo.currentTime);
   };
 
+  // Drag system state & event handlers
+  let isDraggingLeft = false;
+  let isDraggingRight = false;
+  let isDraggingRange = false;
+  let dragStartX = 0;
+  let initialStartVal = 0;
+  let initialEndVal = 0;
+
+  const getSecondsFromX = (clientX: number): number => {
+    const rect = trimTimelineTrack.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return pct * duration;
+  };
+
+  const onMouseDownLeft = (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isDraggingLeft = true;
+    dragStartX = e.clientX;
+    initialStartVal = parseFloat(trimStartInput.value) || 0;
+    
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const onMouseDownRight = (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isDraggingRight = true;
+    dragStartX = e.clientX;
+    initialEndVal = parseFloat(trimEndInput.value) || duration;
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const onMouseDownRange = (e: MouseEvent) => {
+    if (e.target === trimHandleLeft || e.target === trimHandleRight) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    isDraggingRange = true;
+    dragStartX = e.clientX;
+    initialStartVal = parseFloat(trimStartInput.value) || 0;
+    initialEndVal = parseFloat(trimEndInput.value) || duration;
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (duration <= 0) return;
+    const deltaX = e.clientX - dragStartX;
+    const rect = trimTimelineTrack.getBoundingClientRect();
+    const deltaSecs = (deltaX / rect.width) * duration;
+
+    if (isDraggingLeft) {
+      let newStart = initialStartVal + deltaSecs;
+      const currentEnd = parseFloat(trimEndInput.value) || duration;
+      if (newStart < 0) newStart = 0;
+      if (newStart > currentEnd - 0.1) newStart = currentEnd - 0.1;
+      
+      trimStartInput.value = newStart.toFixed(2);
+      updateRangeTrack();
+      
+      trimModalVideo.currentTime = newStart;
+    } else if (isDraggingRight) {
+      let newEnd = initialEndVal + deltaSecs;
+      const currentStart = parseFloat(trimStartInput.value) || 0;
+      if (newEnd > duration) newEnd = duration;
+      if (newEnd < currentStart + 0.1) newEnd = currentStart + 0.1;
+
+      trimEndInput.value = newEnd.toFixed(2);
+      updateRangeTrack();
+
+      trimModalVideo.currentTime = newEnd;
+    } else if (isDraggingRange) {
+      let newStart = initialStartVal + deltaSecs;
+      let newEnd = initialEndVal + deltaSecs;
+      const selectDuration = initialEndVal - initialStartVal;
+
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = selectDuration;
+      }
+      if (newEnd > duration) {
+        newEnd = duration;
+        newStart = duration - selectDuration;
+      }
+
+      trimStartInput.value = newStart.toFixed(2);
+      trimEndInput.value = newEnd.toFixed(2);
+      updateRangeTrack();
+      
+      // Keep player synced with start of the shifted block
+      trimModalVideo.currentTime = newStart;
+    }
+  };
+
+  const onMouseUp = () => {
+    isDraggingLeft = false;
+    isDraggingRight = false;
+    isDraggingRange = false;
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+  };
+
+  const onTrackClick = (e: MouseEvent) => {
+    if (e.target === trimHandleLeft || e.target === trimHandleRight || e.target === trimTimelineRange) return;
+    const clickedSecs = getSecondsFromX(e.clientX);
+    trimModalVideo.currentTime = clickedSecs;
+  };
+
   // Bind Listeners
   trimModalVideo.addEventListener("loadedmetadata", onLoadedMetadata);
   trimModalVideo.addEventListener("timeupdate", onTimeUpdate);
 
   const startInputHandler = () => {
-    // Prevent typing negative start or exceeding end
     let val = parseFloat(trimStartInput.value) || 0;
     if (val < 0) val = 0;
     trimStartInput.value = val.toFixed(2);
@@ -2445,6 +2559,11 @@ function openTrimModal(asset: ImportedAsset) {
 
   btnTrimReset.addEventListener("click", onResetClick);
 
+  trimHandleLeft.addEventListener("mousedown", onMouseDownLeft);
+  trimHandleRight.addEventListener("mousedown", onMouseDownRight);
+  trimTimelineRange.addEventListener("mousedown", onMouseDownRange);
+  trimTimelineTrack.addEventListener("click", onTrackClick);
+
   const closeTrimModal = () => {
     trimModal.style.display = "none";
     trimModalVideo.pause();
@@ -2460,6 +2579,14 @@ function openTrimModal(asset: ImportedAsset) {
     btnTrimReset.removeEventListener("click", onResetClick);
     btnTrimCancel.removeEventListener("click", onCancelClick);
     btnTrimSave.removeEventListener("click", onSaveClick);
+    
+    trimHandleLeft.removeEventListener("mousedown", onMouseDownLeft);
+    trimHandleRight.removeEventListener("mousedown", onMouseDownRight);
+    trimTimelineRange.removeEventListener("mousedown", onMouseDownRange);
+    trimTimelineTrack.removeEventListener("click", onTrackClick);
+    
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
   };
 
   const onCancelClick = () => {

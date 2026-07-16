@@ -10,7 +10,6 @@ export interface AppShortcut {
 }
 
 export class SecurityManager {
-  private static isDev = (import.meta as any).env?.DEV ?? true;
   private static shortcuts: AppShortcut[] = [];
 
   /**

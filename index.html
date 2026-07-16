@@ -609,9 +609,12 @@
           <div id="trim-loading-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 12, 0.9); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Loading video metadata...</div>
         </div>
 
-        <div class="trim-timeline-visual" style="margin-top: 14px;">
-          <div class="trim-timeline-track" id="trim-timeline-track" style="position: relative; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; border: 1px solid var(--panel-border);">
-            <div class="trim-timeline-range" id="trim-timeline-range" style="position: absolute; height: 100%; background: var(--accent); opacity: 0.45; left: 0%; width: 100%;"></div>
+        <div class="trim-timeline-visual" style="margin-top: 14px; padding: 6px 0;">
+          <div class="trim-timeline-track" id="trim-timeline-track" style="position: relative; height: 14px; background: rgba(255,255,255,0.06); border-radius: 6px; border: 1px solid var(--panel-border);">
+            <div class="trim-timeline-range" id="trim-timeline-range" style="position: absolute; height: 100%; background: var(--accent); opacity: 0.45; left: 0%; width: 100%;">
+              <div class="trim-handle trim-handle-left" id="trim-handle-left" style="position: absolute; left: -6px; top: -5px; width: 10px; height: 22px; background: white; border-radius: 3px; cursor: ew-resize; box-shadow: 0 1px 4px rgba(0,0,0,0.6); border: 1px solid var(--accent); z-index: 10;"></div>
+              <div class="trim-handle trim-handle-right" id="trim-handle-right" style="position: absolute; right: -6px; top: -5px; width: 10px; height: 22px; background: white; border-radius: 3px; cursor: ew-resize; box-shadow: 0 1px 4px rgba(0,0,0,0.6); border: 1px solid var(--accent); z-index: 10;"></div>
+            </div>
           </div>
           <div class="trim-timeline-labels" style="display: flex; font-size: 11px; color: var(--text-secondary); margin-top: 6px; font-family: monospace;">
             <span id="trim-time-current">00:00.0</span>
