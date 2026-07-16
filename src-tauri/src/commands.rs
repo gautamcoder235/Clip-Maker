@@ -1,0 +1,160 @@
+use tauri::{AppHandle, State};
+use crate::state::AppState;
+use crate::errors::AppResult;
+use crate::config::AppConfig;
+use crate::project::{ProjectManager, ProjectData};
+use crate::resources::manager::ImportedAsset;
+use crate::jobs::RenderJob;
+use crate::fonts::SystemFont;
+use crate::services::PreviewService;
+use crate::services::ExportService;
+
+#[tauri::command]
+pub async fn select_video_file() -> AppResult<String> {
+    let file = rfd::FileDialog::new()
+        .add_filter("Media Files", &["mp4", "mkv", "avi", "mov", "png", "jpg", "jpeg", "webp"])
+        .pick_file();
+    
+    match file {
+        Some(path) => Ok(path.to_string_lossy().to_string()),
+        None => Ok("".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn select_output_folder() -> AppResult<String> {
+    let folder = rfd::FileDialog::new()
+        .pick_folder();
+    
+    match folder {
+        Some(path) => Ok(path.to_string_lossy().to_string()),
+        None => Ok("".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn select_project_file(mode: String) -> AppResult<String> {
+    let dialog = rfd::FileDialog::new()
+        .add_filter("Clip Maker Project (*.clipmaker)", &["clipmaker"]);
+    
+    let file = if mode == "save" {
+        dialog.save_file()
+    } else {
+        dialog.pick_file()
+    };
+    
+    match file {
+        Some(path) => Ok(path.to_string_lossy().to_string()),
+        None => Ok("".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn get_config(state: State<'_, AppState>) -> AppResult<AppConfig> {
+    state.config_manager.load()
+}
+
+#[tauri::command]
+pub async fn save_config(state: State<'_, AppState>, config: AppConfig) -> AppResult<()> {
+    state.config_manager.save(&config)
+}
+
+#[tauri::command]
+pub async fn load_project(file_path: String) -> AppResult<ProjectData> {
+    ProjectManager::load(file_path)
+}
+
+#[tauri::command]
+pub async fn save_project(file_path: String, project: ProjectData) -> AppResult<()> {
+    ProjectManager::save(file_path, project)
+}
+
+#[tauri::command]
+pub async fn import_file(state: State<'_, AppState>, file_path: String) -> AppResult<ImportedAsset> {
+    state.resource_manager.import_asset(&file_path)
+}
+
+#[tauri::command]
+pub async fn generate_preview_clip(state: State<'_, AppState>, config: AppConfig) -> AppResult<String> {
+    let preview_service = PreviewService::new(
+        state.cache_manager.clone(),
+        &state.ffmpeg_path,
+    );
+    preview_service.generate_preview(&config)
+}
+
+#[tauri::command]
+pub async fn start_render_queue(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    config: AppConfig,
+    start_clip: u32,
+    end_clip: u32,
+) -> AppResult<Vec<String>> {
+    let mut job_ids = Vec::new();
+    let export_service = ExportService::new(
+        app_handle.clone(),
+        &state.ffmpeg_path,
+    );
+
+    let total_clips = if end_clip >= start_clip {
+        end_clip - start_clip + 1
+    } else {
+        1
+    };
+
+    for clip_idx in start_clip..=end_clip {
+        let job_name = format!("Render Clip {}", clip_idx);
+        
+        let job_id = state.job_manager.create_job(
+            &job_name,
+            if !config.input_paths.is_empty() { &config.input_paths[0] } else { &config.input_path },
+            &config.output_path,
+            clip_idx,
+            total_clips,
+            &state.ffmpeg_path, // Placeholder for selected encoder
+        );
+
+        job_ids.push(job_id.clone());
+
+        // Spawn rendering task in tokio background thread
+        let export = std::sync::Arc::new(export_service.clone());
+        let cfg = config.clone();
+        let jobs = state.job_manager.clone();
+        let j_id = job_id.clone();
+        
+        tokio::spawn(async move {
+            let res: AppResult<()> = export.export_clip(&cfg, clip_idx, total_clips, &j_id, &jobs);
+            if let Err(e) = res {
+                jobs.fail_job(&j_id, &e.to_string());
+            }
+        });
+    }
+
+    Ok(job_ids)
+}
+
+#[tauri::command]
+pub async fn cancel_render_job(state: State<'_, AppState>, job_id: String) -> AppResult<()> {
+    state.job_manager.cancel_job(&job_id)
+}
+
+#[tauri::command]
+pub async fn cancel_all_jobs(state: State<'_, AppState>) -> AppResult<()> {
+    state.job_manager.cancel_all()
+}
+
+#[tauri::command]
+pub async fn get_jobs_list(state: State<'_, AppState>) -> AppResult<Vec<RenderJob>> {
+    Ok(state.job_manager.get_all_jobs())
+}
+
+#[tauri::command]
+pub async fn get_fonts_list(state: State<'_, AppState>) -> AppResult<Vec<SystemFont>> {
+    Ok(state.fonts.clone())
+}
+
+#[tauri::command]
+pub async fn clear_cache(state: State<'_, AppState>) -> AppResult<()> {
+    state.cache_manager.clear()
+}

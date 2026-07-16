@@ -1,0 +1,303 @@
+use std::path::Path;
+use tauri::AppHandle;
+
+use crate::errors::{AppResult, AppError};
+use crate::config::AppConfig;
+use crate::jobs::JobManager;
+use crate::ffmpeg::builder::FFmpegBuilder;
+use crate::ffmpeg::overlay::MediaOverlaySpec;
+use crate::ffmpeg::encoder::EncoderDetector;
+use crate::services::processing::ProcessingService;
+
+#[derive(Clone)]
+pub struct ExportService {
+    app_handle: AppHandle,
+    ffmpeg_path: String,
+}
+
+impl ExportService {
+    pub fn new(app_handle: AppHandle, ffmpeg_path: &str) -> Self {
+        ExportService {
+            app_handle,
+            ffmpeg_path: ffmpeg_path.to_string(),
+        }
+    }
+
+    pub fn export_clip(
+        &self,
+        config: &AppConfig,
+        clip_index: u32,
+        _total_clips: u32,
+        job_id: &str,
+        job_manager: &JobManager,
+    ) -> AppResult<()> {
+        if config.input_paths.is_empty() && config.input_path.is_empty() {
+            return Err(AppError::Config("No input video selected".to_string()));
+        }
+
+        let input_path = if !config.input_paths.is_empty() {
+            &config.input_paths[0]
+        } else {
+            &config.input_path
+        };
+
+        let movie_name = Path::new(input_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("clip");
+
+        let output_filename = format!("{}_part_{:03}.mp4", movie_name, clip_index);
+        let output_filepath = Path::new(&config.output_path).join(&output_filename);
+        let output_filepath_str = output_filepath.to_string_lossy().replace("\\", "/");
+
+        // Calculate clip start/duration matching the ClipSplitter logic and user-specific trim settings
+        let mut trim_start = config.start_offset as f64;
+        let mut trim_end = None;
+
+        let asset_id = config.imported_assets.iter()
+            .find(|asset| asset.path == *input_path)
+            .map(|asset| &asset.id);
+
+        if let Some(id) = asset_id {
+            if let Some(settings) = config.asset_settings.get(id) {
+                if let Some(trim) = &settings.trim {
+                    if trim.enabled && trim.start >= 0.0 && trim.end > trim.start {
+                        trim_start = trim.start;
+                        trim_end = Some(trim.end);
+                    }
+                }
+            }
+        }
+
+        let start_time = trim_start + ((clip_index - 1) * config.clip_duration) as f64;
+        let mut duration = config.clip_duration as f64;
+
+        if let Some(end) = trim_end {
+            // Guard against start time exceeding trimmed end boundary
+            if start_time >= end {
+                return Err(AppError::Config(format!(
+                    "Clip index {} start time {:.2}s is out of trimmed bounds (end: {:.2}s)",
+                    clip_index, start_time, end
+                )));
+            }
+            duration = f64::min(duration, end - start_time);
+        }
+
+        // Export Safety Guard: If duration is extremely small, skip or error out safely
+        if duration <= 0.01 || duration.is_nan() {
+            return Err(AppError::Config(format!(
+                "Clip duration {:.3}s is too small to export",
+                duration
+            )));
+        }
+
+        let processor = ProcessingService::new(self.app_handle.clone(), &self.ffmpeg_path);
+        
+        let mut builder = FFmpegBuilder::new(&self.ffmpeg_path);
+        builder
+            .input(input_path)
+            .split(start_time, duration, true, 3.0);
+
+        if config.aspect_ratio == "9:16" {
+            builder.crop("9:16", &config.crop_anchor);
+        }
+
+        let resolution = self.resolve_resolution(&config.output_resolution, config.output_width, config.output_height);
+        if config.video_placement.enabled && resolution.is_some() {
+            let res = resolution.unwrap();
+            builder.place_on_canvas(
+                res.0,
+                res.1,
+                config.video_placement.width as u32,
+                config.video_placement.height as u32,
+                config.video_placement.x,
+                config.video_placement.y,
+                &config.background.color,
+                if config.background.mode == "image" { Some(&config.background.image_path) } else { None },
+                config.background.image_x,
+                config.background.image_y,
+                config.background.image_width as u32,
+                config.background.image_height as u32,
+            );
+        } else if let Some(res) = resolution {
+            builder.scale_to(res.0, res.1, true);
+        }
+
+        // Media Overlays
+        for overlay in &config.media_overlays {
+            if overlay.enabled {
+                let spec = MediaOverlaySpec::from_config(overlay, 0.0);
+                builder.add_media_overlay(spec);
+            }
+        }
+
+        // Text Overlays
+        let template_text = if config.text_mode == "Fixed Text" {
+            config.text_template.clone()
+        } else {
+            config.text_template.replace("{part}", &clip_index.to_string())
+        };
+
+        let text_font = if !config.text_settings.font_family.is_empty() {
+            Some(config.text_settings.font_family.as_str())
+        } else {
+            None
+        };
+
+        builder.overlay_text(
+            &template_text,
+            config.text_settings.font_size,
+            &config.text_settings.font_color,
+            text_font,
+            &config.text_settings.x_position,
+            &config.text_settings.y_position,
+            config.text_settings.outline,
+        );
+
+        // Extra Overlays
+        for extra in &config.extra_overlays {
+            let extra_text = extra.text.replace("{part}", &clip_index.to_string());
+            let extra_font = if !extra.font_family.is_empty() {
+                Some(extra.font_family.as_str())
+            } else {
+                None
+            };
+            builder.overlay_text(
+                &extra_text,
+                extra.font_size,
+                &extra.font_color,
+                extra_font,
+                &extra.x_position,
+                &extra.y_position,
+                extra.outline,
+            );
+        }
+
+        // Resolve GPU encoder
+        let mut active_gpu = false;
+        let mut active_encoder = None;
+
+        if config.gpu_acceleration {
+            let detector = EncoderDetector::new(&self.ffmpeg_path);
+            if let Some(enc) = detector.detect_gpu_encoder() {
+                active_gpu = true;
+                active_encoder = Some(enc);
+            }
+        }
+
+        builder.encode(
+            &output_filepath_str,
+            active_gpu,
+            active_encoder.as_deref(),
+            config.include_audio,
+            "fast",
+            22,
+        );
+
+        // Run render job
+        let res = processor.execute_render_job(job_id, duration, &mut builder, job_manager);
+
+        // CPU Fallback logic if GPU render fails
+        if let Err(ref err) = res {
+            if active_gpu {
+                eprintln!("GPU rendering failed with error: {:?}. Retrying with CPU...", err);
+                let mut retry_builder = FFmpegBuilder::new(&self.ffmpeg_path);
+                // rebuild identical configuration without GPU
+                retry_builder
+                    .input(input_path)
+                    .split(start_time, duration, true, 3.0);
+
+                if config.aspect_ratio == "9:16" {
+                    retry_builder.crop("9:16", &config.crop_anchor);
+                }
+
+                if config.video_placement.enabled && resolution.is_some() {
+                    let res = resolution.unwrap();
+                    retry_builder.place_on_canvas(
+                        res.0,
+                        res.1,
+                        config.video_placement.width as u32,
+                        config.video_placement.height as u32,
+                        config.video_placement.x,
+                        config.video_placement.y,
+                        &config.background.color,
+                        if config.background.mode == "image" { Some(&config.background.image_path) } else { None },
+                        config.background.image_x,
+                        config.background.image_y,
+                        config.background.image_width as u32,
+                        config.background.image_height as u32,
+                    );
+                } else if let Some(res) = resolution {
+                    retry_builder.scale_to(res.0, res.1, true);
+                }
+
+                for overlay in &config.media_overlays {
+                    if overlay.enabled {
+                        let spec = MediaOverlaySpec::from_config(overlay, 0.0);
+                        retry_builder.add_media_overlay(spec);
+                    }
+                }
+
+                retry_builder.overlay_text(
+                    &template_text,
+                    config.text_settings.font_size,
+                    &config.text_settings.font_color,
+                    text_font,
+                    &config.text_settings.x_position,
+                    &config.text_settings.y_position,
+                    config.text_settings.outline,
+                );
+
+                for extra in &config.extra_overlays {
+                    let extra_text = extra.text.replace("{part}", &clip_index.to_string());
+                    let extra_font = if !extra.font_family.is_empty() {
+                        Some(extra.font_family.as_str())
+                    } else {
+                        None
+                    };
+                    retry_builder.overlay_text(
+                        &extra_text,
+                        extra.font_size,
+                        &extra.font_color,
+                        extra_font,
+                        &extra.x_position,
+                        &extra.y_position,
+                        extra.outline,
+                    );
+                }
+
+                retry_builder.encode(
+                    &output_filepath_str,
+                    false, // force CPU fallback
+                    None,
+                    config.include_audio,
+                    "fast",
+                    22,
+                );
+
+                return processor.execute_render_job(job_id, duration, &mut retry_builder, job_manager);
+            }
+        }
+
+        res
+    }
+
+    fn resolve_resolution(&self, selection: &str, width: u32, height: u32) -> Option<(u32, u32)> {
+        if selection == "Source" || selection.is_empty() {
+            return None;
+        }
+        if selection == "Custom" {
+            if width > 0 && height > 0 {
+                return Some((width, height));
+            }
+            return None;
+        }
+        match selection {
+            "1080x1920 (Shorts)" => Some((1080, 1920)),
+            "720x1280 (Shorts)" => Some((720, 1280)),
+            "1920x1080" => Some((1920, 1080)),
+            "1280x720" => Some((1280, 720)),
+            _ => None,
+        }
+    }
+}
