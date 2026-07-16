@@ -2369,8 +2369,16 @@ function openTrimModal(asset: ImportedAsset) {
   trimPlayIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
   trimVolumeIcon.innerHTML = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>';
   trimVideoProgress.value = "0";
+  trimVideoProgress.style.background = `rgba(255, 255, 255, 0.15)`;
 
   let duration = 0;
+
+  const updateProgressFill = () => {
+    const val = parseFloat(trimVideoProgress.value) || 0;
+    const max = parseFloat(trimVideoProgress.max) || 100;
+    const pct = max > 0 ? (val / max) * 100 : 0;
+    trimVideoProgress.style.background = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, rgba(255, 255, 255, 0.15) ${pct}%, rgba(255, 255, 255, 0.15) 100%)`;
+  };
 
   const onLoadedMetadata = () => {
     trimLoadingOverlay.style.display = "none";
@@ -2400,6 +2408,7 @@ function openTrimModal(asset: ImportedAsset) {
     trimVideoProgress.value = isTrimmed ? trim.start.toString() : "0";
     trimVideoTimeDisplay.textContent = `00:00 / ${formatDuration(duration)}`;
     
+    updateProgressFill();
     updateRangeTrack();
   };
 
@@ -2430,6 +2439,8 @@ function openTrimModal(asset: ImportedAsset) {
       trimVideoProgress.value = trimModalVideo.currentTime.toString();
     }
     
+    updateProgressFill();
+
     // Sync custom controls timer label
     const currentStr = formatDuration(trimModalVideo.currentTime);
     const totalStr = formatDuration(duration);
@@ -2457,6 +2468,7 @@ function openTrimModal(asset: ImportedAsset) {
     isScrubbing = true;
     const target = parseFloat(trimVideoProgress.value) || 0;
     trimModalVideo.currentTime = target;
+    updateProgressFill();
   };
 
   const onProgressChange = () => {
