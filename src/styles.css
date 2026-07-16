@@ -422,13 +422,13 @@ body {
 }
 
 .asset-card:hover .asset-remove-btn {
-  opacity: 0.6;
+  opacity: 0.85;
 }
 
 .asset-card:hover .asset-remove-btn:hover {
   opacity: 1;
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.35);
+  border-color: rgba(239, 68, 68, 0.6);
   color: #ef4444;
 }
 
@@ -2112,13 +2112,13 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
 }
 
 .asset-card:hover .asset-trim-btn {
-  opacity: 0.6;
+  opacity: 0.85;
 }
 
 .asset-card:hover .asset-trim-btn:hover {
   opacity: 1;
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.35);
+  border-color: rgba(59, 130, 246, 0.6);
   color: var(--accent);
 }
 
