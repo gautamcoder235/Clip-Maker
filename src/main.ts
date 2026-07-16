@@ -2424,6 +2424,10 @@ function openTrimModal(asset: ImportedAsset) {
     trimTimelineRange.style.left = `${leftPct}%`;
     trimTimelineRange.style.width = `${widthPct}%`;
 
+    // Display active trim bounds on the timeline labels
+    trimTimeCurrent.textContent = formatDuration(start);
+    trimTimeDuration.textContent = formatDuration(end);
+
     // Toggle save button state based on simple range validation
     if (start >= end || start < 0 || end > duration + 0.1) {
       btnTrimSave.disabled = true;
@@ -2433,8 +2437,6 @@ function openTrimModal(asset: ImportedAsset) {
   };
 
   const onTimeUpdate = () => {
-    trimTimeCurrent.textContent = formatDuration(trimModalVideo.currentTime);
-    
     // Sync custom progress bar slider
     if (!isScrubbing) {
       trimVideoProgress.value = trimModalVideo.currentTime.toString();
