@@ -112,27 +112,29 @@ impl PreviewService {
         }
 
         // Text Overlays (fixed or template replacement for start clip)
-        let template_text = if config.text_mode == "Fixed Text" {
-            config.text_template.trim().to_string()
-        } else {
-            config.text_template.replace("{part}", &config.start_clip.to_string()).trim().to_string()
-        };
+        if config.text_settings.enabled {
+            let template_text = if config.text_mode == "Fixed Text" {
+                config.text_template.trim().to_string()
+            } else {
+                config.text_template.replace("{part}", &config.start_clip.to_string()).trim().to_string()
+            };
 
-        let text_font = if !config.text_settings.font_family.is_empty() {
-            Some(config.text_settings.font_family.as_str())
-        } else {
-            None
-        };
+            let text_font = if !config.text_settings.font_family.is_empty() {
+                Some(config.text_settings.font_family.as_str())
+            } else {
+                None
+            };
 
-        builder.overlay_text(
-            &template_text,
-            config.text_settings.font_size,
-            &config.text_settings.font_color,
-            text_font,
-            &config.text_settings.x_position,
-            &config.text_settings.y_position,
-            config.text_settings.outline,
-        );
+            builder.overlay_text(
+                &template_text,
+                config.text_settings.font_size,
+                &config.text_settings.font_color,
+                text_font,
+                &config.text_settings.x_position,
+                &config.text_settings.y_position,
+                config.text_settings.outline,
+            );
+        }
 
         // Encode as lightweight draft
         builder.encode(

@@ -17,6 +17,7 @@ export interface VideoPlacementConfig {
 }
 
 export interface TextSettings {
+  enabled: boolean;
   font_size: number;
   font_color: string;
   font_family: string;
@@ -78,6 +79,11 @@ export interface TrimSettings {
 
 export interface AssetSettings {
   trim?: TrimSettings;
+  video_placement?: VideoPlacementConfig;
+  text_settings?: TextSettings;
+  text_template?: string;
+  extra_overlays?: ExtraOverlay[];
+  media_overlays?: MediaOverlay[];
 }
 
 export interface AppConfig {

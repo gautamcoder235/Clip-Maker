@@ -1,6 +1,7 @@
 import { ProjectData } from "../types";
 import { AppStateManager } from "../state/app_state";
 import { checkSnapping, GuideLine, SnapTarget } from "./snapping";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 export class DOMOverlay {
   private overlayContainer: HTMLDivElement;
@@ -10,6 +11,12 @@ export class DOMOverlay {
   private textBox: HTMLDivElement | null = null;
   private extraBoxes: HTMLDivElement[] = [];
   private mediaBoxes: HTMLDivElement[] = [];
+
+  // Active Media Overlays live elements for editor sync
+  private activeOverlayVideos: { [key: number]: HTMLVideoElement } = {};
+  private activeOverlayImages: { [key: number]: HTMLImageElement } = {};
+  private activeOverlayCanvases: { [key: number]: HTMLCanvasElement } = {};
+  private syncAnimId = 0;
 
   // Dynamic snapping guide pool
   private guidePool: HTMLDivElement[] = [];
@@ -59,18 +66,23 @@ export class DOMOverlay {
   }
 
   private measureText(text: string, fontSize: number, fontFamily: string): { width: number; height: number; ascent: number } {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (context) {
-      context.font = `bold ${fontSize}px ${fontFamily}`;
-      const metrics = context.measureText(text);
-      const width = metrics.width;
-      const ascent = metrics.actualBoundingBoxAscent;
-      const descent = metrics.actualBoundingBoxDescent;
-      const height = ascent + descent;
-      return { width, height: Math.max(height, fontSize * 0.7), ascent };
-    }
-    return { width: text.length * fontSize * 0.6, height: fontSize * 0.8, ascent: fontSize * 0.7 };
+    const span = document.createElement("span");
+    span.style.fontFamily = fontFamily;
+    span.style.fontSize = `${fontSize}px`;
+    span.style.fontWeight = "bold";
+    span.style.whiteSpace = "nowrap";
+    span.style.position = "absolute";
+    span.style.visibility = "hidden";
+    span.style.pointerEvents = "none";
+    span.innerText = text;
+    
+    document.body.appendChild(span);
+    const rect = span.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    document.body.removeChild(span);
+    
+    return { width, height, ascent: height * 0.7 };
   }
 
   onLayoutChange(callback: () => void) {
@@ -94,6 +106,22 @@ export class DOMOverlay {
 
     this.extraBoxes.forEach(b => b.remove());
     this.extraBoxes = [];
+
+    // Stop and clear previous overlay videos/elements
+    Object.values(this.activeOverlayVideos).forEach(video => {
+      video.pause();
+      video.src = "";
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
+    });
+    this.activeOverlayVideos = {};
+    this.activeOverlayImages = {};
+    this.activeOverlayCanvases = {};
+    if (this.syncAnimId) {
+      cancelAnimationFrame(this.syncAnimId);
+      this.syncAnimId = 0;
+    }
 
     this.mediaBoxes.forEach(b => b.remove());
     this.mediaBoxes = [];
@@ -119,34 +147,36 @@ export class DOMOverlay {
     }
 
     // Render Primary Text Box (approximated size based on template length and font size)
-    let textX = 10;
-    let textY = 10;
-    const partNum = project.selected_clip_index || 1;
-    const rawTemplate = project.text_template || "PART {part}";
-    const txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
-    const txtFS = project.text_settings.font_size || 120;
-    const txtFontFamily = project.text_settings.font_family || "Arial";
-    // Measure at the actual rendered pixel size to avoid font hinting discrepancies
-    const scaledFS = txtFS * scale;
-    const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily);
+    if (project.text_settings.enabled !== false) {
+      let textX = 10;
+      let textY = 10;
+      const partNum = project.selected_clip_index || 1;
+      const rawTemplate = project.text_template || "PART {part}";
+      const txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
+      const txtFS = project.text_settings.font_size || 120;
+      const txtFontFamily = project.text_settings.font_family || "Arial";
+      // Measure at the actual rendered pixel size to avoid font hinting discrepancies
+      const scaledFS = txtFS * scale;
+      const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily);
 
-    const boxW = txtMetrics.width;
-    const boxH = txtMetrics.height;
+      const boxW = txtMetrics.width;
+      const boxH = txtMetrics.height;
 
-    if (project.text_settings.x_position === "(w-text_w)/2") {
-      textX = (canvasW - boxW) / 2;
-    } else {
-      textX = parseFloat(project.text_settings.x_position) * scale || 10;
+      if (project.text_settings.x_position === "(w-text_w)/2") {
+        textX = (canvasW - boxW) / 2;
+      } else {
+        textX = parseFloat(project.text_settings.x_position) * scale || 10;
+      }
+
+      if (project.text_settings.y_position === "(h-text_h)/2") {
+        textY = (canvasH - boxH) / 2;
+      } else {
+        textY = parseFloat(project.text_settings.y_position) * scale || 10;
+      }
+
+      this.textBox = this.createInteractiveBox("text", textX, textY, boxW, boxH, scale, txtVal);
+      this.overlayContainer.appendChild(this.textBox);
     }
-
-    if (project.text_settings.y_position === "(h-text_h)/2") {
-      textY = (canvasH - boxH) / 2;
-    } else {
-      textY = parseFloat(project.text_settings.y_position) * scale || 10;
-    }
-
-    this.textBox = this.createInteractiveBox("text", textX, textY, boxW, boxH, scale, txtVal);
-    this.overlayContainer.appendChild(this.textBox);
 
     // Render Extra Overlays
     if (project.extra_overlays) {
@@ -190,9 +220,43 @@ export class DOMOverlay {
         const h = (overlay.height || 120) * scale;
 
         const box = this.createInteractiveBox(`media-${idx}`, x, y, w, h, scale, overlay.name);
+
+        // Append canvas inside box for video/image rendering
+        const canvas = document.createElement("canvas");
+        canvas.style.position = "absolute";
+        canvas.style.top = "0";
+        canvas.style.left = "0";
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.style.pointerEvents = "none";
+        canvas.style.zIndex = "1";
+        box.appendChild(canvas);
+        this.activeOverlayCanvases[idx] = canvas;
+
+        if (overlay.type === "video") {
+          const video = document.createElement("video");
+          video.crossOrigin = "anonymous";
+          video.src = convertFileSrc(overlay.path);
+          video.loop = true;
+          video.muted = true;
+          video.playsInline = true;
+          video.style.display = "none";
+          document.body.appendChild(video);
+          video.load();
+          this.activeOverlayVideos[idx] = video;
+        } else {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = convertFileSrc(overlay.path);
+          this.activeOverlayImages[idx] = img;
+        }
+
         this.overlayContainer.appendChild(box);
         this.mediaBoxes.push(box);
       });
+
+      // Start the live sync loop
+      this.startSyncLoop();
     }
   }
 
@@ -207,6 +271,7 @@ export class DOMOverlay {
   ): HTMLDivElement {
     const box = document.createElement("div");
     box.className = `editor-interactive-box selection-${type}`;
+    box.setAttribute("data-type", type);
     box.style.position = "absolute";
     box.style.left = `${x}px`;
     box.style.top = `${y}px`;
@@ -898,6 +963,10 @@ export class DOMOverlay {
     }
   }
 
+  getFocusedElement(): string | null {
+    return this.focusedElement;
+  }
+
   setFocusedElement(type: string | null) {
     this.focusedElement = type;
     this.refreshFocus();
@@ -914,5 +983,238 @@ export class DOMOverlay {
         box.classList.remove("focused");
       }
     });
+    this.onLayoutChangeCallback();
+  }
+
+  getFocusedElementBounds(): { x: number; y: number; width: number; height: number } | null {
+    if (!this.focusedElement) return null;
+    
+    const scale = Math.min(
+      this.overlayContainer.clientWidth / (this.stateManager.project.output_width || 1080),
+      this.overlayContainer.clientHeight / (this.stateManager.project.output_height || 1920)
+    );
+
+    const box = this.overlayContainer.querySelector(`.editor-interactive-box.selection-${this.focusedElement}`) as HTMLDivElement | null;
+    if (!box) return null;
+
+    return {
+      x: Math.round(parseFloat(box.style.left) / scale),
+      y: Math.round(parseFloat(box.style.top) / scale),
+      width: Math.round(parseFloat(box.style.width) / scale),
+      height: Math.round(parseFloat(box.style.height) / scale)
+    };
+  }
+
+  updateFocusedElementBounds(bounds: { x?: number; y?: number; width?: number; height?: number }) {
+    if (!this.focusedElement) return;
+
+    if (this.focusedElement === "video") {
+      const placement = { ...this.stateManager.project.video_placement };
+      if (bounds.x !== undefined) placement.x = bounds.x;
+      if (bounds.y !== undefined) placement.y = bounds.y;
+      if (bounds.width !== undefined) placement.width = bounds.width;
+      if (bounds.height !== undefined) placement.height = bounds.height;
+      this.stateManager.updateProjectField("video_placement", placement);
+    } else if (this.focusedElement === "text") {
+      const settings = { ...this.stateManager.project.text_settings };
+      if (bounds.x !== undefined) settings.x_position = bounds.x.toString();
+      if (bounds.y !== undefined) settings.y_position = bounds.y.toString();
+      if (bounds.width !== undefined) {
+        const currentBounds = this.getFocusedElementBounds();
+        if (currentBounds && currentBounds.width > 0) {
+          const ratio = bounds.width / currentBounds.width;
+          settings.font_size = Math.max(8, Math.round(settings.font_size * ratio));
+        }
+      }
+      this.stateManager.updateProjectField("text_settings", settings);
+    } else if (this.focusedElement.startsWith("extra-")) {
+      const idx = parseInt(this.focusedElement.split("-")[1]);
+      const overlays = [...(this.stateManager.project.extra_overlays || [])];
+      if (overlays[idx]) {
+        if (bounds.x !== undefined) overlays[idx].x_position = bounds.x.toString();
+        if (bounds.y !== undefined) overlays[idx].y_position = bounds.y.toString();
+        if (bounds.width !== undefined) {
+          const currentBounds = this.getFocusedElementBounds();
+          if (currentBounds && currentBounds.width > 0) {
+            const ratio = bounds.width / currentBounds.width;
+            overlays[idx].font_size = Math.max(8, Math.round(overlays[idx].font_size * ratio));
+          }
+        }
+        this.stateManager.updateProjectField("extra_overlays", overlays);
+      }
+    } else if (this.focusedElement.startsWith("media-")) {
+      const idx = parseInt(this.focusedElement.split("-")[1]);
+      const overlays = [...(this.stateManager.project.media_overlays || [])];
+      if (overlays[idx]) {
+        if (bounds.x !== undefined) overlays[idx].x = bounds.x;
+        if (bounds.y !== undefined) overlays[idx].y = bounds.y;
+        if (bounds.width !== undefined) overlays[idx].width = bounds.width;
+        if (bounds.height !== undefined) overlays[idx].height = bounds.height;
+        this.stateManager.updateProjectField("media_overlays", overlays);
+      }
+    }
+  }
+
+  private startSyncLoop() {
+    const mainVideo = document.querySelector(".preview-video-element") as HTMLVideoElement | null;
+    if (!mainVideo) return;
+
+    const hexToRgb = (hex: string) => {
+      const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+      const fullHex = hex.replace(shorthandRegex, (_, r, g, b) => r + r + g + g + b + b);
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 0, g: 255, b: 0 };
+    };
+
+    const rgbToYuv = (r: number, g: number, b: number) => {
+      return {
+        u: -0.169 * r - 0.331 * g + 0.5 * b + 128,
+        v: 0.5 * r - 0.419 * g - 0.081 * b + 128
+      };
+    };
+
+    const updateFrames = () => {
+      const project = this.stateManager.project;
+      const isMainPlaying = !mainVideo.paused && !mainVideo.ended;
+
+      project.media_overlays.forEach((overlay, idx) => {
+        if (!overlay.enabled) return;
+
+        // 1. Sync Video State
+        if (overlay.type === "video") {
+          const video = this.activeOverlayVideos[idx];
+          const canvas = this.activeOverlayCanvases[idx];
+          if (video && canvas) {
+            const loopMode = (overlay.loop_mode || "repeat").toLowerCase();
+            const duration = video.duration || 1;
+            
+            let targetTime = 0;
+            let showOverlay = true;
+            let shouldPlay = isMainPlaying;
+
+            if (loopMode === "repeat") {
+              targetTime = mainVideo.currentTime % duration;
+              showOverlay = true;
+            } else if (loopMode === "freeze") {
+              const isPast = mainVideo.currentTime >= duration;
+              targetTime = Math.min(mainVideo.currentTime, duration - 0.05);
+              showOverlay = true;
+              if (isPast) {
+                shouldPlay = false;
+              }
+            } else if (loopMode === "stop") {
+              const isPast = mainVideo.currentTime >= duration;
+              if (isPast) {
+                targetTime = duration - 0.05;
+                showOverlay = false;
+                shouldPlay = false;
+              } else {
+                targetTime = mainVideo.currentTime;
+                showOverlay = true;
+              }
+            }
+
+            // Sync play/pause
+            if (shouldPlay) {
+              if (video.paused) {
+                video.play().catch(() => {});
+              }
+            } else {
+              if (!video.paused) {
+                video.pause();
+              }
+            }
+
+            // Sync currentTime
+            if (Math.abs(video.currentTime - targetTime) > 0.25) {
+              video.currentTime = targetTime;
+            }
+
+            // Show/hide canvas
+            canvas.style.opacity = showOverlay ? "1" : "0";
+          }
+        }
+
+        // 2. Draw Frame on Canvas
+        const canvas = this.activeOverlayCanvases[idx];
+        if (canvas) {
+          const ctx = canvas.getContext("2d")!;
+          let srcW = 0;
+          let srcH = 0;
+
+          const video = this.activeOverlayVideos[idx];
+          const img = this.activeOverlayImages[idx];
+
+          if (overlay.type === "video" && video) {
+            srcW = video.videoWidth;
+            srcH = video.videoHeight;
+          } else if (overlay.type === "image" && img) {
+            srcW = img.naturalWidth;
+            srcH = img.naturalHeight;
+          }
+
+          if (srcW > 0 && srcH > 0) {
+            if (canvas.width !== srcW || canvas.height !== srcH) {
+              canvas.width = srcW;
+              canvas.height = srcH;
+            }
+
+            ctx.clearRect(0, 0, srcW, srcH);
+            if (overlay.type === "video" && video) {
+              ctx.drawImage(video, 0, 0);
+            } else if (overlay.type === "image" && img) {
+              ctx.drawImage(img, 0, 0);
+            }
+
+            // Apply Chroma Key filter if enabled
+            if (overlay.chroma_key) {
+              const imgData = ctx.getImageData(0, 0, srcW, srcH);
+              const data = imgData.data;
+              
+              const chromaColor = overlay.chroma_color || "#00ff00";
+              const targetRgb = hexToRgb(chromaColor);
+              const targetYuv = rgbToYuv(targetRgb.r, targetRgb.g, targetRgb.b);
+              const similarity = overlay.chroma_similarity || 0.3;
+              const blend = overlay.chroma_blend || 0.05;
+
+              const tU = targetYuv.u;
+              const tV = targetYuv.v;
+
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i+1];
+                const b = data[i+2];
+
+                const u = -0.169 * r - 0.331 * g + 0.5 * b + 128;
+                const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
+
+                const uDiff = u - tU;
+                const vDiff = v - tV;
+                const dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+
+                if (dist < similarity) {
+                  if (blend > 0 && (similarity - dist) < blend) {
+                    const alphaFactor = (similarity - dist) / blend;
+                    data[i + 3] = Math.round(alphaFactor * 255);
+                  } else {
+                    data[i + 3] = 0;
+                  }
+                }
+              }
+
+              ctx.putImageData(imgData, 0, 0);
+            }
+          }
+        }
+      });
+
+      this.syncAnimId = requestAnimationFrame(updateFrames);
+    };
+
+    this.syncAnimId = requestAnimationFrame(updateFrames);
   }
 }

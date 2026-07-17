@@ -144,15 +144,17 @@ impl ExportService {
             None
         };
 
-        builder.overlay_text(
-            &template_text,
-            config.text_settings.font_size,
-            &config.text_settings.font_color,
-            text_font,
-            &config.text_settings.x_position,
-            &config.text_settings.y_position,
-            config.text_settings.outline,
-        );
+        if config.text_settings.enabled {
+            builder.overlay_text(
+                &template_text,
+                config.text_settings.font_size,
+                &config.text_settings.font_color,
+                text_font,
+                &config.text_settings.x_position,
+                &config.text_settings.y_position,
+                config.text_settings.outline,
+            );
+        }
 
         // Extra Overlays
         for extra in &config.extra_overlays {
@@ -238,15 +240,17 @@ impl ExportService {
                     }
                 }
 
-                retry_builder.overlay_text(
-                    &template_text,
-                    config.text_settings.font_size,
-                    &config.text_settings.font_color,
-                    text_font,
-                    &config.text_settings.x_position,
-                    &config.text_settings.y_position,
-                    config.text_settings.outline,
-                );
+                if config.text_settings.enabled {
+                    retry_builder.overlay_text(
+                        &template_text,
+                        config.text_settings.font_size,
+                        &config.text_settings.font_color,
+                        text_font,
+                        &config.text_settings.x_position,
+                        &config.text_settings.y_position,
+                        config.text_settings.outline,
+                    );
+                }
 
                 for extra in &config.extra_overlays {
                     let extra_text = extra.text.replace("{part}", &clip_index.to_string());

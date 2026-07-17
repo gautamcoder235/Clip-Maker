@@ -22,6 +22,8 @@ pub struct VideoPlacementConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextSettings {
+    #[serde(default = "default_text_enabled")]
+    pub enabled: bool,
     pub font_size: u32,
     pub font_color: String,
     pub font_family: String,
@@ -133,6 +135,10 @@ fn default_version() -> u32 {
     1
 }
 
+fn default_text_enabled() -> bool {
+    true
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         AppConfig {
@@ -180,6 +186,7 @@ impl Default for AppConfig {
             parallel_processing: false,
             parallel_workers: 2,
             text_settings: TextSettings {
+                enabled: true,
                 font_size: 120,
                 font_color: "black".to_string(),
                 font_family: "Arial".to_string(),

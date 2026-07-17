@@ -2,6 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { AppStateManager } from "./state/app_state";
 import { CanvasRenderer } from "./editor/canvas";
 import { DOMOverlay } from "./editor/dom_overlay";
+import { CanvasContextMenu } from "./editor/context_menu";
 import { TauriService } from "./services/tauri";
 import { AppConfig, ImportedAsset, RenderJob, ProjectData } from "./types";
 import { SecurityManager } from "./services/security_manager";
@@ -23,7 +24,6 @@ let btnUndo: HTMLButtonElement;
 let btnRedo: HTMLButtonElement;
 let btnClearCache: HTMLButtonElement;
 let btnImport: HTMLButtonElement;
-let btnPreviewClip: HTMLButtonElement;
 let btnExportAll: HTMLButtonElement;
 let btnCancelAll: HTMLButtonElement;
 
@@ -41,6 +41,8 @@ let propPlacementH: HTMLInputElement;
 let propAspectRatio: HTMLSelectElement;
 let propCropAnchor: HTMLSelectElement;
 let propResolution: HTMLSelectElement;
+let propTextEnabled: HTMLInputElement;
+let primaryTextControls: HTMLDivElement;
 let propTextTemplate: HTMLInputElement;
 let propFontSize: HTMLInputElement;
 let propFontColor: HTMLInputElement;
@@ -48,6 +50,8 @@ let propFontFamily: HTMLSelectElement;
 let propGpuAccel: HTMLInputElement;
 let propIncludeAudio: HTMLInputElement;
 let propClipDuration: HTMLInputElement;
+let propExportScope: HTMLSelectElement;
+let exportRangeRow: HTMLDivElement;
 
 // Background
 let propBgMode: HTMLSelectElement;
@@ -74,15 +78,28 @@ let btnRemoveExtra: HTMLButtonElement;
 // Media Overlays
 let listMediaOverlays: HTMLSelectElement;
 let propMediaType: HTMLSelectElement;
-let btnBrowseMediaPath: HTMLButtonElement;
 let propMediaLoop: HTMLSelectElement;
 let propMediaChroma: HTMLInputElement;
 let propMediaSimilarity: HTMLInputElement;
 let propMediaBlend: HTMLInputElement;
 let propMediaChromaColor: HTMLInputElement;
 let btnAddMedia: HTMLButtonElement;
-let btnUpdateMedia: HTMLButtonElement;
+let btnEditMediaPopup: HTMLButtonElement;
 let btnRemoveMedia: HTMLButtonElement;
+
+// Media Settings Modal elements
+let mediaSettingsModal: HTMLDivElement;
+let mediaModalFilename: HTMLSpanElement;
+let mediaModalChromaColorBtn: HTMLButtonElement;
+let mediaModalChromaColorHex: HTMLInputElement;
+let btnMediaModalCancel: HTMLButtonElement;
+let btnMediaModalSave: HTMLButtonElement;
+
+// Text Edit Modal elements
+let textEditModal: HTMLDivElement;
+let textEditInput: HTMLInputElement;
+let btnTextEditCancel: HTMLButtonElement;
+let btnTextEditSave: HTMLButtonElement;
 
 // Advanced
 let propParallel: HTMLInputElement;
@@ -257,7 +274,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   btnRedo = document.querySelector("#btn-redo")!;
   btnClearCache = document.querySelector("#btn-clear-cache")!;
   btnImport = document.querySelector("#btn-import")!;
-  btnPreviewClip = document.querySelector("#btn-preview-clip")!;
   btnExportAll = document.querySelector("#btn-export-all")!;
   btnCancelAll = document.querySelector("#btn-cancel-all")!;
 
@@ -273,6 +289,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   propAspectRatio = document.querySelector("#prop-aspect-ratio")!;
   propCropAnchor = document.querySelector("#prop-crop-anchor")!;
   propResolution = document.querySelector("#prop-resolution")!;
+  propTextEnabled = document.querySelector("#prop-text-enabled")!;
+  primaryTextControls = document.querySelector("#primary-text-controls")!;
   propTextTemplate = document.querySelector("#prop-text-template")!;
   propFontSize = document.querySelector("#prop-font-size")!;
   propFontColor = document.querySelector("#prop-font-color")!;
@@ -280,6 +298,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   propGpuAccel = document.querySelector("#prop-gpu-accel")!;
   propIncludeAudio = document.querySelector("#prop-include-audio")!;
   propClipDuration = document.querySelector("#prop-clip-duration")!;
+  propExportScope = document.querySelector("#prop-export-scope")!;
+  exportRangeRow = document.querySelector("#export-range-row")!;
 
   propBgMode = document.querySelector("#prop-bg-mode")!;
   propBgColor = document.querySelector("#prop-bg-color")!;
@@ -301,16 +321,29 @@ window.addEventListener("DOMContentLoaded", async () => {
   btnRemoveExtra = document.querySelector("#btn-remove-extra")!;
 
   listMediaOverlays = document.querySelector("#list-media-overlays")!;
-  propMediaType = document.querySelector("#prop-media-type")!;
-  btnBrowseMediaPath = document.querySelector("#btn-browse-media-path")!;
-  propMediaLoop = document.querySelector("#prop-media-loop")!;
-  propMediaChroma = document.querySelector("#prop-media-chroma")!;
-  propMediaSimilarity = document.querySelector("#prop-media-similarity")!;
-  propMediaBlend = document.querySelector("#prop-media-blend")!;
-  propMediaChromaColor = document.querySelector("#prop-media-chroma-color")!;
+  propMediaType = document.querySelector("#media-modal-type")!;
+  propMediaLoop = document.querySelector("#media-modal-loop")!;
+  propMediaChroma = document.querySelector("#media-modal-chroma")!;
+  propMediaSimilarity = document.querySelector("#media-modal-similarity")!;
+  propMediaBlend = document.querySelector("#media-modal-blend")!;
+  propMediaChromaColor = document.querySelector("#media-modal-chroma-color")!;
   btnAddMedia = document.querySelector("#btn-add-media")!;
-  btnUpdateMedia = document.querySelector("#btn-update-media")!;
+  btnEditMediaPopup = document.querySelector("#btn-edit-media-popup")!;
   btnRemoveMedia = document.querySelector("#btn-remove-media")!;
+
+  // Bind Media Settings Modal elements
+  mediaSettingsModal = document.querySelector("#media-settings-modal")!;
+  mediaModalFilename = document.querySelector("#media-modal-filename")!;
+  mediaModalChromaColorBtn = document.querySelector("#media-modal-chroma-color-btn")!;
+  mediaModalChromaColorHex = document.querySelector("#media-modal-chroma-color-hex")!;
+  btnMediaModalCancel = document.querySelector("#media-modal-cancel")!;
+  btnMediaModalSave = document.querySelector("#media-modal-save")!;
+
+  // Bind Text Edit Modal elements
+  textEditModal = document.querySelector("#text-edit-modal")!;
+  textEditInput = document.querySelector("#text-edit-input")!;
+  btnTextEditCancel = document.querySelector("#text-edit-cancel")!;
+  btnTextEditSave = document.querySelector("#text-edit-save")!;
 
   propParallel = document.querySelector("#prop-parallel")!;
   propWorkers = document.querySelector("#prop-workers")!;
@@ -361,6 +394,27 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   canvasRenderer = new CanvasRenderer(canvasViewport);
   domOverlay = new DOMOverlay(domOverlayContainer, stateManager);
+  new CanvasContextMenu(domOverlayContainer, stateManager, domOverlay, {
+    syncExtraOverlaysList,
+    syncMediaOverlaysList,
+    refreshViewport,
+    showToast,
+    addMediaOverlayPrompt: async () => {
+      try {
+        const path = await invoke<string>("select_video_file");
+        return path || null;
+      } catch (err) {
+        showToast(`Browse failed: ${err}`, "error");
+        return null;
+      }
+    },
+    openMediaSettingsModal: (idx: number) => {
+      openMediaSettingsModal(idx);
+    },
+    openTextEditModal: (type: string) => {
+      openTextEditModal(type);
+    }
+  });
 
   // Load fonts into hidden selects (for compatibility)
   stateManager.fonts.forEach((font) => {
@@ -440,12 +494,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // State changes listener
   stateManager.subscribe(() => {
+    saveActiveAssetSettings();
     syncConfigToUi();
     
     // Refresh asset list display on state change (e.g. undo/redo of trim settings)
     const activeScroll = assetListContainer.scrollTop;
     assetListContainer.innerHTML = "";
     stateManager.assets.forEach(a => appendAssetCard(a));
+    highlightActiveAssetCard();
     assetListContainer.scrollTop = activeScroll;
 
     // Refresh clip timeline parts count
@@ -456,102 +512,23 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Event handlers
   btnImport.addEventListener("click", triggerImport);
-  btnPreviewClip.addEventListener("click", generatePreview);
   btnExportAll.addEventListener("click", startBatchExport);
+  propExportScope.addEventListener("change", () => {
+    if (propExportScope.value === "all") {
+      exportRangeRow.style.display = "none";
+    } else {
+      exportRangeRow.style.display = "flex";
+    }
+  });
   btnCancelAll.addEventListener("click", cancelAllRenders);
   btnClearCache.addEventListener("click", clearCacheDir);
 
   btnUndo.addEventListener("click", () => stateManager.history.undo());
   btnRedo.addEventListener("click", () => stateManager.history.redo());
 
-  btnNewProject.addEventListener("click", async () => {
-    const confirmed = await showModal({
-      title: "New Project",
-      message: "Are you sure you want to start a new project? All unsaved changes will be lost.",
-      icon: "🗑️",
-      confirmText: "New Project",
-      cancelText: "Keep Working",
-      danger: true,
-    });
-    if (!confirmed) return;
-    
-    stateManager.project = stateManager.createDefaultProject();
-    stateManager.history.clear();
-    currentSelectedAsset = null;
-    assetListContainer.innerHTML = "";
-    clipsGridContainer.innerHTML = "";
-    
-    canvasRenderer.clearVideo();
-    stateManager.updateProjectDirectly(stateManager.project);
-    toggleDashboard(true);
-    showToast("Started a new empty project session.", "success");
-  });
-
-  btnOpenProject.addEventListener("click", async () => {
-    try {
-      const path = await invoke<string>("select_project_file", { mode: "open" });
-      if (!path || path.trim() === "") return;
-      
-      showToast("Loading project file...", "success");
-      const projectData = await invoke<ProjectData>("load_project", { filePath: path });
-      stateManager.updateProjectDirectly(projectData);
-      stateManager.history.clear();
-      
-      // Load assets asynchronously
-      assetListContainer.innerHTML = "";
-      stateManager.assets = [];
-      
-      const importedAssets = projectData.imported_assets || [];
-      if (importedAssets.length === 0 && projectData.imported_videos && projectData.imported_videos.length > 0) {
-        projectData.imported_videos.forEach((videoPath, idx) => {
-          importedAssets.push({
-            id: `asset_legacy_${idx}_${Date.now()}`,
-            path: videoPath
-          });
-        });
-        projectData.imported_assets = importedAssets;
-      }
-
-      if (importedAssets.length > 0) {
-        for (const prjAsset of importedAssets) {
-          try {
-            const asset = await TauriService.importFile(prjAsset.path);
-            asset.id = prjAsset.id; // Assign stable loaded ID
-            stateManager.assets.push(asset);
-            appendAssetCard(asset);
-          } catch (e) {
-            console.error("Failed to import asset during project load:", prjAsset.path, e);
-          }
-        }
-        if (stateManager.assets.length > 0) {
-          selectAsset(stateManager.assets[0]);
-        } else {
-          toggleDashboard(true);
-        }
-      } else {
-        toggleDashboard(true);
-      }
-      
-      showToast("Project loaded successfully!", "success");
-    } catch (err) {
-      showToast(`Load failed: ${err}`, "error");
-    }
-  });
-
-  btnSaveProject.addEventListener("click", async () => {
-    try {
-      const path = await invoke<string>("select_project_file", { mode: "save" });
-      if (!path || path.trim() === "") return;
-      
-      showToast("Saving project file...", "success");
-      stateManager.project.imported_videos = stateManager.assets.map(a => a.path);
-      stateManager.project.imported_assets = stateManager.assets.map(a => ({ id: a.id, path: a.path }));
-      await invoke("save_project", { filePath: path, project: stateManager.project });
-      showToast("Project saved successfully!", "success");
-    } catch (err) {
-      showToast(`Save failed: ${err}`, "error");
-    }
-  });
+  btnNewProject.addEventListener("click", triggerNewProject);
+  btnOpenProject.addEventListener("click", triggerOpenProject);
+  btnSaveProject.addEventListener("click", triggerSaveProject);
 
   tabClipQueue.addEventListener("click", () => switchBottomTab("clips"));
   tabRenderQueue.addEventListener("click", () => switchBottomTab("render"));
@@ -561,10 +538,18 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Overlay movements updater
   domOverlay.onLayoutChange(() => {
-    propPlacementX.value = stateManager.project.video_placement.x.toString();
-    propPlacementY.value = stateManager.project.video_placement.y.toString();
-    propPlacementW.value = stateManager.project.video_placement.width.toString();
-    propPlacementH.value = stateManager.project.video_placement.height.toString();
+    const bounds = domOverlay.getFocusedElementBounds();
+    if (bounds) {
+      propPlacementX.value = bounds.x.toString();
+      propPlacementY.value = bounds.y.toString();
+      propPlacementW.value = bounds.width.toString();
+      propPlacementH.value = bounds.height.toString();
+    } else {
+      propPlacementX.value = stateManager.project.video_placement.x.toString();
+      propPlacementY.value = stateManager.project.video_placement.y.toString();
+      propPlacementW.value = stateManager.project.video_placement.width.toString();
+      propPlacementH.value = stateManager.project.video_placement.height.toString();
+    }
     propFontSize.value = stateManager.project.text_settings.font_size.toString();
   });
 
@@ -609,7 +594,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   refreshViewport();
-  showToast("Clip Maker successfully initialized!", "success");
 
   // Check for auto-saved project on startup
   const loadedAutosave = await tryLoadAutosave();
@@ -618,21 +602,33 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Splash Screen Intro Animation sequence
-  const splashText = document.querySelector(".splash-loading-text");
+  const splashText = document.querySelector(".splash-loading-text") as HTMLElement | null;
+  const updateSplashText = (text: string) => {
+    if (!splashText) return;
+    splashText.classList.add("text-fade-out");
+    setTimeout(() => {
+      splashText.textContent = text;
+      splashText.classList.remove("text-fade-out");
+    }, 250);
+  };
+
   if (splashText) {
-    setTimeout(() => { splashText.textContent = "Loading system presets..."; }, 400);
-    setTimeout(() => { splashText.textContent = "Checking GPU hardware acceleration..."; }, 800);
-    setTimeout(() => { splashText.textContent = "Initializing workspace layers..."; }, 1200);
-    setTimeout(() => { splashText.textContent = "Creative engine ready!"; }, 1600);
+    setTimeout(() => { updateSplashText("Loading system presets..."); }, 400);
+    setTimeout(() => { updateSplashText("Checking GPU hardware acceleration..."); }, 900);
+    setTimeout(() => { updateSplashText("Initializing workspace layers..."); }, 1400);
+    setTimeout(() => { updateSplashText("Creative engine ready!"); }, 1900);
   }
 
   setTimeout(() => {
     const splash = document.getElementById("app-splash-screen");
     if (splash) {
       splash.classList.add("fade-out");
-      setTimeout(() => splash.remove(), 500);
+      setTimeout(() => {
+        splash.remove();
+        showToast("Clip Maker successfully initialized!", "success");
+      }, 700);
     }
-  }, 1900);
+  }, 2400);
 
   // Custom Window Titlebar Controls Bindings
   const appWindow = getCurrentWindow();
@@ -665,6 +661,11 @@ function syncConfigToUi() {
   propAspectRatio.value = proj.aspect_ratio;
   propCropAnchor.value = proj.crop_anchor;
   propResolution.value = proj.output_resolution;
+  const textEnabled = proj.text_settings.enabled !== false;
+  propTextEnabled.checked = textEnabled;
+  primaryTextControls.style.opacity = textEnabled ? "1" : "0.5";
+  primaryTextControls.style.pointerEvents = textEnabled ? "auto" : "none";
+
   propTextTemplate.value = proj.text_template;
   propFontSize.value = proj.text_settings.font_size.toString();
   propFontColor.value = proj.text_settings.font_color;
@@ -698,6 +699,20 @@ function syncConfigToUi() {
   syncExtraOverlaysList();
   syncMediaOverlaysList();
   syncColorPreviewButtons();
+}
+
+function resetProjectSession() {
+  stateManager.project = stateManager.createDefaultProject();
+  stateManager.history.clear();
+  stateManager.assets = [];
+  currentSelectedAsset = null;
+  activeJobUis.clear();
+
+  assetListContainer.innerHTML = "";
+  clipsGridContainer.innerHTML = "";
+  jobsListContainer.innerHTML = "";
+
+  canvasRenderer.clearVideo();
 }
 
 function syncPresetsList() {
@@ -842,23 +857,39 @@ function updateResolutionAndAspectRatio(trigger: "ratio" | "res") {
 function bindInputFields() {
   propPlacementX.addEventListener("change", () => {
     const val = parseInt(propPlacementX.value) || 0;
-    const placement = { ...stateManager.project.video_placement, x: val };
-    stateManager.updateProjectField("video_placement", placement);
+    if (domOverlay.getFocusedElement()) {
+      domOverlay.updateFocusedElementBounds({ x: val });
+    } else {
+      const placement = { ...stateManager.project.video_placement, x: val };
+      stateManager.updateProjectField("video_placement", placement);
+    }
   });
   propPlacementY.addEventListener("change", () => {
     const val = parseInt(propPlacementY.value) || 0;
-    const placement = { ...stateManager.project.video_placement, y: val };
-    stateManager.updateProjectField("video_placement", placement);
+    if (domOverlay.getFocusedElement()) {
+      domOverlay.updateFocusedElementBounds({ y: val });
+    } else {
+      const placement = { ...stateManager.project.video_placement, y: val };
+      stateManager.updateProjectField("video_placement", placement);
+    }
   });
   propPlacementW.addEventListener("change", () => {
     const val = parseInt(propPlacementW.value) || 1080;
-    const placement = { ...stateManager.project.video_placement, width: val };
-    stateManager.updateProjectField("video_placement", placement);
+    if (domOverlay.getFocusedElement()) {
+      domOverlay.updateFocusedElementBounds({ width: val });
+    } else {
+      const placement = { ...stateManager.project.video_placement, width: val };
+      stateManager.updateProjectField("video_placement", placement);
+    }
   });
   propPlacementH.addEventListener("change", () => {
     const val = parseInt(propPlacementH.value) || 1920;
-    const placement = { ...stateManager.project.video_placement, height: val };
-    stateManager.updateProjectField("video_placement", placement);
+    if (domOverlay.getFocusedElement()) {
+      domOverlay.updateFocusedElementBounds({ height: val });
+    } else {
+      const placement = { ...stateManager.project.video_placement, height: val };
+      stateManager.updateProjectField("video_placement", placement);
+    }
   });
 
   propAspectRatio.addEventListener("change", () => {
@@ -871,6 +902,13 @@ function bindInputFields() {
     updateResolutionAndAspectRatio("res");
   });
   
+  propTextEnabled.addEventListener("change", () => {
+    const textSettings = { ...stateManager.project.text_settings, enabled: propTextEnabled.checked };
+    stateManager.updateProjectField("text_settings", textSettings);
+    primaryTextControls.style.opacity = propTextEnabled.checked ? "1" : "0.5";
+    primaryTextControls.style.pointerEvents = propTextEnabled.checked ? "auto" : "none";
+  });
+
   propTextTemplate.addEventListener("change", () => {
     stateManager.updateProjectField("text_template", propTextTemplate.value);
   });
@@ -1054,81 +1092,58 @@ function bindInputFields() {
   });
 
   // Media Overlays
-  let selectedMediaPath = "";
   listMediaOverlays.addEventListener("change", () => {
     const idx = parseInt(listMediaOverlays.value);
     const overlays = stateManager.project.media_overlays || [];
     const overlay = overlays[idx];
     if (overlay) {
-      propMediaType.value = overlay.type;
-      selectedMediaPath = overlay.path;
-      btnBrowseMediaPath.innerText = overlay.path.split(/[/\\]/).pop() || "Select file";
-      propMediaLoop.value = overlay.loop_mode || "repeat";
-      propMediaChroma.checked = overlay.chroma_key;
-      propMediaSimilarity.value = overlay.chroma_similarity.toString();
-      propMediaBlend.value = overlay.chroma_blend.toString();
-      propMediaChromaColor.value = overlay.chroma_color || "#00ff00";
       domOverlay.setFocusedElement(`media-${idx}`);
-      syncColorPreviewButtons();
     }
   });
-  btnBrowseMediaPath.addEventListener("click", async () => {
+  btnAddMedia.addEventListener("click", async () => {
     try {
       const path = await invoke<string>("select_video_file");
-      if (!path) return;
-      selectedMediaPath = path;
-      btnBrowseMediaPath.innerText = path.split(/[/\\]/).pop() || "Select file";
-    } catch (err) {
-      showToast(`Browse failed: ${err}`, "error");
-    }
-  });
-  btnAddMedia.addEventListener("click", () => {
-    if (!selectedMediaPath) {
-      showToast("Browse and select a media file first!", "warning");
-      return;
-    }
-    const overlays = [...(stateManager.project.media_overlays || [])];
-    overlays.push({
-      name: `Media ${overlays.length + 1}`,
-      type: propMediaType.value,
-      path: selectedMediaPath,
-      x: 100,
-      y: 200,
-      width: 400,
-      height: 240,
-      enabled: true,
-      loop_mode: propMediaLoop.value,
-      chroma_key: propMediaChroma.checked,
-      chroma_color: propMediaChromaColor.value || "#00ff00",
-      chroma_similarity: parseFloat(propMediaSimilarity.value) || 0.3,
-      chroma_blend: parseFloat(propMediaBlend.value) || 0.05
-    });
-    stateManager.updateProjectField("media_overlays", overlays);
-    syncMediaOverlaysList();
-    refreshViewport();
-    showToast("Added media overlay!", "success");
-  });
-  btnUpdateMedia.addEventListener("click", () => {
-    const idx = parseInt(listMediaOverlays.value);
-    if (isNaN(idx)) {
-      showToast("Select a media overlay to update first!", "warning");
-      return;
-    }
-    const overlays = [...(stateManager.project.media_overlays || [])];
-    if (overlays[idx]) {
-      overlays[idx].type = propMediaType.value;
-      overlays[idx].path = selectedMediaPath || overlays[idx].path;
-      overlays[idx].loop_mode = propMediaLoop.value;
-      overlays[idx].chroma_key = propMediaChroma.checked;
-      overlays[idx].chroma_color = propMediaChromaColor.value;
-      overlays[idx].chroma_similarity = parseFloat(propMediaSimilarity.value) || 0.3;
-      overlays[idx].chroma_blend = parseFloat(propMediaBlend.value) || 0.05;
+      if (!path || path.trim() === "") return;
       
+      const ext = path.split(".").pop()?.toLowerCase();
+      const type = (ext === "mp4" || ext === "webm" || ext === "mov") ? "video" : "image";
+      
+      const overlays = [...(stateManager.project.media_overlays || [])];
+      const newIdx = overlays.length;
+      overlays.push({
+        name: `Media ${newIdx + 1}`,
+        type: type,
+        path: path,
+        x: 50,
+        y: 50,
+        width: 320,
+        height: 180,
+        enabled: true,
+        loop_mode: "repeat",
+        chroma_key: false,
+        chroma_color: "#00ff00",
+        chroma_similarity: 0.3,
+        chroma_blend: 0.05
+      });
       stateManager.updateProjectField("media_overlays", overlays);
       syncMediaOverlaysList();
       refreshViewport();
-      showToast("Updated media overlay settings!", "success");
+      showToast("Added media overlay!", "success");
+
+      // Auto-select and open settings modal
+      listMediaOverlays.value = newIdx.toString();
+      openMediaSettingsModal(newIdx);
+    } catch (err) {
+      showToast(`Add media failed: ${err}`, "error");
     }
+  });
+  btnEditMediaPopup.addEventListener("click", () => {
+    const idx = parseInt(listMediaOverlays.value);
+    if (isNaN(idx)) {
+      showToast("Select a media overlay to edit first!", "warning");
+      return;
+    }
+    openMediaSettingsModal(idx);
   });
   btnRemoveMedia.addEventListener("click", () => {
     const idx = parseInt(listMediaOverlays.value);
@@ -1312,13 +1327,11 @@ function appendAssetCard(asset: ImportedAsset) {
   assetListContainer.appendChild(card);
 }
 
-function selectAsset(asset: ImportedAsset, autoPlay = true) {
-  currentSelectedAsset = asset;
-  
-  // Highlight active card
+function highlightActiveAssetCard() {
+  if (!currentSelectedAsset) return;
   document.querySelectorAll(".asset-card").forEach((c) => {
     const div = c as HTMLDivElement;
-    if (div.dataset.hash === asset.hash) {
+    if (div.dataset.hash === currentSelectedAsset!.hash) {
       div.style.borderColor = "var(--accent)";
       div.style.background = "rgba(255, 255, 255, 0.06)";
     } else {
@@ -1326,6 +1339,84 @@ function selectAsset(asset: ImportedAsset, autoPlay = true) {
       div.style.background = "rgba(255, 255, 255, 0.02)";
     }
   });
+}
+
+function saveActiveAssetSettings() {
+  if (!currentSelectedAsset) return;
+  const id = currentSelectedAsset.id;
+  if (!stateManager.project.asset_settings) {
+    stateManager.project.asset_settings = {};
+  }
+  if (!stateManager.project.asset_settings[id]) {
+    stateManager.project.asset_settings[id] = {};
+  }
+  
+  const settings = stateManager.project.asset_settings[id];
+  settings.video_placement = JSON.parse(JSON.stringify(stateManager.project.video_placement));
+  settings.text_settings = JSON.parse(JSON.stringify(stateManager.project.text_settings));
+  settings.text_template = stateManager.project.text_template;
+  settings.extra_overlays = JSON.parse(JSON.stringify(stateManager.project.extra_overlays || []));
+  settings.media_overlays = JSON.parse(JSON.stringify(stateManager.project.media_overlays || []));
+}
+
+function loadActiveAssetSettings(asset: ImportedAsset) {
+  const id = asset.id;
+  const settings = stateManager.project.asset_settings?.[id];
+  
+  if (settings) {
+    if (settings.video_placement) {
+      stateManager.project.video_placement = JSON.parse(JSON.stringify(settings.video_placement));
+    }
+    if (settings.text_settings) {
+      stateManager.project.text_settings = JSON.parse(JSON.stringify(settings.text_settings));
+    }
+    if (settings.text_template !== undefined) {
+      stateManager.project.text_template = settings.text_template;
+    }
+    if (settings.extra_overlays) {
+      stateManager.project.extra_overlays = JSON.parse(JSON.stringify(settings.extra_overlays));
+    } else {
+      stateManager.project.extra_overlays = [];
+    }
+    if (settings.media_overlays) {
+      stateManager.project.media_overlays = JSON.parse(JSON.stringify(settings.media_overlays));
+    } else {
+      stateManager.project.media_overlays = [];
+    }
+  } else {
+    // Clean default settings for a newly loaded video asset
+    stateManager.project.video_placement = {
+      enabled: true,
+      x: 0,
+      y: 460,
+      width: 1080,
+      height: 1000
+    };
+    stateManager.project.text_settings = {
+      enabled: true,
+      font_size: 120,
+      font_color: "#ffffff",
+      font_family: "Arial",
+      x_position: "center",
+      y_position: "top",
+      outline: true,
+      placement: "Top"
+    };
+    stateManager.project.text_template = "PART {part}";
+    stateManager.project.extra_overlays = [];
+    stateManager.project.media_overlays = [];
+  }
+}
+
+function selectAsset(asset: ImportedAsset, autoPlay = false) {
+  if (currentSelectedAsset && currentSelectedAsset.id !== asset.id) {
+    saveActiveAssetSettings();
+  }
+
+  currentSelectedAsset = asset;
+  highlightActiveAssetCard();
+  
+  loadActiveAssetSettings(asset);
 
   // Update config paths
   stateManager.project.input_paths = [asset.path];
@@ -1493,8 +1584,8 @@ async function generatePreview() {
 }
 
 async function startBatchExport() {
-  if (!currentSelectedAsset || !currentSelectedAsset.metadata) {
-    showToast("Select a video asset first", "warning");
+  if (stateManager.assets.length === 0) {
+    showToast("Import at least one video asset first", "warning");
     return;
   }
 
@@ -1504,44 +1595,79 @@ async function startBatchExport() {
 
     stateManager.project.output_path = outPath;
 
-    const duration = currentSelectedAsset.metadata.duration;
-    const clipLength = stateManager.project.clip_duration || 50;
-    const totalClips = Math.ceil(duration / clipLength);
+    const scope = propExportScope.value; // "selected" | "all"
+    let assetsToExport: ImportedAsset[] = [];
 
-    const exportFrom = document.getElementById("prop-export-from") as HTMLInputElement;
-    const exportTo = document.getElementById("prop-export-to") as HTMLInputElement;
-
-    let startVal = 1;
-    let endVal = totalClips;
-    if (exportFrom && exportTo) {
-      startVal = Math.max(1, Math.min(totalClips, parseInt(exportFrom.value) || 1));
-      endVal = Math.max(startVal, Math.min(totalClips, parseInt(exportTo.value) || totalClips));
+    if (scope === "all") {
+      assetsToExport = stateManager.assets.filter(a => a.metadata !== null);
+    } else {
+      if (!currentSelectedAsset || !currentSelectedAsset.metadata) {
+        showToast("Select a video asset first", "warning");
+        return;
+      }
+      assetsToExport = [currentSelectedAsset];
     }
 
-    const exportCount = (endVal - startVal) + 1;
-    showToast(`Exporting ${exportCount} clips in queue (${startVal} to ${endVal})...`, "success");
-    
-    // Route config
-    const config: AppConfig = {
-      ...stateManager.project,
-      input_path: currentSelectedAsset.path,
-      input_paths: [currentSelectedAsset.path],
-      output_path: outPath,
-    };
+    if (assetsToExport.length === 0) {
+      showToast("No valid assets with metadata to export", "warning");
+      return;
+    }
 
-    // Trigger render commands queue in tokio threadpool
-    const jobIds = await TauriService.startRenderQueue(config, startVal, endVal);
-    
-    // Populate RenderQueue tab views
+    // Switch to Render queue bottom tab
     switchBottomTab("render");
-    
-    // Populate active job cards
-    jobIds.forEach(async (id) => {
-      const job = await TauriService.getJobsList().then(list => list.find(j => j.id === id));
-      if (job) {
-        appendJobUi(job);
+
+    let totalJobsQueued = 0;
+
+    for (const asset of assetsToExport) {
+      if (!asset.metadata) continue;
+
+      const duration = asset.metadata.duration;
+      const clipLength = stateManager.project.clip_duration || 50;
+      const totalClips = Math.ceil(duration / clipLength);
+
+      let startVal = 1;
+      let endVal = totalClips;
+
+      if (scope === "selected") {
+        const exportFrom = document.getElementById("prop-export-from") as HTMLInputElement;
+        const exportTo = document.getElementById("prop-export-to") as HTMLInputElement;
+        if (exportFrom && exportTo) {
+          startVal = Math.max(1, Math.min(totalClips, parseInt(exportFrom.value) || 1));
+          endVal = Math.max(startVal, Math.min(totalClips, parseInt(exportTo.value) || totalClips));
+        }
       }
-    });
+
+      const exportCount = (endVal - startVal) + 1;
+      totalJobsQueued += exportCount;
+
+      const config: AppConfig = {
+        ...stateManager.project,
+        input_path: asset.path,
+        input_paths: [asset.path],
+        output_path: outPath,
+      };
+
+      const settings = stateManager.project.asset_settings?.[asset.id];
+      if (settings) {
+        if (settings.video_placement) config.video_placement = settings.video_placement;
+        if (settings.text_settings) config.text_settings = settings.text_settings;
+        if (settings.text_template !== undefined) config.text_template = settings.text_template;
+        if (settings.extra_overlays) config.extra_overlays = settings.extra_overlays;
+        if (settings.media_overlays) config.media_overlays = settings.media_overlays;
+      }
+
+      const jobIds = await TauriService.startRenderQueue(config, startVal, endVal);
+
+      // Populate active job cards
+      jobIds.forEach(async (id) => {
+        const job = await TauriService.getJobsList().then(list => list.find(j => j.id === id));
+        if (job) {
+          appendJobUi(job);
+        }
+      });
+    }
+
+    showToast(`Successfully queued ${totalJobsQueued} clips for export!`, "success");
 
   } catch (e) {
     showToast(`Export queue failed: ${e}`, "error");
@@ -1691,13 +1817,15 @@ function setupCommandPalette() {
     paletteResults.innerHTML = "";
 
     const commands = [
+      { name: "Command: New Project File", action: triggerNewProject },
+      { name: "Command: Open Project File (Import)", action: triggerOpenProject },
+      { name: "Command: Save Project File (Export)", action: triggerSaveProject },
       { name: "Command: Import Video File", action: triggerImport },
       { name: "Command: Clear Cache Directory", action: clearCacheDir },
       { name: "Command: Preview Draft Clip", action: generatePreview },
       { name: "Command: Batch Export Queue", action: startBatchExport },
       { name: "Command: Switch to Clips Timeline", action: () => switchBottomTab("clips") },
       { name: "Command: Switch to Render Queue", action: () => switchBottomTab("render") },
-      { name: "Command: Save Project", action: () => showToast("Project saved successfully!", "success") },
       { name: "Command: Open User Manual", action: () => {
           const userManualModal = document.getElementById("user-manual-modal");
           if (userManualModal) userManualModal.style.display = "flex";
@@ -1921,7 +2049,7 @@ function setupWorkspaceResizers() {
     const startWidth = rightPanel.clientWidth;
 
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = Math.max(240, Math.min(600, startWidth - (moveEvent.clientX - startX)));
+      const newWidth = Math.max(350, Math.min(600, startWidth - (moveEvent.clientX - startX)));
       rightPanel.style.width = `${newWidth}px`;
       refreshViewport();
     };
@@ -2070,12 +2198,7 @@ function setupDashboard() {
 
   // Action Bindings
   document.getElementById("dash-btn-new")?.addEventListener("click", () => {
-    stateManager.project = stateManager.createDefaultProject();
-    stateManager.history.clear();
-    currentSelectedAsset = null;
-    assetListContainer.innerHTML = "";
-    clipsGridContainer.innerHTML = "";
-    canvasRenderer.clearVideo();
+    resetProjectSession();
     stateManager.updateProjectDirectly(stateManager.project);
     syncConfigToUi();
     toggleDashboard(false);
@@ -2097,7 +2220,7 @@ function setupDashboard() {
       const ratio = element.dataset.ratio || "original";
       const res = element.dataset.res || "Source";
       
-      stateManager.project = stateManager.createDefaultProject();
+      resetProjectSession();
       stateManager.project.aspect_ratio = ratio;
       stateManager.project.output_resolution = res;
       
@@ -2109,11 +2232,6 @@ function setupDashboard() {
         stateManager.project.output_height = 1080;
       }
       
-      stateManager.history.clear();
-      currentSelectedAsset = null;
-      assetListContainer.innerHTML = "";
-      clipsGridContainer.innerHTML = "";
-      canvasRenderer.clearVideo();
       stateManager.updateProjectDirectly(stateManager.project);
       syncConfigToUi();
       toggleDashboard(false);
@@ -2796,6 +2914,7 @@ function openTrimModal(asset: ImportedAsset) {
     // Refresh asset card UI
     assetListContainer.innerHTML = "";
     stateManager.assets.forEach(a => appendAssetCard(a));
+    highlightActiveAssetCard();
 
     // Refresh timeline clips bounds
     if (currentSelectedAsset?.id === asset.id) {
@@ -2809,6 +2928,395 @@ function openTrimModal(asset: ImportedAsset) {
 
   // Show Modal
   trimModal.style.display = "flex";
+}
+
+function openMediaSettingsModal(idx: number) {
+  try {
+    const overlays = stateManager.project.media_overlays || [];
+    const overlay = overlays[idx];
+    if (!overlay) {
+      showToast("Media overlay not found!", "error");
+      return;
+    }
+
+    const overlayPath = overlay.path || "";
+    mediaModalFilename.innerText = overlayPath.split(/[/\\]/).pop() || overlay.name;
+    propMediaType.value = overlay.type || "video";
+    propMediaLoop.value = overlay.loop_mode || "repeat";
+    propMediaChroma.checked = overlay.chroma_key || false;
+    propMediaChromaColor.value = overlay.chroma_color || "#00ff00";
+    mediaModalChromaColorBtn.style.backgroundColor = propMediaChromaColor.value;
+    mediaModalChromaColorHex.value = propMediaChromaColor.value;
+    propMediaSimilarity.value = (overlay.chroma_similarity || 0.3).toString();
+    propMediaBlend.value = (overlay.chroma_blend || 0.05).toString();
+
+    const simValSpan = document.getElementById("media-modal-similarity-val")!;
+    const blendValSpan = document.getElementById("media-modal-blend-val")!;
+    simValSpan.innerText = parseFloat(propMediaSimilarity.value).toFixed(2);
+    blendValSpan.innerText = parseFloat(propMediaBlend.value).toFixed(2);
+
+    // Setup live-preview canvases
+    const mainCanvas = document.getElementById("media-modal-canvas") as HTMLCanvasElement;
+    const mainCtx = mainCanvas.getContext("2d")!;
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d")!;
+
+    let animId = 0;
+    let chromaEnabled = propMediaChroma.checked;
+    let targetColor = propMediaChromaColor.value;
+    let similarity = parseFloat(propMediaSimilarity.value);
+    let blend = parseFloat(propMediaBlend.value);
+
+    const hexToRgb = (hex: string) => {
+      const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+      const fullHex = hex.replace(shorthandRegex, (_, r, g, b) => r + r + g + g + b + b);
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 0, g: 255, b: 0 };
+    };
+
+    const rgbToYuv = (r: number, g: number, b: number) => {
+      return {
+        u: -0.169 * r - 0.331 * g + 0.5 * b + 128,
+        v: 0.5 * r - 0.419 * g - 0.081 * b + 128
+      };
+    };
+
+    let targetRgb = hexToRgb(targetColor);
+    let targetYuv = rgbToYuv(targetRgb.r, targetRgb.g, targetRgb.b);
+
+    const updateColorConfig = (hex: string) => {
+      targetColor = hex;
+      targetRgb = hexToRgb(targetColor);
+      targetYuv = rgbToYuv(targetRgb.r, targetRgb.g, targetRgb.b);
+      if (!isVideo) {
+        drawFrame();
+      }
+    };
+
+    let videoEl: HTMLVideoElement | null = null;
+    let imgEl: HTMLImageElement | null = null;
+    let isVideo = (overlay.type === "video");
+
+    const drawFrame = () => {
+      let sourceWidth = 0;
+      let sourceHeight = 0;
+
+      if (isVideo && videoEl) {
+        sourceWidth = videoEl.videoWidth;
+        sourceHeight = videoEl.videoHeight;
+      } else if (!isVideo && imgEl) {
+        sourceWidth = imgEl.naturalWidth;
+        sourceHeight = imgEl.naturalHeight;
+      }
+
+      if (sourceWidth === 0 || sourceHeight === 0) {
+        if (isVideo) animId = requestAnimationFrame(drawFrame);
+        return;
+      }
+
+      if (tempCanvas.width !== sourceWidth || tempCanvas.height !== sourceHeight) {
+        tempCanvas.width = sourceWidth;
+        tempCanvas.height = sourceHeight;
+        mainCanvas.width = sourceWidth;
+        mainCanvas.height = sourceHeight;
+      }
+
+      if (isVideo && videoEl) {
+        tempCtx.drawImage(videoEl, 0, 0);
+      } else if (!isVideo && imgEl) {
+        tempCtx.drawImage(imgEl, 0, 0);
+      }
+
+      const imgData = tempCtx.getImageData(0, 0, sourceWidth, sourceHeight);
+      const data = imgData.data;
+
+      if (chromaEnabled) {
+        const tU = targetYuv.u;
+        const tV = targetYuv.v;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i+1];
+          const b = data[i+2];
+
+          const u = -0.169 * r - 0.331 * g + 0.5 * b + 128;
+          const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
+
+          const uDiff = u - tU;
+          const vDiff = v - tV;
+          const dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+
+          if (dist < similarity) {
+            if (blend > 0 && (similarity - dist) < blend) {
+              const alphaFactor = (similarity - dist) / blend;
+              data[i + 3] = Math.round(alphaFactor * 255);
+            } else {
+              data[i + 3] = 0;
+            }
+          }
+        }
+      }
+
+      mainCtx.putImageData(imgData, 0, 0);
+
+      if (isVideo) {
+        animId = requestAnimationFrame(drawFrame);
+      }
+    };
+
+    // Load resources and start playing
+    if (isVideo) {
+      videoEl = document.createElement("video");
+      videoEl.crossOrigin = "anonymous";
+      videoEl.src = convertFileSrc(overlayPath);
+      videoEl.loop = true;
+      videoEl.muted = true;
+      videoEl.playsInline = true;
+      videoEl.style.display = "none";
+      document.body.appendChild(videoEl);
+      
+      // Explicitly call load for Tauri webview context
+      videoEl.load();
+
+      const startLoop = () => {
+        if (animId) cancelAnimationFrame(animId);
+        animId = requestAnimationFrame(drawFrame);
+      };
+
+      videoEl.addEventListener("play", startLoop);
+      videoEl.addEventListener("loadeddata", () => {
+        videoEl!.play().catch((err) => console.warn("Video play failed:", err));
+      });
+      
+      videoEl.play().catch(() => {
+        // In case autoplay is delayed, kickstart loop
+        startLoop();
+      });
+    } else {
+      imgEl = document.createElement("img");
+      imgEl.crossOrigin = "anonymous";
+      imgEl.src = convertFileSrc(overlayPath);
+      imgEl.addEventListener("load", () => {
+        drawFrame();
+      });
+    }
+
+    // Handle color picking directly from clicking on canvas
+    const onCanvasClick = (e: MouseEvent) => {
+      if (tempCanvas.width === 0 || tempCanvas.height === 0) return;
+      const rect = mainCanvas.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * tempCanvas.width;
+      const y = ((e.clientY - rect.top) / rect.height) * tempCanvas.height;
+
+      try {
+        const pixel = tempCtx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+        const r = pixel[0];
+        const g = pixel[1];
+        const b = pixel[2];
+
+        const componentToHex = (c: number) => {
+          const hex = c.toString(16);
+          return hex.length === 1 ? "0" + hex : hex;
+        };
+        const hexColor = "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+
+        propMediaChromaColor.value = hexColor;
+        mediaModalChromaColorHex.value = hexColor;
+        mediaModalChromaColorBtn.style.backgroundColor = hexColor;
+        updateColorConfig(hexColor);
+      } catch (err) {
+        console.warn("Chroma color picking failed:", err);
+      }
+    };
+    mainCanvas.addEventListener("click", onCanvasClick);
+
+    const updateChromaSettingsState = () => {
+      chromaEnabled = propMediaChroma.checked;
+      const settingsDiv = document.getElementById("media-modal-chroma-settings")!;
+      if (chromaEnabled) {
+        settingsDiv.style.opacity = "1";
+        settingsDiv.style.pointerEvents = "auto";
+      } else {
+        settingsDiv.style.opacity = "0.5";
+        settingsDiv.style.pointerEvents = "none";
+      }
+      if (!isVideo) {
+        drawFrame();
+      }
+    };
+    updateChromaSettingsState();
+
+    const onChromaChange = () => {
+      updateChromaSettingsState();
+    };
+    propMediaChroma.addEventListener("change", onChromaChange);
+
+    const onColorBtnClick = () => {
+      propMediaChromaColor.click();
+    };
+    mediaModalChromaColorBtn.addEventListener("click", onColorBtnClick);
+
+    const onColorInputChange = () => {
+      const hex = propMediaChromaColor.value;
+      mediaModalChromaColorHex.value = hex;
+      mediaModalChromaColorBtn.style.backgroundColor = hex;
+      updateColorConfig(hex);
+    };
+    propMediaChromaColor.addEventListener("input", onColorInputChange);
+
+    const onHexTextInputChange = () => {
+      let hex = mediaModalChromaColorHex.value.trim();
+      if (!hex.startsWith("#")) hex = "#" + hex;
+      if (/^#[0-9A-F]{6}$/i.test(hex)) {
+        propMediaChromaColor.value = hex;
+        mediaModalChromaColorBtn.style.backgroundColor = hex;
+        updateColorConfig(hex);
+      }
+    };
+    mediaModalChromaColorHex.addEventListener("input", onHexTextInputChange);
+
+    const onSimilarityChange = () => {
+      similarity = parseFloat(propMediaSimilarity.value);
+      simValSpan.innerText = similarity.toFixed(2);
+      if (!isVideo) {
+        drawFrame();
+      }
+    };
+    propMediaSimilarity.addEventListener("input", onSimilarityChange);
+
+    const onBlendChange = () => {
+      blend = parseFloat(propMediaBlend.value);
+      blendValSpan.innerText = blend.toFixed(2);
+      if (!isVideo) {
+        drawFrame();
+      }
+    };
+    propMediaBlend.addEventListener("input", onBlendChange);
+
+    mediaSettingsModal.style.display = "flex";
+
+    const cleanup = () => {
+      mediaSettingsModal.style.display = "none";
+      if (videoEl) {
+        videoEl.pause();
+        videoEl.src = "";
+        if (videoEl.parentNode) {
+          videoEl.parentNode.removeChild(videoEl);
+        }
+      }
+      if (animId) {
+        cancelAnimationFrame(animId);
+      }
+
+      mainCanvas.removeEventListener("click", onCanvasClick);
+      propMediaChroma.removeEventListener("change", onChromaChange);
+      mediaModalChromaColorBtn.removeEventListener("click", onColorBtnClick);
+      propMediaChromaColor.removeEventListener("input", onColorInputChange);
+      mediaModalChromaColorHex.removeEventListener("input", onHexTextInputChange);
+      propMediaSimilarity.removeEventListener("input", onSimilarityChange);
+      propMediaBlend.removeEventListener("input", onBlendChange);
+      btnMediaModalCancel.removeEventListener("click", onCancel);
+      btnMediaModalSave.removeEventListener("click", onSave);
+    };
+
+    const onCancel = () => {
+      cleanup();
+    };
+
+    const onSave = () => {
+      const overlaysCopy = [...(stateManager.project.media_overlays || [])];
+      if (overlaysCopy[idx]) {
+        // Preserve existing X, Y, Width, Height bounds untouched!
+        overlaysCopy[idx].type = propMediaType.value;
+        overlaysCopy[idx].loop_mode = propMediaLoop.value;
+        overlaysCopy[idx].chroma_key = propMediaChroma.checked;
+        overlaysCopy[idx].chroma_color = propMediaChromaColor.value;
+        overlaysCopy[idx].chroma_similarity = parseFloat(propMediaSimilarity.value) || 0.3;
+        overlaysCopy[idx].chroma_blend = parseFloat(propMediaBlend.value) || 0.05;
+
+        stateManager.updateProjectField("media_overlays", overlaysCopy);
+        syncMediaOverlaysList();
+        refreshViewport();
+        showToast("Saved media overlay settings!", "success");
+      }
+      cleanup();
+    };
+
+    btnMediaModalCancel.addEventListener("click", onCancel);
+    btnMediaModalSave.addEventListener("click", onSave);
+  } catch (err) {
+    showToast(`Failed to open settings: ${err}`, "error");
+    console.error("openMediaSettingsModal error:", err);
+  }
+}
+
+function openTextEditModal(type: string) {
+  let initialValue = "";
+  if (type === "text") {
+    initialValue = stateManager.project.text_settings.enabled !== false 
+      ? (stateManager.project.text_template || "PART {part}")
+      : "";
+  } else if (type.startsWith("extra-")) {
+    const idx = parseInt(type.split("-")[1]);
+    const overlays = stateManager.project.extra_overlays || [];
+    initialValue = overlays[idx] ? overlays[idx].text : "";
+  }
+
+  textEditInput.value = initialValue;
+  textEditModal.style.display = "flex";
+  textEditInput.focus();
+  textEditInput.select();
+
+  const cleanup = () => {
+    textEditModal.style.display = "none";
+    btnTextEditCancel.removeEventListener("click", onCancel);
+    btnTextEditSave.removeEventListener("click", onSave);
+    textEditInput.removeEventListener("keydown", onKeyDown);
+  };
+
+  const onCancel = () => {
+    cleanup();
+  };
+
+  const onSave = () => {
+    const newVal = textEditInput.value.trim();
+    if (newVal) {
+      if (type === "text") {
+        stateManager.project.text_template = newVal;
+        stateManager.updateProjectField("text_template", newVal);
+        propTextTemplate.value = newVal;
+      } else if (type.startsWith("extra-")) {
+        const idx = parseInt(type.split("-")[1]);
+        const overlays = [...(stateManager.project.extra_overlays || [])];
+        if (overlays[idx]) {
+          overlays[idx].text = newVal;
+          stateManager.updateProjectField("extra_overlays", overlays);
+          syncExtraOverlaysList();
+        }
+      }
+      refreshViewport();
+      showToast("Updated text overlay content!", "success");
+    }
+    cleanup();
+  };
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onSave();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+
+  btnTextEditCancel.addEventListener("click", onCancel);
+  btnTextEditSave.addEventListener("click", onSave);
+  textEditInput.addEventListener("keydown", onKeyDown);
 }
 
 function customizeNumberInputs() {
@@ -2968,6 +3476,89 @@ async function tryLoadAutosave(): Promise<boolean> {
     console.error("Failed to load autosave project:", err);
     stateManager.isSavingEnabled = true;
     return false;
+  }
+}
+
+async function triggerNewProject() {
+  const confirmed = await showModal({
+    title: "New Project",
+    message: "Are you sure you want to start a new project? All unsaved changes will be lost.",
+    icon: "🗑️",
+    confirmText: "New Project",
+    cancelText: "Keep Working",
+    danger: true,
+  });
+  if (!confirmed) return;
+  
+  resetProjectSession();
+  stateManager.updateProjectDirectly(stateManager.project);
+  toggleDashboard(true);
+  showToast("Started a new empty project session.", "success");
+}
+
+async function triggerOpenProject() {
+  try {
+    const path = await invoke<string>("select_project_file", { mode: "open" });
+    if (!path || path.trim() === "") return;
+    
+    showToast("Loading project file...", "success");
+    const projectData = await invoke<ProjectData>("load_project", { filePath: path });
+    stateManager.updateProjectDirectly(projectData);
+    stateManager.history.clear();
+    
+    // Load assets asynchronously
+    assetListContainer.innerHTML = "";
+    stateManager.assets = [];
+    
+    const importedAssets = projectData.imported_assets || [];
+    if (importedAssets.length === 0 && projectData.imported_videos && projectData.imported_videos.length > 0) {
+      projectData.imported_videos.forEach((videoPath, idx) => {
+        importedAssets.push({
+          id: `asset_legacy_${idx}_${Date.now()}`,
+          path: videoPath
+        });
+      });
+      projectData.imported_assets = importedAssets;
+    }
+
+    if (importedAssets.length > 0) {
+      for (const prjAsset of importedAssets) {
+        try {
+          const asset = await TauriService.importFile(prjAsset.path);
+          asset.id = prjAsset.id; // Assign stable loaded ID
+          stateManager.assets.push(asset);
+          appendAssetCard(asset);
+        } catch (e) {
+          console.error("Failed to import asset during project load:", prjAsset.path, e);
+        }
+      }
+      if (stateManager.assets.length > 0) {
+        selectAsset(stateManager.assets[0]);
+      } else {
+        toggleDashboard(true);
+      }
+    } else {
+      toggleDashboard(true);
+    }
+    
+    showToast("Project loaded successfully!", "success");
+  } catch (err) {
+    showToast(`Load failed: ${err}`, "error");
+  }
+}
+
+async function triggerSaveProject() {
+  try {
+    const path = await invoke<string>("select_project_file", { mode: "save" });
+    if (!path || path.trim() === "") return;
+    
+    showToast("Saving project file...", "success");
+    stateManager.project.imported_videos = stateManager.assets.map(a => a.path);
+    stateManager.project.imported_assets = stateManager.assets.map(a => ({ id: a.id, path: a.path }));
+    await invoke("save_project", { filePath: path, project: stateManager.project });
+    showToast("Project saved successfully!", "success");
+  } catch (err) {
+    showToast(`Save failed: ${err}`, "error");
   }
 }
 
