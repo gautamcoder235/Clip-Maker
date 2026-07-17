@@ -2364,6 +2364,12 @@ class CustomColorPicker {
 
 // ── Trim Modal Controller ──
 function openTrimModal(asset: ImportedAsset) {
+  // Pause the main canvas preview video if it is currently playing
+  const mainVideo = canvasRenderer.getVideoElement();
+  if (mainVideo && !mainVideo.paused) {
+    mainVideo.pause();
+  }
+
   trimModalFilename.textContent = asset.name;
   trimLoadingOverlay.style.display = "flex";
   trimModalVideo.src = convertFileSrc(asset.path);
