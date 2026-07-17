@@ -55,6 +55,14 @@ export class TauriService {
     return invoke("clear_cache");
   }
 
+  static async saveAutosave(project: ProjectData): Promise<void> {
+    return invoke("save_autosave", { project });
+  }
+
+  static async loadAutosave(): Promise<ProjectData | null> {
+    return invoke<ProjectData | null>("load_autosave");
+  }
+
   // Listeners for render queue events
   static onJobStarted(callback: (jobId: string) => void) {
     return listen<string>("job-started", (event: Event<string>) => {

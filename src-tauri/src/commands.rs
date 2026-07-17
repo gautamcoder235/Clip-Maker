@@ -1,4 +1,4 @@
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, State, Manager};
 use crate::state::AppState;
 use crate::errors::AppResult;
 use crate::config::AppConfig;
@@ -157,4 +157,28 @@ pub async fn get_fonts_list(state: State<'_, AppState>) -> AppResult<Vec<SystemF
 #[tauri::command]
 pub async fn clear_cache(state: State<'_, AppState>) -> AppResult<()> {
     state.cache_manager.clear()
+}
+
+#[tauri::command]
+pub async fn save_autosave(app_handle: AppHandle, project: ProjectData) -> AppResult<()> {
+    let app_dir = app_handle.path().app_data_dir()?;
+    if !app_dir.exists() {
+        std::fs::create_dir_all(&app_dir)?;
+    }
+    let autosave_path = app_dir.join("autosave.json");
+    let content = serde_json::to_string_pretty(&project)?;
+    std::fs::write(autosave_path, content)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn load_autosave(app_handle: AppHandle) -> AppResult<Option<ProjectData>> {
+    let app_dir = app_handle.path().app_data_dir()?;
+    let autosave_path = app_dir.join("autosave.json");
+    if !autosave_path.exists() {
+        return Ok(None);
+    }
+    let content = std::fs::read_to_string(autosave_path)?;
+    let project: ProjectData = serde_json::from_str(&content)?;
+    Ok(Some(project))
 }

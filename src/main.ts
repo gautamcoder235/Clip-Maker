@@ -606,8 +606,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   refreshViewport();
   showToast("Clip Maker successfully initialized!", "success");
 
-  // Start with onboarding dashboard visible
-  toggleDashboard(true);
+  // Check for auto-saved project on startup
+  const loadedAutosave = await tryLoadAutosave();
+  if (!loadedAutosave) {
+    toggleDashboard(true);
+  }
 
   // Splash Screen Intro Animation sequence
   const splashText = document.querySelector(".splash-loading-text");
@@ -2852,5 +2855,62 @@ function customizeNumberInputs() {
 
     window.addEventListener('mouseup', stopInterval);
   });
+}
+
+async function tryLoadAutosave(): Promise<boolean> {
+  try {
+    const projectData = await TauriService.loadAutosave();
+    if (!projectData) return false;
+
+    showToast("Resuming your last project session...", "success");
+    
+    stateManager.isSavingEnabled = false;
+    stateManager.updateProjectDirectly(projectData);
+    stateManager.history.clear();
+
+    // Load assets asynchronously
+    assetListContainer.innerHTML = "";
+    stateManager.assets = [];
+
+    const importedAssets = projectData.imported_assets || [];
+    if (importedAssets.length === 0 && projectData.imported_videos && projectData.imported_videos.length > 0) {
+      projectData.imported_videos.forEach((videoPath, idx) => {
+        importedAssets.push({
+          id: `asset_legacy_${idx}_${Date.now()}`,
+          path: videoPath
+        });
+      });
+      projectData.imported_assets = importedAssets;
+    }
+
+    if (importedAssets.length > 0) {
+      for (const prjAsset of importedAssets) {
+        try {
+          const asset = await TauriService.importFile(prjAsset.path);
+          asset.id = prjAsset.id; // Assign stable loaded ID
+          stateManager.assets.push(asset);
+          appendAssetCard(asset);
+        } catch (e) {
+          console.error("Failed to import asset during autosave load:", prjAsset.path, e);
+        }
+      }
+      
+      stateManager.isSavingEnabled = true;
+
+      if (stateManager.assets.length > 0) {
+        selectAsset(stateManager.assets[0]);
+        toggleDashboard(false);
+        return true;
+      }
+    }
+    
+    stateManager.isSavingEnabled = true;
+    toggleDashboard(false);
+    return true;
+  } catch (err) {
+    console.error("Failed to load autosave project:", err);
+    stateManager.isSavingEnabled = true;
+    return false;
+  }
 }
 

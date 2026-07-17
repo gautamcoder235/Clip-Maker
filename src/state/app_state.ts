@@ -139,6 +139,28 @@ export class AppStateManager {
     return this.workspaceLayout;
   }
 
+  public isSavingEnabled: boolean = true;
+  private autosaveTimeout: any = null;
+
+  triggerAutosave() {
+    if (!this.isSavingEnabled) return;
+    if (this.autosaveTimeout) {
+      clearTimeout(this.autosaveTimeout);
+    }
+    this.autosaveTimeout = setTimeout(async () => {
+      try {
+        const projectCopy = {
+          ...this.project,
+          imported_assets: this.assets.map(a => ({ id: a.id, path: a.path })),
+          imported_videos: this.assets.map(a => a.path),
+        };
+        await TauriService.saveAutosave(projectCopy);
+      } catch (e) {
+        console.error("Auto-save failed:", e);
+      }
+    }, 1000);
+  }
+
   saveLayout(layout: Partial<WorkspaceLayout>) {
     this.workspaceLayout = { ...this.workspaceLayout, ...layout };
     localStorage.setItem("clipmaker_workspace_layout", JSON.stringify(this.workspaceLayout));
@@ -153,5 +175,6 @@ export class AppStateManager {
     for (const callback of this.listeners) {
       callback();
     }
+    this.triggerAutosave();
   }
 }

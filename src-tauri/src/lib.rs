@@ -50,7 +50,9 @@ pub fn run() {
             commands::cancel_all_jobs,
             commands::get_jobs_list,
             commands::get_fonts_list,
-            commands::clear_cache
+            commands::clear_cache,
+            commands::save_autosave,
+            commands::load_autosave
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
