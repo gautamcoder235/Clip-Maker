@@ -1304,7 +1304,7 @@ function appendAssetCard(asset: ImportedAsset) {
   assetListContainer.appendChild(card);
 }
 
-function selectAsset(asset: ImportedAsset) {
+function selectAsset(asset: ImportedAsset, autoPlay = true) {
   currentSelectedAsset = asset;
   
   // Highlight active card
@@ -1363,7 +1363,11 @@ function selectAsset(asset: ImportedAsset) {
       canvasRenderer.setCurrentTime(trim.start);
     }
     
-    canvasRenderer.play();
+    if (autoPlay) {
+      canvasRenderer.play();
+    } else {
+      canvasRenderer.pause();
+    }
   } catch (e) {
     console.error("Direct video source loading failed:", e);
   }
@@ -2943,7 +2947,7 @@ async function tryLoadAutosave(): Promise<boolean> {
       stateManager.isSavingEnabled = true;
 
       if (stateManager.assets.length > 0) {
-        selectAsset(stateManager.assets[0]);
+        selectAsset(stateManager.assets[0], false);
         toggleDashboard(false);
         return true;
       }
