@@ -1334,7 +1334,7 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   height: 18px;
   width: 18px;
   border-radius: 4px;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 /* Fullscreen Startup Dashboard */
@@ -1392,7 +1392,7 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   height: 40px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .dashboard-brand .brand-title {
@@ -1865,7 +1865,7 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   z-index: 2;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .splash-logo-glow {
@@ -1879,7 +1879,7 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   opacity: 0.6;
   animation: splashGlow 2.5s infinite alternate ease-in-out;
   z-index: 1;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .splash-title {
