@@ -1185,6 +1185,14 @@ async function triggerImport() {
   try {
     const path = await invoke<string>("select_video_file");
     if (!path || path.trim() === "") return;
+
+    // Check if the file is already imported
+    const existingAsset = stateManager.assets.find(a => a.path === path);
+    if (existingAsset) {
+      showToast("This video is already imported!", "warning");
+      selectAsset(existingAsset);
+      return;
+    }
     
     showToast("Importing media file...", "success");
     const asset = await TauriService.importFile(path);
