@@ -1330,11 +1330,19 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
 }
 
 /* Custom Titlebar Logo Image Styling */
-.titlebar-logo .logo-img {
+.titlebar-logo .logo-img-container {
   height: 18px;
   width: 18px;
   border-radius: 4px;
-  object-fit: contain;
+  overflow: hidden;
+  position: relative;
+}
+
+.titlebar-logo .logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.22);
 }
 
 /* Fullscreen Startup Dashboard */
@@ -1387,12 +1395,20 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   margin-bottom: 36px;
 }
 
-.dashboard-brand .brand-logo {
+.dashboard-brand .brand-logo-container {
   width: 40px;
   height: 40px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  object-fit: contain;
+  overflow: hidden;
+  position: relative;
+}
+
+.dashboard-brand .brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.22);
 }
 
 .dashboard-brand .brand-title {
@@ -1856,16 +1872,18 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   height: 120px;
   margin-bottom: 24px;
   animation: splashScale 1.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
 }
 
 .splash-logo {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
   z-index: 2;
-  object-fit: contain;
+  object-fit: cover;
+  transform: scale(1.22);
 }
 
 .splash-logo-glow {
@@ -1874,12 +1892,12 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   left: 0;
   width: 100%;
   height: 100%;
-  border-radius: 18px;
   filter: blur(20px);
   opacity: 0.6;
   animation: splashGlow 2.5s infinite alternate ease-in-out;
   z-index: 1;
-  object-fit: contain;
+  object-fit: cover;
+  transform: scale(1.22);
 }
 
 .splash-title {
@@ -2337,6 +2355,17 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   z-index: 100;
   width: 32px;
   height: 100px;
+}
+
+/* Invisible bridge to prevent hover loss between button and popover */
+.trim-volume-popover::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  background: transparent;
 }
 
 .trim-volume-container:hover .trim-volume-popover {
