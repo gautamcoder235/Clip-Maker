@@ -123,7 +123,7 @@ export class DOMOverlay {
     let textY = 10;
     const partNum = project.selected_clip_index || 1;
     const rawTemplate = project.text_template || "PART {part}";
-    const txtVal = rawTemplate.replace(/{part}/g, partNum.toString());
+    const txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
     const txtFS = project.text_settings.font_size || 120;
     const txtFontFamily = project.text_settings.font_family || "Arial";
     // Measure at the actual rendered pixel size to avoid font hinting discrepancies
@@ -151,7 +151,7 @@ export class DOMOverlay {
     // Render Extra Overlays
     if (project.extra_overlays) {
       project.extra_overlays.forEach((overlay, idx) => {
-        const extraTxt = overlay.text || "Static Text";
+        const extraTxt = (overlay.text || "Static Text").trim();
         const extraFS = overlay.font_size || 80;
         const extraFontFamily = overlay.font_family || "Arial";
         // Measure at the actual rendered pixel size

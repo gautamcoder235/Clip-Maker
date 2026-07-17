@@ -133,9 +133,9 @@ impl ExportService {
 
         // Text Overlays
         let template_text = if config.text_mode == "Fixed Text" {
-            config.text_template.clone()
+            config.text_template.trim().to_string()
         } else {
-            config.text_template.replace("{part}", &clip_index.to_string())
+            config.text_template.replace("{part}", &clip_index.to_string()).trim().to_string()
         };
 
         let text_font = if !config.text_settings.font_family.is_empty() {
@@ -156,7 +156,7 @@ impl ExportService {
 
         // Extra Overlays
         for extra in &config.extra_overlays {
-            let extra_text = extra.text.replace("{part}", &clip_index.to_string());
+            let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
             let extra_font = if !extra.font_family.is_empty() {
                 Some(extra.font_family.as_str())
             } else {

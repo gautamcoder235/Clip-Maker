@@ -113,9 +113,9 @@ impl PreviewService {
 
         // Text Overlays (fixed or template replacement for start clip)
         let template_text = if config.text_mode == "Fixed Text" {
-            config.text_template.clone()
+            config.text_template.trim().to_string()
         } else {
-            config.text_template.replace("{part}", &config.start_clip.to_string())
+            config.text_template.replace("{part}", &config.start_clip.to_string()).trim().to_string()
         };
 
         let text_font = if !config.text_settings.font_family.is_empty() {
