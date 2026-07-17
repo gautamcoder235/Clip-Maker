@@ -83,6 +83,7 @@ export class AppStateManager {
       parallel_processing: true,
       parallel_workers: 2,
       text_settings: {
+        enabled: true,
         font_size: 120,
         font_color: "#ffffff",
         font_family: "Segoe UI",
@@ -131,7 +132,15 @@ export class AppStateManager {
   }
 
   updateProjectDirectly(newData: Partial<ProjectData>) {
-    this.project = { ...this.createDefaultProject(), ...newData };
+    const defaultProj = this.createDefaultProject();
+    this.project = {
+      ...defaultProj,
+      ...newData,
+      text_settings: {
+        ...defaultProj.text_settings,
+        ...(newData.text_settings || {})
+      }
+    };
     this.notifyListeners();
   }
 
