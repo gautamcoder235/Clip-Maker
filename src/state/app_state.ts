@@ -130,8 +130,8 @@ export class AppStateManager {
     this.history.push(new UpdateFieldCommand());
   }
 
-  updateProjectDirectly(newData: ProjectData) {
-    this.project = newData;
+  updateProjectDirectly(newData: Partial<ProjectData>) {
+    this.project = { ...this.createDefaultProject(), ...newData };
     this.notifyListeners();
   }
 
