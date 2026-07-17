@@ -195,6 +195,7 @@ body {
 .titlebar-control-btn {
   background: transparent;
   border: none;
+  outline: none;
   color: var(--text-secondary);
   width: 44px;
   height: 100%;
