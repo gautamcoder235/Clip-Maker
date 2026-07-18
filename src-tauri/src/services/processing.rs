@@ -33,6 +33,12 @@ impl ProcessingService {
     ) -> AppResult<()> {
         let args = builder.build();
 
+        // The last argument is always the output file path
+        let output_path = args.last().cloned().unwrap_or_default();
+
+        eprintln!("[ProcessingService] FFmpeg path: {}", self.ffmpeg_path);
+        eprintln!("[ProcessingService] FFmpeg args: {:?}", args);
+
         let mut cmd = Command::new(&self.ffmpeg_path);
         
         #[cfg(target_os = "windows")]
@@ -42,7 +48,9 @@ impl ProcessingService {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        let mut child = cmd.spawn()?;
+        let mut child = cmd.spawn().map_err(|e| {
+            AppError::FFmpeg(format!("Failed to start FFmpeg at '{}': {}", self.ffmpeg_path, e))
+        })?;
         let stderr = child.stderr.take().ok_or_else(|| {
             AppError::FFmpeg("Failed to capture FFmpeg stderr".to_string())
         })?;
@@ -55,6 +63,7 @@ impl ProcessingService {
 
         let reader = BufReader::new(stderr);
         let start_time = Instant::now();
+        let mut last_error_lines: Vec<String> = Vec::new();
 
         for line_result in reader.lines() {
             if cancel_flag.load(Ordering::SeqCst) {
@@ -64,6 +73,12 @@ impl ProcessingService {
             if let Ok(line) = line_result {
                 // Pipe low-level log lines to stdout/logs
                 let _ = self.app_handle.emit("ffmpeg-log", (job_id, line.clone()));
+
+                // Collect last error lines for diagnostics
+                last_error_lines.push(line.clone());
+                if last_error_lines.len() > 10 {
+                    last_error_lines.remove(0);
+                }
 
                 // Parse progress
                 // Line format typically contains: frame=  345 fps= 24 q=-1.0 Lsize=    1234kB time=00:00:14.34 bitrate= 703.1kbits/s speed=2.34x
@@ -120,17 +135,51 @@ impl ProcessingService {
             }
         }
 
-        // Wait for exit
+        // Wait for exit and check exit code
         job_manager.update_job_status(job_id, "Finalizing");
         
-        // We'll run a quick process status check by attempting to retrieve the process child from standard wait
-        // Wait, since complete_job cleans up the child from JobManager, we just call wait on the child if it wasn't cancelled
         if cancel_flag.load(Ordering::SeqCst) {
             return Err(AppError::Job("Render job cancelled".to_string()));
         }
 
-        job_manager.complete_job(job_id);
-        self.app_handle.emit("job-completed", job_id)?;
+        // Retrieve and wait on the child process to get the exit code
+        let exit_status = job_manager.wait_process(job_id);
+
+        match exit_status {
+            Some(Ok(status)) if status.success() => {
+                // Verify output file is non-empty
+                let output_ok = std::path::Path::new(&output_path)
+                    .metadata()
+                    .map(|m| m.len() > 0)
+                    .unwrap_or(false);
+                
+                if !output_ok {
+                    let err_context = last_error_lines.join("\n");
+                    let msg = format!("FFmpeg produced an empty output file.\nLast FFmpeg output:\n{}", err_context);
+                    job_manager.fail_job(job_id, &msg);
+                    return Err(AppError::FFmpeg(msg));
+                }
+
+                job_manager.complete_job(job_id);
+                self.app_handle.emit("job-completed", job_id)?;
+            }
+            Some(Ok(status)) => {
+                let err_context = last_error_lines.join("\n");
+                let msg = format!("FFmpeg exited with code: {}\n{}", status.code().unwrap_or(-1), err_context);
+                job_manager.fail_job(job_id, &msg);
+                return Err(AppError::FFmpeg(msg));
+            }
+            Some(Err(e)) => {
+                let msg = format!("Failed to wait on FFmpeg process: {}", e);
+                job_manager.fail_job(job_id, &msg);
+                return Err(AppError::FFmpeg(msg));
+            }
+            None => {
+                // Process was already consumed (e.g., cancelled)
+                job_manager.complete_job(job_id);
+                self.app_handle.emit("job-completed", job_id)?;
+            }
+        }
 
         Ok(())
     }

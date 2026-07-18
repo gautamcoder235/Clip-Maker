@@ -23,22 +23,15 @@ impl AppState {
         let app_dir = app_handle.path().app_data_dir()?;
         let workspace_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
-        // Resolve bundled binaries first, or fall back to system PATH
+        // Resolve bundled binaries: try executable's directory first (works in NSIS installs),
+        // then resource_dir (works in dev mode), then fall back to system PATH.
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.to_path_buf()));
         let resource_dir = app_handle.path().resource_dir().ok();
-        
-        let ffmpeg_path = resource_dir
-            .as_ref()
-            .map(|d| d.join("binaries/ffmpeg.exe"))
-            .filter(|p| p.exists())
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "ffmpeg".to_string());
 
-        let ffprobe_path = resource_dir
-            .as_ref()
-            .map(|d| d.join("binaries/ffprobe.exe"))
-            .filter(|p| p.exists())
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "ffprobe".to_string());
+        let ffmpeg_path = Self::resolve_binary("ffmpeg.exe", &exe_dir, &resource_dir);
+        let ffprobe_path = Self::resolve_binary("ffprobe.exe", &exe_dir, &resource_dir);
 
         let config_manager = ConfigManager::new(&app_dir);
         let cache_manager = CacheManager::new(&workspace_dir);
@@ -62,5 +55,30 @@ impl AppState {
             job_manager,
             fonts,
         })
+    }
+
+    /// Search for a binary in multiple candidate directories.
+    /// Priority: exe_dir/binaries/ → exe_dir/ → resource_dir/binaries/ → resource_dir/ → system PATH
+    fn resolve_binary(name: &str, exe_dir: &Option<PathBuf>, resource_dir: &Option<PathBuf>) -> String {
+        let candidates: Vec<PathBuf> = [
+            exe_dir.as_ref().map(|d| d.join("binaries").join(name)),
+            exe_dir.as_ref().map(|d| d.join(name)),
+            resource_dir.as_ref().map(|d| d.join("binaries").join(name)),
+            resource_dir.as_ref().map(|d| d.join(name)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        for candidate in &candidates {
+            if candidate.exists() {
+                eprintln!("[AppState] Resolved {} -> {}", name, candidate.display());
+                return candidate.to_string_lossy().to_string();
+            }
+        }
+
+        // Fall back to bare name (system PATH lookup)
+        eprintln!("[AppState] {} not found in bundled paths, falling back to system PATH", name);
+        name.replace(".exe", "").to_string()
     }
 }

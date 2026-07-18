@@ -127,6 +127,19 @@ impl JobManager {
         self.processes.lock().unwrap().remove(job_id);
     }
 
+    /// Take the child process out of the active map and wait for its exit status.
+    /// Returns None if the process was already consumed.
+    pub fn wait_process(&self, job_id: &str) -> Option<std::io::Result<std::process::ExitStatus>> {
+        let mut processes = self.processes.lock().unwrap();
+        if let Some(proc) = processes.get_mut(job_id) {
+            let mut guard = proc.child.lock().unwrap();
+            if let Some(mut child) = guard.take() {
+                return Some(child.wait());
+            }
+        }
+        None
+    }
+
     pub fn cancel_job(&self, job_id: &str) -> AppResult<()> {
         {
             let mut jobs = self.jobs.lock().unwrap();

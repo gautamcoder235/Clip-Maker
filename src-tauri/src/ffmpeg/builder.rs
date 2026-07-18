@@ -210,8 +210,8 @@ impl FFmpegBuilder {
         cmd.push("-hide_banner".to_string());
         cmd.push("-nostdin".to_string());
         cmd.push("-loglevel".to_string());
-        cmd.push("error".to_string());
-        cmd.push("-nostats".to_string());
+        cmd.push("warning".to_string());
+        cmd.push("-stats".to_string());
 
         // Fast seek input flags must come BEFORE -i
         if !ss_args.is_empty() {
