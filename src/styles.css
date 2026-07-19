@@ -575,8 +575,16 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.ratio-lock-btn:not(.active) .lock-shackle {
-  d: path("M8 11V7a4 4 0 0 1 8 0");
+.ratio-lock-btn .icon-link-unlocked {
+  display: none;
+}
+
+.ratio-lock-btn:not(.active) .icon-link-locked {
+  display: none;
+}
+
+.ratio-lock-btn:not(.active) .icon-link-unlocked {
+  display: block;
 }
 
 #btn-browse-media-path {
