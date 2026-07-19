@@ -35,6 +35,12 @@ export class TauriService {
     return invoke<string[]>("start_render_queue", { config, startClip, endClip });
   }
 
+  static async startBatchRenderQueue(
+    requests: { config: AppConfig; start_clip: number; end_clip: number }[]
+  ): Promise<string[]> {
+    return invoke<string[]>("start_batch_render_queue", { requests });
+  }
+
   static async cancelRenderJob(jobId: string): Promise<void> {
     return invoke("cancel_render_job", { jobId });
   }

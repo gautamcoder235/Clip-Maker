@@ -49,6 +49,7 @@ let propTextTemplate: HTMLInputElement;
 let propFontSize: HTMLInputElement;
 let propFontColor: HTMLInputElement;
 let propFontFamily: HTMLSelectElement;
+let propTextOutline: HTMLInputElement;
 let propGpuAccel: HTMLInputElement;
 let propIncludeAudio: HTMLInputElement;
 let propClipDuration: HTMLInputElement;
@@ -298,6 +299,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   propFontSize = document.querySelector("#prop-font-size")!;
   propFontColor = document.querySelector("#prop-font-color")!;
   propFontFamily = document.querySelector("#prop-font-family")!;
+  propTextOutline = document.querySelector("#prop-text-outline")!;
   propGpuAccel = document.querySelector("#prop-gpu-accel")!;
   propIncludeAudio = document.querySelector("#prop-include-audio")!;
   propClipDuration = document.querySelector("#prop-clip-duration")!;
@@ -591,7 +593,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Listen for clicks outside overlay boxes or the property panel to clear selection focus
   document.addEventListener("mousedown", (e) => {
     const target = e.target as HTMLElement;
-    if (!target.closest(".editor-interactive-box") && !target.closest("#right-panel") && !target.closest(".playback-controls")) {
+    if (!target.closest(".editor-interactive-box") && 
+        !target.closest("#right-panel") && 
+        !target.closest(".playback-controls") &&
+        !target.closest("#custom-color-picker-popover") &&
+        !target.closest(".font-picker-dropdown") &&
+        !target.closest(".context-menu")) {
       domOverlay.setFocusedElement(null);
     }
   });
@@ -672,6 +679,7 @@ function syncConfigToUi() {
   propTextTemplate.value = proj.text_template;
   propFontSize.value = proj.text_settings.font_size.toString();
   propFontColor.value = proj.text_settings.font_color;
+  propTextOutline.checked = proj.text_settings.outline ?? true;
   propFontFamily.value = proj.text_settings.font_family;
   propFontFamily.style.fontFamily = proj.text_settings.font_family;
   // Sync font picker display (without dispatching change to avoid infinite loop)
@@ -995,6 +1003,12 @@ function bindInputFields() {
     stateManager.updateProjectField("text_settings", textSettings);
   });
 
+  propTextOutline.addEventListener("change", () => {
+    const textSettings = { ...stateManager.project.text_settings, outline: propTextOutline.checked };
+    stateManager.updateProjectField("text_settings", textSettings);
+    refreshViewport();
+  });
+
   propFontFamily.addEventListener("change", () => {
     const textSettings = { ...stateManager.project.text_settings, font_family: propFontFamily.value };
     stateManager.updateProjectField("text_settings", textSettings);
@@ -1168,9 +1182,7 @@ function bindInputFields() {
       .map(id => {
         if (id.startsWith("extra-")) {
           const itemIdx = parseInt(id.split("-")[1]);
-          if (itemIdx > idx) {
-            return `extra-${itemIdx - 1}`;
-          }
+          return itemIdx > idx ? `extra-${itemIdx - 1}` : id;
         }
         return id;
       });
@@ -1179,8 +1191,38 @@ function bindInputFields() {
     stateManager.updateProjectField("overlay_order", newOrder);
     syncExtraOverlaysList();
     refreshViewport();
-    showToast("Deleted extra text overlay", "warning");
+    showToast("Removed extra text overlay", "warning");
   });
+
+  // Live updates for extra overlays
+  const updateActiveExtraOverlay = () => {
+    const idx = parseInt(listExtraOverlays.value);
+    if (isNaN(idx)) return;
+    const overlays = [...(stateManager.project.extra_overlays || [])];
+    if (overlays[idx]) {
+      overlays[idx].text = propExtraText.value || overlays[idx].text;
+      overlays[idx].font_size = parseInt(propExtraFontSize.value) || 80;
+      overlays[idx].font_color = propExtraFontColor.value;
+      overlays[idx].font_family = propExtraFontFamily.value;
+      overlays[idx].outline = propExtraOutline.checked;
+      stateManager.updateProjectField("extra_overlays", overlays);
+      
+      // Update select option text
+      const opt = listExtraOverlays.options[idx];
+      if (opt) {
+        const txtSnippet = overlays[idx].text.length > 15 ? overlays[idx].text.substring(0, 15) + "..." : overlays[idx].text;
+        opt.innerText = `${overlays[idx].name || `Overlay ${idx + 1}`} ("${txtSnippet}")`;
+      }
+      
+      refreshViewport();
+    }
+  };
+
+  propExtraText.addEventListener("input", updateActiveExtraOverlay);
+  propExtraFontSize.addEventListener("input", updateActiveExtraOverlay);
+  propExtraFontColor.addEventListener("input", updateActiveExtraOverlay);
+  propExtraFontFamily.addEventListener("change", updateActiveExtraOverlay);
+  propExtraOutline.addEventListener("change", updateActiveExtraOverlay);
 
   // Media Overlays
   listMediaOverlays.addEventListener("change", () => {
@@ -1294,9 +1336,18 @@ function bindInputFields() {
   });
 
   // Focus text overlay when interacting with text settings in inspector
-  const textInputs = [propTextTemplate, propFontSize, propFontColor, propFontFamily];
+  const textInputs = [propTextTemplate, propFontSize, propFontColor, propFontFamily, propTextOutline];
   textInputs.forEach(input => {
     input.addEventListener("focus", () => domOverlay.setFocusedElement("text"));
+  });
+
+  // Focus extra text overlay when interacting with extra text settings in inspector
+  const extraTextInputs = [propExtraText, propExtraFontSize, propExtraFontColor, propExtraFontFamily, propExtraOutline];
+  extraTextInputs.forEach(input => {
+    input.addEventListener("focus", () => {
+      const idx = parseInt(listExtraOverlays.value);
+      if (!isNaN(idx)) domOverlay.setFocusedElement(`extra-${idx}`);
+    });
   });
 
   // Focus extra text overlay on list item click
@@ -1733,6 +1784,7 @@ async function startBatchExport() {
     switchBottomTab("render");
 
     let totalJobsQueued = 0;
+    const batchRequests: { config: AppConfig; start_clip: number; end_clip: number }[] = [];
 
     for (const asset of assetsToExport) {
       if (!asset.metadata) continue;
@@ -1772,8 +1824,12 @@ async function startBatchExport() {
         if (settings.media_overlays) config.media_overlays = settings.media_overlays;
       }
 
-      const jobIds = await TauriService.startRenderQueue(config, startVal, endVal);
+      batchRequests.push({ config, start_clip: startVal, end_clip: endVal });
+    }
 
+    if (batchRequests.length > 0) {
+      const jobIds = await TauriService.startBatchRenderQueue(batchRequests);
+      
       // Populate active job cards
       jobIds.forEach(async (id) => {
         const job = await TauriService.getJobsList().then(list => list.find(j => j.id === id));

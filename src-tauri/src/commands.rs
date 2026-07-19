@@ -157,6 +157,88 @@ pub async fn start_render_queue(
     Ok(job_ids)
 }
 
+#[derive(serde::Deserialize, Clone)]
+pub struct BatchRenderRequest {
+    config: AppConfig,
+    start_clip: u32,
+    end_clip: u32,
+}
+
+#[tauri::command]
+pub async fn start_batch_render_queue(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    requests: Vec<BatchRenderRequest>,
+) -> AppResult<Vec<String>> {
+    let mut job_ids = Vec::new();
+    let export_service = ExportService::new(
+        app_handle.clone(),
+        &state.ffmpeg_path,
+    );
+
+    let mut jobs_to_run = Vec::new();
+
+    // Collect global max workers
+    let workers = requests.first().map(|r| r.config.parallel_workers.max(1) as usize).unwrap_or(1);
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(workers));
+
+    for req in requests {
+        let total_clips = if req.end_clip >= req.start_clip {
+            req.end_clip - req.start_clip + 1
+        } else {
+            1
+        };
+
+        for clip_idx in req.start_clip..=req.end_clip {
+            let job_name = format!("Render Clip {}", clip_idx);
+            
+            let job_id = state.job_manager.create_job(
+                &job_name,
+                if !req.config.input_paths.is_empty() { &req.config.input_paths[0] } else { &req.config.input_path },
+                &req.config.output_path,
+                clip_idx,
+                total_clips,
+                &state.ffmpeg_path,
+            );
+
+            job_ids.push(job_id.clone());
+            jobs_to_run.push((clip_idx, total_clips, job_id, req.config.clone()));
+        }
+    }
+
+    let export_service_arc = std::sync::Arc::new(export_service);
+    let jobs_manager = state.job_manager.clone();
+    let fonts_list = state.fonts.clone();
+    let app_handle_clone = app_handle.clone();
+
+    // Spawn a single orchestrator task to enforce strict numerical order
+    tokio::spawn(async move {
+        for (clip_idx, total_clips, j_id, cfg) in jobs_to_run {
+            // Strictly wait for an available worker slot before proceeding to next clip
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+            
+            let export = export_service_arc.clone();
+            let config_clone = cfg;
+            let jobs = jobs_manager.clone();
+            let j_id_clone = j_id.clone();
+            let app_handle_inner = app_handle_clone.clone();
+            let fonts = fonts_list.clone();
+            
+            tokio::spawn(async move {
+                let res: AppResult<()> = export.export_clip(&config_clone, clip_idx, total_clips, &j_id_clone, &jobs, &fonts);
+                if let Err(e) = res {
+                    jobs.fail_job(&j_id_clone, &e.to_string());
+                    let _ = app_handle_inner.emit("job-failed", (j_id_clone, e.to_string()));
+                }
+                // The permit drops here, releasing the slot for the orchestrator to spawn the next clip
+                drop(permit);
+            });
+        }
+    });
+
+    Ok(job_ids)
+}
+
 #[tauri::command]
 pub async fn cancel_render_job(
     app_handle: AppHandle,

@@ -46,6 +46,7 @@ pub fn run() {
             commands::import_file,
             commands::generate_preview_clip,
             commands::start_render_queue,
+            commands::start_batch_render_queue,
             commands::cancel_render_job,
             commands::cancel_all_jobs,
             commands::get_jobs_list,
