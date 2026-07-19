@@ -124,6 +124,8 @@ pub struct AppConfig {
     pub text_presets: Vec<TextPreset>,
     pub extra_overlays: Vec<ExtraOverlay>,
     pub media_overlays: Vec<MediaOverlay>,
+    #[serde(default)]
+    pub overlay_order: Option<Vec<String>>,
     pub include_audio: bool,
     pub parallel_processing: bool,
     pub parallel_workers: u32,
@@ -182,6 +184,7 @@ impl Default for AppConfig {
             text_presets: Vec::new(),
             extra_overlays: Vec::new(),
             media_overlays: Vec::new(),
+            overlay_order: Some(vec!["text".to_string()]),
             include_audio: true,
             parallel_processing: false,
             parallel_workers: 2,

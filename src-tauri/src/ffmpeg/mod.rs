@@ -11,5 +11,5 @@ pub use crop::CropFilter;
 pub use encoder::EncoderDetector;
 pub use filters::{ScaleFilter, CanvasPlacementFilter};
 pub use logger::FFmpegLogger;
-pub use overlay::{TextOverlayFilter, MediaOverlaySpec};
+pub use overlay::{TextOverlayFilter, MediaOverlaySpec, OverlayStep};
 pub use probe::{VideoProbe, VideoMetadata};

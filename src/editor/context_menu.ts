@@ -172,7 +172,7 @@ export class CanvasContextMenu {
 
       // bring to front ( ] ) / move forward ( Ctrl + ] )
       if (key === "]") {
-        if (focused && (focused.startsWith("extra-") || focused.startsWith("media-"))) {
+        if (focused && (focused === "text" || focused.startsWith("extra-") || focused.startsWith("media-"))) {
           e.preventDefault();
           if (ctrlKey) {
             this.reorderLayer(focused, "forward");
@@ -185,7 +185,7 @@ export class CanvasContextMenu {
 
       // send to back ( [ ) / move backward ( Ctrl + [ )
       if (key === "[") {
-        if (focused && (focused.startsWith("extra-") || focused.startsWith("media-"))) {
+        if (focused && (focused === "text" || focused.startsWith("extra-") || focused.startsWith("media-"))) {
           e.preventDefault();
           if (ctrlKey) {
             this.reorderLayer(focused, "backward");
@@ -314,6 +314,30 @@ export class CanvasContextMenu {
             label: "Edit Text Overlay",
             icon: ICONS.edit,
             action: () => this.actions.openTextEditModal("text"),
+          },
+          {
+            label: "Bring to Front",
+            icon: ICONS.up,
+            shortcut: "]",
+            action: () => this.reorderLayer(targetType, "front"),
+          },
+          {
+            label: "Send to Back",
+            icon: ICONS.down,
+            shortcut: "[",
+            action: () => this.reorderLayer(targetType, "back"),
+          },
+          {
+            label: "Move Forward",
+            icon: ICONS.forward,
+            shortcut: "Ctrl+]",
+            action: () => this.reorderLayer(targetType, "forward"),
+          },
+          {
+            label: "Move Backward",
+            icon: ICONS.backward,
+            shortcut: "Ctrl+[",
+            action: () => this.reorderLayer(targetType, "backward"),
           },
           {
             label: "Remove Primary Text",
@@ -612,7 +636,19 @@ export class CanvasContextMenu {
           x_position: newX.toString(),
           y_position: newY.toString(),
         });
+        
+        const order = [...this.stateManager.getNormalizedOverlayOrder()];
+        const originalId = `extra-${idx}`;
+        const duplicateId = `extra-${overlays.length - 1}`;
+        const targetIdx = order.indexOf(originalId);
+        if (targetIdx !== -1) {
+          order.splice(targetIdx + 1, 0, duplicateId);
+        } else {
+          order.push(duplicateId);
+        }
+        
         this.stateManager.updateProjectField("extra_overlays", overlays);
+        this.stateManager.updateProjectField("overlay_order", order);
         this.actions.syncExtraOverlaysList();
         this.actions.refreshViewport();
         this.actions.showToast("Duplicated extra overlay!", "success");
@@ -625,7 +661,23 @@ export class CanvasContextMenu {
       const idx = parseInt(type.split("-")[1]);
       const overlays = [...(this.stateManager.project.extra_overlays || [])];
       overlays.splice(idx, 1);
+      
+      const order = [...this.stateManager.getNormalizedOverlayOrder()];
+      const targetId = `extra-${idx}`;
+      const newOrder = order
+        .filter(id => id !== targetId)
+        .map(id => {
+          if (id.startsWith("extra-")) {
+            const itemIdx = parseInt(id.split("-")[1]);
+            if (itemIdx > idx) {
+              return `extra-${itemIdx - 1}`;
+            }
+          }
+          return id;
+        });
+      
       this.stateManager.updateProjectField("extra_overlays", overlays);
+      this.stateManager.updateProjectField("overlay_order", newOrder);
       this.domOverlay.setFocusedElement(null);
       this.actions.syncExtraOverlaysList();
       this.actions.refreshViewport();
@@ -634,7 +686,23 @@ export class CanvasContextMenu {
       const idx = parseInt(type.split("-")[1]);
       const overlays = [...(this.stateManager.project.media_overlays || [])];
       overlays.splice(idx, 1);
+      
+      const order = [...this.stateManager.getNormalizedOverlayOrder()];
+      const targetId = `media-${idx}`;
+      const newOrder = order
+        .filter(id => id !== targetId)
+        .map(id => {
+          if (id.startsWith("media-")) {
+            const itemIdx = parseInt(id.split("-")[1]);
+            if (itemIdx > idx) {
+              return `media-${itemIdx - 1}`;
+            }
+          }
+          return id;
+        });
+      
       this.stateManager.updateProjectField("media_overlays", overlays);
+      this.stateManager.updateProjectField("overlay_order", newOrder);
       this.domOverlay.setFocusedElement(null);
       this.actions.syncMediaOverlaysList();
       this.actions.refreshViewport();
@@ -643,59 +711,33 @@ export class CanvasContextMenu {
   }
 
   private reorderLayer(type: string, action: "front" | "back" | "forward" | "backward") {
-    if (type.startsWith("extra-")) {
-      const idx = parseInt(type.split("-")[1]);
-      const list = [...(this.stateManager.project.extra_overlays || [])];
-      if (list.length <= 1) return;
-      const [el] = list.splice(idx, 1);
-
-      if (action === "front") {
-        list.push(el);
-        this.domOverlay.setFocusedElement(`extra-${list.length - 1}`);
-      } else if (action === "back") {
-        list.unshift(el);
-        this.domOverlay.setFocusedElement("extra-0");
-      } else if (action === "forward") {
-        const newIdx = Math.min(idx + 1, list.length);
-        list.splice(newIdx, 0, el);
-        this.domOverlay.setFocusedElement(`extra-${newIdx}`);
-      } else if (action === "backward") {
-        const newIdx = Math.max(idx - 1, 0);
-        list.splice(newIdx, 0, el);
-        this.domOverlay.setFocusedElement(`extra-${newIdx}`);
-      }
-
-      this.stateManager.updateProjectField("extra_overlays", list);
-      this.actions.syncExtraOverlaysList();
-      this.actions.refreshViewport();
-      this.actions.showToast("Reordered text overlay layers", "success");
-    } else if (type.startsWith("media-")) {
-      const idx = parseInt(type.split("-")[1]);
-      const list = [...(this.stateManager.project.media_overlays || [])];
-      if (list.length <= 1) return;
-      const [el] = list.splice(idx, 1);
-
-      if (action === "front") {
-        list.push(el);
-        this.domOverlay.setFocusedElement(`media-${list.length - 1}`);
-      } else if (action === "back") {
-        list.unshift(el);
-        this.domOverlay.setFocusedElement("media-0");
-      } else if (action === "forward") {
-        const newIdx = Math.min(idx + 1, list.length);
-        list.splice(newIdx, 0, el);
-        this.domOverlay.setFocusedElement(`media-${newIdx}`);
-      } else if (action === "backward") {
-        const newIdx = Math.max(idx - 1, 0);
-        list.splice(newIdx, 0, el);
-        this.domOverlay.setFocusedElement(`media-${newIdx}`);
-      }
-
-      this.stateManager.updateProjectField("media_overlays", list);
-      this.actions.syncMediaOverlaysList();
-      this.actions.refreshViewport();
-      this.actions.showToast("Reordered media overlay layers", "success");
+    const order = [...this.stateManager.getNormalizedOverlayOrder()];
+    if (order.length <= 1) return;
+    
+    const idx = order.indexOf(type);
+    if (idx === -1) return;
+    
+    order.splice(idx, 1);
+    
+    let newIdx = idx;
+    if (action === "front") {
+      order.push(type);
+      newIdx = order.length - 1;
+    } else if (action === "back") {
+      order.unshift(type);
+      newIdx = 0;
+    } else if (action === "forward") {
+      newIdx = Math.min(idx + 1, order.length);
+      order.splice(newIdx, 0, type);
+    } else if (action === "backward") {
+      newIdx = Math.max(idx - 1, 0);
+      order.splice(newIdx, 0, type);
     }
+    
+    this.stateManager.updateProjectField("overlay_order", order);
+    this.domOverlay.setFocusedElement(type);
+    this.actions.refreshViewport();
+    this.actions.showToast("Reordered layers", "success");
   }
 
   private fitVideo() {

@@ -123,56 +123,101 @@ impl ExportService {
             builder.scale_to(res.0, res.1, true);
         }
 
-        // Media Overlays
-        for overlay in &config.media_overlays {
-            if overlay.enabled {
-                let spec = MediaOverlaySpec::from_config(overlay, 0.0);
-                builder.add_media_overlay(spec);
-            }
-        }
-
-        // Text Overlays
+        // Resolve template text first
         let template_text = if config.text_mode == "Fixed Text" {
             config.text_template.trim().to_string()
         } else {
             config.text_template.replace("{part}", &clip_index.to_string()).trim().to_string()
         };
 
-        let text_font = if !config.text_settings.font_family.is_empty() {
-            Some(config.text_settings.font_family.as_str())
-        } else {
-            None
-        };
-
+        // Determine overlay application order (normalized)
+        let mut order = Vec::new();
+        if let Some(ref o) = config.overlay_order {
+            order = o.clone();
+        }
+        
+        let mut existing = std::collections::HashSet::new();
         if config.text_settings.enabled {
-            builder.overlay_text(
-                &template_text,
-                config.text_settings.font_size,
-                &config.text_settings.font_color,
-                text_font,
-                &config.text_settings.x_position,
-                &config.text_settings.y_position,
-                config.text_settings.outline,
-            );
+            existing.insert("text".to_string());
+        }
+        for i in 0..config.extra_overlays.len() {
+            existing.insert(format!("extra-{}", i));
+        }
+        for i in 0..config.media_overlays.len() {
+            existing.insert(format!("media-{}", i));
+        }
+        
+        let mut normalized_order: Vec<String> = order
+            .into_iter()
+            .filter(|id| existing.contains(id))
+            .collect();
+            
+        // Append missing elements in default order
+        for i in 0..config.media_overlays.len() {
+            let id = format!("media-{}", i);
+            if !normalized_order.contains(&id) && existing.contains(&id) {
+                normalized_order.push(id);
+            }
+        }
+        if !normalized_order.contains(&"text".to_string()) && existing.contains("text") {
+            normalized_order.push("text".to_string());
+        }
+        for i in 0..config.extra_overlays.len() {
+            let id = format!("extra-{}", i);
+            if !normalized_order.contains(&id) && existing.contains(&id) {
+                normalized_order.push(id);
+            }
         }
 
-        // Extra Overlays
-        for extra in &config.extra_overlays {
-            let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
-            let extra_font = if !extra.font_family.is_empty() {
-                Some(extra.font_family.as_str())
-            } else {
-                None
-            };
-            builder.overlay_text(
-                &extra_text,
-                extra.font_size,
-                &extra.font_color,
-                extra_font,
-                &extra.x_position,
-                &extra.y_position,
-                extra.outline,
-            );
+        // Apply overlays in order to builder
+        for id in &normalized_order {
+            if id == "text" {
+                if config.text_settings.enabled {
+                    let text_font = if !config.text_settings.font_family.is_empty() {
+                        Some(config.text_settings.font_family.as_str())
+                    } else {
+                        None
+                    };
+                    builder.overlay_text(
+                        &template_text,
+                        config.text_settings.font_size,
+                        &config.text_settings.font_color,
+                        text_font,
+                        &config.text_settings.x_position,
+                        &config.text_settings.y_position,
+                        config.text_settings.outline,
+                    );
+                }
+            } else if id.starts_with("extra-") {
+                if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
+                    if let Some(extra) = config.extra_overlays.get(idx) {
+                        let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
+                        let extra_font = if !extra.font_family.is_empty() {
+                            Some(extra.font_family.as_str())
+                        } else {
+                            None
+                        };
+                        builder.overlay_text(
+                            &extra_text,
+                            extra.font_size,
+                            &extra.font_color,
+                            extra_font,
+                            &extra.x_position,
+                            &extra.y_position,
+                            extra.outline,
+                        );
+                    }
+                }
+            } else if id.starts_with("media-") {
+                if let Ok(idx) = id.replace("media-", "").parse::<usize>() {
+                    if let Some(overlay) = config.media_overlays.get(idx) {
+                        if overlay.enabled {
+                            let spec = MediaOverlaySpec::from_config(overlay, 0.0);
+                            builder.add_media_overlay(spec);
+                        }
+                    }
+                }
+            }
         }
 
         // Resolve GPU encoder
@@ -233,41 +278,55 @@ impl ExportService {
                     retry_builder.scale_to(res.0, res.1, true);
                 }
 
-                for overlay in &config.media_overlays {
-                    if overlay.enabled {
-                        let spec = MediaOverlaySpec::from_config(overlay, 0.0);
-                        retry_builder.add_media_overlay(spec);
+                // Apply overlays in order to retry_builder
+                for id in &normalized_order {
+                    if id == "text" {
+                        if config.text_settings.enabled {
+                            let text_font = if !config.text_settings.font_family.is_empty() {
+                                Some(config.text_settings.font_family.as_str())
+                            } else {
+                                None
+                            };
+                            retry_builder.overlay_text(
+                                &template_text,
+                                config.text_settings.font_size,
+                                &config.text_settings.font_color,
+                                text_font,
+                                &config.text_settings.x_position,
+                                &config.text_settings.y_position,
+                                config.text_settings.outline,
+                            );
+                        }
+                    } else if id.starts_with("extra-") {
+                        if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
+                            if let Some(extra) = config.extra_overlays.get(idx) {
+                                let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
+                                let extra_font = if !extra.font_family.is_empty() {
+                                    Some(extra.font_family.as_str())
+                                } else {
+                                    None
+                                };
+                                retry_builder.overlay_text(
+                                    &extra_text,
+                                    extra.font_size,
+                                    &extra.font_color,
+                                    extra_font,
+                                    &extra.x_position,
+                                    &extra.y_position,
+                                    extra.outline,
+                                );
+                            }
+                        }
+                    } else if id.starts_with("media-") {
+                        if let Ok(idx) = id.replace("media-", "").parse::<usize>() {
+                            if let Some(overlay) = config.media_overlays.get(idx) {
+                                if overlay.enabled {
+                                    let spec = MediaOverlaySpec::from_config(overlay, 0.0);
+                                    retry_builder.add_media_overlay(spec);
+                                }
+                            }
+                        }
                     }
-                }
-
-                if config.text_settings.enabled {
-                    retry_builder.overlay_text(
-                        &template_text,
-                        config.text_settings.font_size,
-                        &config.text_settings.font_color,
-                        text_font,
-                        &config.text_settings.x_position,
-                        &config.text_settings.y_position,
-                        config.text_settings.outline,
-                    );
-                }
-
-                for extra in &config.extra_overlays {
-                    let extra_text = extra.text.replace("{part}", &clip_index.to_string());
-                    let extra_font = if !extra.font_family.is_empty() {
-                        Some(extra.font_family.as_str())
-                    } else {
-                        None
-                    };
-                    retry_builder.overlay_text(
-                        &extra_text,
-                        extra.font_size,
-                        &extra.font_color,
-                        extra_font,
-                        &extra.x_position,
-                        &extra.y_position,
-                        extra.outline,
-                    );
                 }
 
                 retry_builder.encode(

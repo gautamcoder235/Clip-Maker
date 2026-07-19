@@ -79,6 +79,7 @@ export class AppStateManager {
       text_presets: [],
       extra_overlays: [],
       media_overlays: [],
+      overlay_order: ["text"],
       include_audio: true,
       parallel_processing: true,
       parallel_workers: 2,
@@ -110,6 +111,56 @@ export class AppStateManager {
     } catch (e) {
       console.error("Failed to initialize AppStateManager:", e);
     }
+  }
+
+  getNormalizedOverlayOrder(): string[] {
+    const proj = this.project;
+    const order = proj.overlay_order || [];
+    
+    // Build a list of all currently active/existing layer IDs
+    const existing = new Set<string>();
+    if (proj.text_settings && proj.text_settings.enabled !== false) {
+      existing.add("text");
+    }
+    
+    const extraCount = proj.extra_overlays ? proj.extra_overlays.length : 0;
+    for (let i = 0; i < extraCount; i++) {
+      existing.add(`extra-${i}`);
+    }
+    
+    const mediaCount = proj.media_overlays ? proj.media_overlays.length : 0;
+    for (let i = 0; i < mediaCount; i++) {
+      existing.add(`media-${i}`);
+    }
+    
+    // Filter overlay_order to keep only existing elements
+    const result = order.filter(id => existing.has(id));
+    
+    // Add any existing elements that are missing from overlay_order
+    // (default ordering: media first, then text, then extras)
+    const missing: string[] = [];
+    
+    const mediaList = proj.media_overlays || [];
+    mediaList.forEach((_, i) => {
+      const id = `media-${i}`;
+      if (!result.includes(id) && existing.has(id)) {
+        missing.push(id);
+      }
+    });
+    
+    if (!result.includes("text") && existing.has("text")) {
+      missing.push("text");
+    }
+    
+    const extraList = proj.extra_overlays || [];
+    extraList.forEach((_, i) => {
+      const id = `extra-${i}`;
+      if (!result.includes(id) && existing.has(id)) {
+        missing.push(id);
+      }
+    });
+    
+    return [...result, ...missing];
   }
 
   updateProjectField<K extends keyof ProjectData>(key: K, value: ProjectData[K]) {

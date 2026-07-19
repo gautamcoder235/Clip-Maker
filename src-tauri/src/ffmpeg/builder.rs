@@ -1,12 +1,12 @@
 use crate::ffmpeg::crop::CropFilter;
 use crate::ffmpeg::filters::{ScaleFilter, CanvasPlacementFilter};
-use crate::ffmpeg::overlay::{TextOverlayFilter, MediaOverlaySpec};
+use crate::ffmpeg::overlay::{TextOverlayFilter, MediaOverlaySpec, OverlayStep};
 use crate::ffmpeg::encoder::EncoderDetector;
 
 pub struct FFmpegBuilder {
     inputs: Vec<String>,
     video_filters: Vec<String>,
-    text_filters: Vec<String>,
+    overlays: Vec<OverlayStep>,
     output_path: String,
     
     // Canvas placement background
@@ -18,8 +18,7 @@ pub struct FFmpegBuilder {
     background_image_position: Option<(i32, i32)>,
     background_image_size: Option<(u32, u32)>,
 
-    // Media overlays
-    media_overlays: Vec<MediaOverlaySpec>,
+    // Media overlays extra inputs
     extra_inputs: Vec<String>,
     extra_inputs_added: bool,
 
@@ -44,7 +43,7 @@ impl FFmpegBuilder {
         FFmpegBuilder {
             inputs: Vec::new(),
             video_filters: Vec::new(),
-            text_filters: Vec::new(),
+            overlays: Vec::new(),
             output_path: String::new(),
             background_canvas: None,
             overlay_position: None,
@@ -53,7 +52,6 @@ impl FFmpegBuilder {
             background_image_path: None,
             background_image_position: None,
             background_image_size: None,
-            media_overlays: Vec::new(),
             extra_inputs: Vec::new(),
             extra_inputs_added: false,
             start_time: None,
@@ -139,7 +137,7 @@ impl FFmpegBuilder {
     }
 
     pub fn add_media_overlay(&mut self, spec: MediaOverlaySpec) -> &mut Self {
-        self.media_overlays.push(spec);
+        self.overlays.push(OverlayStep::Media(spec));
         self
     }
 
@@ -153,8 +151,15 @@ impl FFmpegBuilder {
         y: &str,
         outline: bool,
     ) -> &mut Self {
-        let filter = TextOverlayFilter::build(text, font_size, font_color, font_file, x, y, outline);
-        self.text_filters.push(filter);
+        self.overlays.push(OverlayStep::Text {
+            text: text.to_string(),
+            font_size,
+            font_color: font_color.to_string(),
+            font_file: font_file.map(|s| s.to_string()),
+            x: x.to_string(),
+            y: y.to_string(),
+            outline,
+        });
         self
     }
 
@@ -240,7 +245,7 @@ impl FFmpegBuilder {
 
         // 2. Filter Graph Construction
         let has_canvas = self.background_canvas.is_some() && self.overlay_position.is_some();
-        let filter_args = if has_canvas || !self.media_overlays.is_empty() {
+        let filter_args = if has_canvas || !self.overlays.is_empty() {
             self.build_complex_filter()
         } else {
             self.build_simple_filter()
@@ -288,8 +293,7 @@ impl FFmpegBuilder {
     }
 
     fn build_simple_filter(&self) -> Vec<String> {
-        let mut combined = self.video_filters.clone();
-        combined.extend(self.text_filters.clone());
+        let combined = self.video_filters.clone();
 
         if !combined.is_empty() {
             vec!["-vf".to_string(), combined.join(",")]
@@ -355,93 +359,106 @@ impl FFmpegBuilder {
         }
 
         let mut overlay_count = 0;
-        for overlay in &self.media_overlays {
+        for step in &self.overlays {
             overlay_count += 1;
-            let overlay_index = input_index;
-            input_index += 1;
-
-            let loop_mode = overlay.loop_mode.trim().to_lowercase();
-            if overlay.r#type == "image" {
-                extra_inputs.push("-loop".to_string());
-                extra_inputs.push("1".to_string());
-                extra_inputs.push("-framerate".to_string());
-                extra_inputs.push("30".to_string());
-                extra_inputs.push("-i".to_string());
-                extra_inputs.push(overlay.path.clone());
-            } else {
-                if loop_mode == "repeat" {
-                    extra_inputs.push("-stream_loop".to_string());
-                    extra_inputs.push("-1".to_string());
-                }
-                extra_inputs.push("-i".to_string());
-                extra_inputs.push(overlay.path.clone());
-            }
-
-            let mut filters = Vec::new();
-            if overlay.r#type == "image" {
-                filters.push("format=rgba".to_string());
-            }
-            if overlay.chroma_key {
-                let norm_color = Self::normalize_color(&overlay.chroma_color);
-                filters.push("format=rgba".to_string());
-                filters.push(format!(
-                    "chromakey={}:{:.3}:{:.3}",
-                    norm_color, overlay.chroma_similarity, overlay.chroma_blend
-                ));
-                filters.push("format=rgba".to_string());
-            }
-
-            if overlay.width > 0 && overlay.height > 0 {
-                filters.push(format!("scale={}:{}", overlay.width, overlay.height));
-            } else {
-                filters.push("scale=iw:ih".to_string());
-            }
-
-            let scale_filter = filters.join(",");
-            let overlay_label = format!("ov{}", overlay_count);
-            
-            let setpts_expr = if overlay.r#type == "video" && overlay.start_offset_seconds > 0.0 {
-                format!("setpts=PTS-STARTPTS+{:.6}/TB", overlay.start_offset_seconds)
-            } else {
-                "setpts=PTS-STARTPTS".to_string()
-            };
-
-            chains.push(format!(
-                "[{}:v]{},{}[{}]",
-                overlay_index, scale_filter, setpts_expr, overlay_label
-            ));
-
             let next_label = format!("base{}", overlay_count);
-            let eof_action = if loop_mode == "stop" { "pass" } else { "repeat" };
-            let shortest_opt = if overlay.r#type == "image" || loop_mode == "repeat" {
-                ":shortest=1"
-            } else {
-                ""
-            };
 
-            chains.push(format!(
-                "[{}][{}]overlay={}:{}:format=auto:eof_action={}{}[{}]",
-                base_label, overlay_label, overlay.x, overlay.y, eof_action, shortest_opt, next_label
-            ));
+            match step {
+                OverlayStep::Media(overlay) => {
+                    let overlay_index = input_index;
+                    input_index += 1;
+
+                    let loop_mode = overlay.loop_mode.trim().to_lowercase();
+                    if overlay.r#type == "image" {
+                        extra_inputs.push("-loop".to_string());
+                        extra_inputs.push("1".to_string());
+                        extra_inputs.push("-framerate".to_string());
+                        extra_inputs.push("30".to_string());
+                        extra_inputs.push("-i".to_string());
+                        extra_inputs.push(overlay.path.clone());
+                    } else {
+                        if loop_mode == "repeat" {
+                            extra_inputs.push("-stream_loop".to_string());
+                            extra_inputs.push("-1".to_string());
+                        }
+                        extra_inputs.push("-i".to_string());
+                        extra_inputs.push(overlay.path.clone());
+                    }
+
+                    let mut filters = Vec::new();
+                    if overlay.r#type == "image" {
+                        filters.push("format=rgba".to_string());
+                    }
+                    if overlay.chroma_key {
+                        let norm_color = Self::normalize_color(&overlay.chroma_color);
+                        filters.push("format=rgba".to_string());
+                        filters.push(format!(
+                            "chromakey={}:{:.3}:{:.3}",
+                            norm_color, overlay.chroma_similarity, overlay.chroma_blend
+                        ));
+                        filters.push("format=rgba".to_string());
+                    }
+
+                    if overlay.width > 0 && overlay.height > 0 {
+                        filters.push(format!("scale={}:{}", overlay.width, overlay.height));
+                    } else {
+                        filters.push("scale=iw:ih".to_string());
+                    }
+
+                    let scale_filter = filters.join(",");
+                    let overlay_label = format!("ov{}", overlay_count);
+                    
+                    let setpts_expr = if overlay.r#type == "video" && overlay.start_offset_seconds > 0.0 {
+                        format!("setpts=PTS-STARTPTS+{:.6}/TB", overlay.start_offset_seconds)
+                    } else {
+                        "setpts=PTS-STARTPTS".to_string()
+                    };
+
+                    chains.push(format!(
+                        "[{}:v]{},{}[{}]",
+                        overlay_index, scale_filter, setpts_expr, overlay_label
+                    ));
+
+                    let eof_action = if loop_mode == "stop" { "pass" } else { "repeat" };
+                    let shortest_opt = if overlay.r#type == "image" || loop_mode == "repeat" {
+                        ":shortest=1"
+                    } else {
+                        ""
+                    };
+
+                    chains.push(format!(
+                        "[{}][{}]overlay={}:{}:format=auto:eof_action={}{}[{}]",
+                        base_label, overlay_label, overlay.x, overlay.y, eof_action, shortest_opt, next_label
+                    ));
+                }
+                OverlayStep::Text { text, font_size, font_color, font_file, x, y, outline } => {
+                    let drawtext_filter = TextOverlayFilter::build(
+                        text,
+                        *font_size,
+                        font_color,
+                        font_file.as_deref(),
+                        x,
+                        y,
+                        *outline,
+                    );
+                    chains.push(format!(
+                        "[{}]{}[{}]",
+                        base_label, drawtext_filter, next_label
+                    ));
+                }
+            }
+
             base_label = next_label;
         }
 
         // Inject extra inputs into the main builder command vector
         if !self.extra_inputs_added && !extra_inputs.is_empty() {
             if !self.inputs.is_empty() {
-                // Insert after the first input file arguments (which are -i inputs[0])
-                // Or just insert immediately after the first -i
-                // We'll write them in our `build()` method directly, but we can store them here
                 self.extra_inputs = extra_inputs;
             }
         }
 
-        let mut output_label = base_label;
-        if !self.text_filters.is_empty() {
-            let text_chain = format!("[{}]{}[out]", output_label, self.text_filters.join(","));
-            chains.push(text_chain);
-            output_label = "out".to_string();
-        }
+        let output_label = base_label;
 
         let complex_filter = chains.join(";");
         let mut filter_args = vec![

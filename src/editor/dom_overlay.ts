@@ -28,6 +28,8 @@ export class DOMOverlay {
   private resizeHandle: string | null = null; // "tl", "tr", "bl", "br"
   private focusedElement: string | null = null; // track active selection focus
 
+  public ratioLocked = true;
+
   private dragStartX = 0;
   private dragStartY = 0;
   private elementStartX = 0;
@@ -74,6 +76,7 @@ export class DOMOverlay {
     span.style.position = "absolute";
     span.style.visibility = "hidden";
     span.style.pointerEvents = "none";
+    span.style.lineHeight = "1";
     span.innerText = text;
     
     document.body.appendChild(span);
@@ -251,13 +254,33 @@ export class DOMOverlay {
           this.activeOverlayImages[idx] = img;
         }
 
-        this.overlayContainer.appendChild(box);
         this.mediaBoxes.push(box);
       });
-
-      // Start the live sync loop
-      this.startSyncLoop();
     }
+
+    // Re-append elements in the correct z-order sequence
+    // Video is always at the bottom
+    if (this.videoBox) {
+      this.overlayContainer.appendChild(this.videoBox);
+    }
+
+    const order = this.stateManager.getNormalizedOverlayOrder();
+    order.forEach(id => {
+      if (id === "text") {
+        if (this.textBox) this.overlayContainer.appendChild(this.textBox);
+      } else if (id.startsWith("extra-")) {
+        const idx = parseInt(id.split("-")[1]);
+        const box = this.extraBoxes[idx];
+        if (box) this.overlayContainer.appendChild(box);
+      } else if (id.startsWith("media-")) {
+        const idx = parseInt(id.split("-")[1]);
+        const box = this.mediaBoxes[idx];
+        if (box) this.overlayContainer.appendChild(box);
+      }
+    });
+
+    // Start the live sync loop
+    this.startSyncLoop();
   }
 
   private createInteractiveBox(
@@ -286,7 +309,7 @@ export class DOMOverlay {
     box.style.cursor = "move";
     box.style.pointerEvents = "auto";
     box.style.zIndex = type === "video" ? "5" : "10";
-    box.style.overflow = "hidden";
+    box.style.overflow = (type === "text" || type.startsWith("extra-")) ? "visible" : "hidden";
 
     // Render visible text content inside the box for text overlays
     if (type === "text" || type.startsWith("extra-")) {
@@ -601,18 +624,15 @@ export class DOMOverlay {
         let newX = this.elementStartX;
         let newY = this.elementStartY;
 
-        let isProportional = false;
+        let isProportional = this.ratioLocked || (this.activeElement === "text" || (this.activeElement !== null && this.activeElement.startsWith("extra-")));
         let startRatio = 1.0;
 
-        if (this.activeElement && (this.activeElement === "text" || this.activeElement.startsWith("extra-"))) {
-          isProportional = true;
-          startRatio = this.elementStartW / this.elementStartH;
-        } else if (this.activeElement === "video") {
-          // Lock video placement resize to the original loaded video's aspect ratio
-          const video = document.querySelector(".preview-video-element") as HTMLVideoElement | null;
-          if (video && video.videoWidth > 0 && video.videoHeight > 0) {
-            isProportional = true;
-            startRatio = video.videoWidth / video.videoHeight;
+        if (this.activeElement) {
+          const naturalRatio = this.getNaturalRatio(this.activeElement);
+          if (naturalRatio !== null) {
+            startRatio = naturalRatio;
+          } else {
+            startRatio = this.elementStartW / this.elementStartH;
           }
         }
 
@@ -984,6 +1004,54 @@ export class DOMOverlay {
       }
     });
     this.onLayoutChangeCallback();
+  }
+
+  getNaturalRatio(type: string): number | null {
+    if (type === "video") {
+      const video = document.querySelector(".preview-video-element") as HTMLVideoElement | null;
+      if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+        return video.videoWidth / video.videoHeight;
+      }
+    } else if (type === "text") {
+      const partNum = this.stateManager.project.selected_clip_index || 1;
+      const rawTemplate = this.stateManager.project.text_template || "PART {part}";
+      const txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
+      const txtFS = this.stateManager.project.text_settings.font_size || 120;
+      const txtFontFamily = this.stateManager.project.text_settings.font_family || "Arial";
+      const metrics = this.measureText(txtVal, txtFS, txtFontFamily);
+      if (metrics.width > 0 && metrics.height > 0) {
+        return metrics.width / metrics.height;
+      }
+    } else if (type.startsWith("extra-")) {
+      const idx = parseInt(type.split("-")[1]);
+      const overlay = (this.stateManager.project.extra_overlays || [])[idx];
+      if (overlay) {
+        const extraTxt = (overlay.text || "Static Text").trim();
+        const extraFS = overlay.font_size || 80;
+        const extraFontFamily = overlay.font_family || "Arial";
+        const metrics = this.measureText(extraTxt, extraFS, extraFontFamily);
+        if (metrics.width > 0 && metrics.height > 0) {
+          return metrics.width / metrics.height;
+        }
+      }
+    } else if (type.startsWith("media-")) {
+      const idx = parseInt(type.split("-")[1]);
+      const overlay = (this.stateManager.project.media_overlays || [])[idx];
+      if (overlay) {
+        if (overlay.type === "video") {
+          const video = this.activeOverlayVideos[idx];
+          if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+            return video.videoWidth / video.videoHeight;
+          }
+        } else {
+          const img = this.activeOverlayImages[idx];
+          if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+            return img.naturalWidth / img.naturalHeight;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   getFocusedElementBounds(): { x: number; y: number; width: number; height: number } | null {

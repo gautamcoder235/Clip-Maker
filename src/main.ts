@@ -879,17 +879,41 @@ function bindInputFields() {
   // Ratio lock toggle
   btnRatioLock.addEventListener("click", () => {
     ratioLocked = !ratioLocked;
+    domOverlay.ratioLocked = ratioLocked;
     btnRatioLock.classList.toggle("active", ratioLocked);
     btnRatioLock.title = ratioLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
+
+    if (ratioLocked) {
+      const focused = domOverlay.getFocusedElement() || "video";
+      const ratio = domOverlay.getNaturalRatio(focused);
+      if (ratio !== null && ratio > 0) {
+        if (focused === "video") {
+          const p = stateManager.project.video_placement;
+          const newH = Math.round(p.width / ratio);
+          propPlacementH.value = newH.toString();
+          const placement = { ...p, height: newH };
+          stateManager.updateProjectField("video_placement", placement);
+        } else {
+          const bounds = domOverlay.getFocusedElementBounds();
+          if (bounds) {
+            const newH = Math.round(bounds.width / ratio);
+            propPlacementH.value = newH.toString();
+            domOverlay.updateFocusedElementBounds({ width: bounds.width, height: newH });
+          }
+        }
+        refreshViewport();
+      }
+    }
   });
 
   propPlacementW.addEventListener("change", () => {
     const val = parseInt(propPlacementW.value) || 1080;
-    if (domOverlay.getFocusedElement()) {
+    const focused = domOverlay.getFocusedElement();
+    if (focused) {
       const bounds = domOverlay.getFocusedElementBounds();
       if (ratioLocked && bounds && bounds.width > 0) {
-        const ratio = bounds.height / bounds.width;
-        const newH = Math.round(val * ratio);
+        const ratio = domOverlay.getNaturalRatio(focused) || (bounds.width / bounds.height);
+        const newH = Math.round(val / ratio);
         propPlacementH.value = newH.toString();
         domOverlay.updateFocusedElementBounds({ width: val, height: newH });
       } else {
@@ -898,8 +922,8 @@ function bindInputFields() {
     } else {
       const p = stateManager.project.video_placement;
       if (ratioLocked && p.width > 0) {
-        const ratio = p.height / p.width;
-        const newH = Math.round(val * ratio);
+        const ratio = domOverlay.getNaturalRatio("video") || (p.width / p.height);
+        const newH = Math.round(val / ratio);
         propPlacementH.value = newH.toString();
         const placement = { ...p, width: val, height: newH };
         stateManager.updateProjectField("video_placement", placement);
@@ -911,10 +935,11 @@ function bindInputFields() {
   });
   propPlacementH.addEventListener("change", () => {
     const val = parseInt(propPlacementH.value) || 1920;
-    if (domOverlay.getFocusedElement()) {
+    const focused = domOverlay.getFocusedElement();
+    if (focused) {
       const bounds = domOverlay.getFocusedElementBounds();
       if (ratioLocked && bounds && bounds.height > 0) {
-        const ratio = bounds.width / bounds.height;
+        const ratio = domOverlay.getNaturalRatio(focused) || (bounds.width / bounds.height);
         const newW = Math.round(val * ratio);
         propPlacementW.value = newW.toString();
         domOverlay.updateFocusedElementBounds({ width: newW, height: val });
@@ -924,7 +949,7 @@ function bindInputFields() {
     } else {
       const p = stateManager.project.video_placement;
       if (ratioLocked && p.height > 0) {
-        const ratio = p.width / p.height;
+        const ratio = domOverlay.getNaturalRatio("video") || (p.width / p.height);
         const newW = Math.round(val * ratio);
         propPlacementW.value = newW.toString();
         const placement = { ...p, width: newW, height: val };
@@ -1100,7 +1125,11 @@ function bindInputFields() {
       font_family: propExtraFontFamily.value || "Arial",
       outline: propExtraOutline.checked
     });
+    
+    const order = [...stateManager.getNormalizedOverlayOrder(), `extra-${overlays.length - 1}`];
+    
     stateManager.updateProjectField("extra_overlays", overlays);
+    stateManager.updateProjectField("overlay_order", order);
     syncExtraOverlaysList();
     refreshViewport();
     showToast("Added extra text overlay!", "success");
@@ -1129,7 +1158,23 @@ function bindInputFields() {
     if (isNaN(idx)) return;
     const overlays = [...(stateManager.project.extra_overlays || [])];
     overlays.splice(idx, 1);
+    
+    const order = [...stateManager.getNormalizedOverlayOrder()];
+    const targetId = `extra-${idx}`;
+    const newOrder = order
+      .filter(id => id !== targetId)
+      .map(id => {
+        if (id.startsWith("extra-")) {
+          const itemIdx = parseInt(id.split("-")[1]);
+          if (itemIdx > idx) {
+            return `extra-${itemIdx - 1}`;
+          }
+        }
+        return id;
+      });
+
     stateManager.updateProjectField("extra_overlays", overlays);
+    stateManager.updateProjectField("overlay_order", newOrder);
     syncExtraOverlaysList();
     refreshViewport();
     showToast("Deleted extra text overlay", "warning");
@@ -1169,7 +1214,11 @@ function bindInputFields() {
         chroma_similarity: 0.3,
         chroma_blend: 0.05
       });
+      
+      const order = [...stateManager.getNormalizedOverlayOrder(), `media-${newIdx}`];
+      
       stateManager.updateProjectField("media_overlays", overlays);
+      stateManager.updateProjectField("overlay_order", order);
       syncMediaOverlaysList();
       refreshViewport();
       showToast("Added media overlay!", "success");
@@ -1194,7 +1243,23 @@ function bindInputFields() {
     if (isNaN(idx)) return;
     const overlays = [...(stateManager.project.media_overlays || [])];
     overlays.splice(idx, 1);
+    
+    const order = [...stateManager.getNormalizedOverlayOrder()];
+    const targetId = `media-${idx}`;
+    const newOrder = order
+      .filter(id => id !== targetId)
+      .map(id => {
+        if (id.startsWith("media-")) {
+          const itemIdx = parseInt(id.split("-")[1]);
+          if (itemIdx > idx) {
+            return `media-${itemIdx - 1}`;
+          }
+        }
+        return id;
+      });
+
     stateManager.updateProjectField("media_overlays", overlays);
+    stateManager.updateProjectField("overlay_order", newOrder);
     syncMediaOverlaysList();
     refreshViewport();
     showToast("Deleted media overlay", "warning");
@@ -1218,7 +1283,11 @@ function bindInputFields() {
   // Focus video overlay when interacting with placement settings in inspector
   const videoInputs = [propPlacementX, propPlacementY, propPlacementW, propPlacementH, propAspectRatio, propCropAnchor, propResolution];
   videoInputs.forEach(input => {
-    input.addEventListener("focus", () => domOverlay.setFocusedElement("video"));
+    input.addEventListener("focus", () => {
+      if (!domOverlay.getFocusedElement()) {
+        domOverlay.setFocusedElement("video");
+      }
+    });
   });
 
   // Focus text overlay when interacting with text settings in inspector

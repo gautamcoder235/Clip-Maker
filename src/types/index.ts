@@ -113,6 +113,7 @@ export interface AppConfig {
   text_presets: TextPreset[];
   extra_overlays: ExtraOverlay[];
   media_overlays: MediaOverlay[];
+  overlay_order?: string[];
   include_audio: boolean;
   parallel_processing: boolean;
   parallel_workers: number;

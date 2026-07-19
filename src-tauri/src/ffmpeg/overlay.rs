@@ -41,6 +41,7 @@ impl TextOverlayFilter {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct MediaOverlaySpec {
     pub path: String,
     pub r#type: String, // "video", "image"
@@ -73,4 +74,18 @@ impl MediaOverlaySpec {
             start_offset_seconds: start_offset,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum OverlayStep {
+    Media(MediaOverlaySpec),
+    Text {
+        text: String,
+        font_size: u32,
+        font_color: String,
+        font_file: Option<String>,
+        x: String,
+        y: String,
+        outline: bool,
+    },
 }
