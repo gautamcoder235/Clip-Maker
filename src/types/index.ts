@@ -77,6 +77,23 @@ export interface TrimSettings {
   enabled: boolean;
 }
 
+import { EasingType } from "./animation/curves";
+
+export interface EffectParameterState {
+  parameterId: string;
+  points: {
+    time: number;
+    value: any;
+    easing: EasingType;
+  }[];
+}
+
+export interface EffectState {
+  effectId: string; // matches Definition ID
+  enabled: boolean;
+  parameters: Record<string, EffectParameterState>;
+}
+
 export interface AssetSettings {
   trim?: TrimSettings;
   video_placement?: VideoPlacementConfig;
@@ -84,6 +101,7 @@ export interface AssetSettings {
   text_template?: string;
   extra_overlays?: ExtraOverlay[];
   media_overlays?: MediaOverlay[];
+  effects?: EffectState[];
 }
 
 export interface AppConfig {
@@ -119,6 +137,7 @@ export interface AppConfig {
   parallel_workers: number;
   text_settings: TextSettings;
   gpu_acceleration: boolean;
+  enable_webgl_preview?: boolean;
 }
 
 export interface ProjectData extends AppConfig {

@@ -1,6 +1,7 @@
 import { ProjectData, ImportedAsset, RenderJob, SystemFont } from "../types";
 import { HistoryManager, Command } from "./history";
 import { TauriService } from "../services/tauri";
+import { ProjectMigrationRunner } from "./migrations";
 
 export interface WorkspaceLayout {
   leftWidth: number;
@@ -94,6 +95,7 @@ export class AppStateManager {
         placement: "Center",
       },
       gpu_acceleration: true,
+      enable_webgl_preview: false,
       timeline_zoom: 1.0,
       selected_clip_index: null,
     };
@@ -183,13 +185,14 @@ export class AppStateManager {
   }
 
   updateProjectDirectly(newData: Partial<ProjectData>) {
+    const migratedData = ProjectMigrationRunner.migrate(newData);
     const defaultProj = this.createDefaultProject();
     this.project = {
       ...defaultProj,
-      ...newData,
+      ...migratedData,
       text_settings: {
         ...defaultProj.text_settings,
-        ...(newData.text_settings || {})
+        ...(migratedData.text_settings || {})
       }
     };
     this.notifyListeners();
@@ -229,6 +232,10 @@ export class AppStateManager {
 
   subscribe(callback: () => void) {
     this.listeners.push(callback);
+  }
+
+  public triggerNotification() {
+    this.notifyListeners();
   }
 
   private notifyListeners() {

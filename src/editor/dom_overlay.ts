@@ -355,9 +355,7 @@ export class DOMOverlay {
       textContent.style.userSelect = "none";
 
       if (hasOutline) {
-        textContent.style.textShadow =
-          "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, " +
-          "0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000";
+        textContent.style.webkitTextStroke = "2px #000";
       }
 
       box.appendChild(textContent);
