@@ -107,8 +107,7 @@ pub struct AppConfig {
     pub clip_duration: u32,
     pub preview_clip_seconds: u32,
     pub preview_fps: u32,
-    pub start_offset: u32,
-    pub start_clip: u32,
+
     pub aspect_ratio: String, // "original", "9:16"
     pub crop_anchor: String, // "Center", "Left", "Right", "Top", "Bottom"
     pub output_resolution: String, // "Source", "1080x1920 (Shorts)", etc.
@@ -153,8 +152,7 @@ impl Default for AppConfig {
             clip_duration: 60,
             preview_clip_seconds: 12,
             preview_fps: 12,
-            start_offset: 0,
-            start_clip: 1,
+
             aspect_ratio: "original".to_string(),
             crop_anchor: "Center".to_string(),
             output_resolution: "Source".to_string(),

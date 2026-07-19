@@ -16,8 +16,7 @@ pub struct ProjectData {
     pub asset_settings: std::collections::HashMap<String, AssetSettings>,
     pub output_path: String,
     pub clip_duration: u32,
-    pub start_offset: u32,
-    pub start_clip: u32,
+
     pub aspect_ratio: String,
     pub crop_anchor: String,
     pub output_resolution: String,
@@ -59,8 +58,7 @@ impl Default for ProjectData {
             asset_settings: std::collections::HashMap::new(),
             output_path: default_config.output_path,
             clip_duration: default_config.clip_duration,
-            start_offset: default_config.start_offset,
-            start_clip: default_config.start_clip,
+
             aspect_ratio: default_config.aspect_ratio,
             crop_anchor: default_config.crop_anchor,
             output_resolution: default_config.output_resolution,

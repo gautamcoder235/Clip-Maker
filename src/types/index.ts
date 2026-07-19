@@ -96,8 +96,6 @@ export interface AppConfig {
   clip_duration: number;
   preview_clip_seconds: number;
   preview_fps: number;
-  start_offset: number;
-  start_clip: number;
   aspect_ratio: string;
   crop_anchor: string;
   output_resolution: string;

@@ -50,7 +50,7 @@ impl PreviewService {
         let preview_fps = config.preview_fps.max(1) as f64;
 
         // Resolve trim settings if configured
-        let mut trim_start = config.start_offset as f64;
+        let mut trim_start = 0.0;
         let mut trim_duration = preview_clip_seconds;
 
         let asset_id = config.imported_assets.iter()
@@ -166,7 +166,7 @@ impl PreviewService {
         let mut hasher = DefaultHasher::new();
         input_path.hash(&mut hasher);
         config.clip_duration.hash(&mut hasher);
-        config.start_offset.hash(&mut hasher);
+
         config.aspect_ratio.hash(&mut hasher);
         config.crop_anchor.hash(&mut hasher);
         config.output_resolution.hash(&mut hasher);

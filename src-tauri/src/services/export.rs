@@ -54,7 +54,7 @@ impl ExportService {
         let output_filepath_str = output_filepath.to_string_lossy().replace("\\", "/");
 
         // Calculate clip start/duration matching the ClipSplitter logic and user-specific trim settings
-        let mut trim_start = config.start_offset as f64;
+        let mut trim_start = 0.0;
         let mut trim_end = None;
 
         let asset_id = config.imported_assets.iter()

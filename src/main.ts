@@ -107,8 +107,7 @@ let btnTextEditSave: HTMLButtonElement;
 // Advanced
 let propParallel: HTMLInputElement;
 let propWorkers: HTMLInputElement;
-let propSkipStart: HTMLInputElement;
-let propStartClipNum: HTMLInputElement;
+
 
 let txtQueueStatus: HTMLSpanElement;
 let selectTheme: HTMLSelectElement;
@@ -352,8 +351,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   propParallel = document.querySelector("#prop-parallel")!;
   propWorkers = document.querySelector("#prop-workers")!;
-  propSkipStart = document.querySelector("#prop-skip-start")!;
-  propStartClipNum = document.querySelector("#prop-start-clip-num")!;
+
 
   txtQueueStatus = document.querySelector("#txt-queue-status")!;
   selectTheme = document.querySelector("#select-theme")!;
@@ -702,8 +700,7 @@ function syncConfigToUi() {
   propPresetMode.value = proj.text_preset_mode || "Single";
   propParallel.checked = proj.parallel_processing !== false;
   propWorkers.value = (proj.parallel_workers || 2).toString();
-  propSkipStart.value = (proj.start_offset || 0).toString();
-  propStartClipNum.value = (proj.start_clip || 1).toString();
+
 
   // Sync Lists
   syncPresetsList();
@@ -1299,12 +1296,7 @@ function bindInputFields() {
   propWorkers.addEventListener("change", () => {
     stateManager.updateProjectField("parallel_workers", parseInt(propWorkers.value) || 2);
   });
-  propSkipStart.addEventListener("change", () => {
-    stateManager.updateProjectField("start_offset", parseInt(propSkipStart.value) || 0);
-  });
-  propStartClipNum.addEventListener("change", () => {
-    stateManager.updateProjectField("start_clip", parseInt(propStartClipNum.value) || 1);
-  });
+
   
 
   // Focus video overlay when interacting with placement settings in inspector
