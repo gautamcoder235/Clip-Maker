@@ -71,8 +71,10 @@ impl ProcessingService {
             }
 
             if let Ok(line) = line_result {
-                // Pipe low-level log lines to stdout/logs
-                let _ = self.app_handle.emit("ffmpeg-log", (job_id, line.clone()));
+                // Pipe low-level log lines to stdout/logs, filtering out high-frequency stats to prevent IPC congestion
+                if !line.contains("time=") && !line.contains("frame=") {
+                    let _ = self.app_handle.emit("ffmpeg-log", (job_id, line.clone()));
+                }
 
                 // Collect last error lines for diagnostics
                 last_error_lines.push(line.clone());

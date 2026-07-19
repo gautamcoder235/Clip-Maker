@@ -710,6 +710,8 @@ function resetProjectSession() {
   stateManager.assets = [];
   currentSelectedAsset = null;
   activeJobUis.clear();
+  stateManager.renderQueue = [];
+  updateRenderStats();
 
   assetListContainer.innerHTML = "";
   clipsGridContainer.innerHTML = "";
@@ -1225,6 +1227,7 @@ function bindInputFields() {
 
       // Auto-select and open settings modal
       listMediaOverlays.value = newIdx.toString();
+      domOverlay.setFocusedElement(`media-${newIdx}`);
       openMediaSettingsModal(newIdx);
     } catch (err) {
       showToast(`Add media failed: ${err}`, "error");
@@ -1787,6 +1790,23 @@ async function startBatchExport() {
   }
 }
 
+function updateRenderStats() {
+  const totalClips = stateManager.renderQueue.length;
+  const completed = stateManager.renderQueue.filter(j => j.status === "Completed").length;
+  const working = stateManager.renderQueue.filter(j => j.status === "Encoding" || j.status === "Preparing" || j.status === "Finalizing").length;
+  const queued = stateManager.renderQueue.filter(j => j.status === "Queued").length;
+
+  const totalEl = document.getElementById("stat-total-clips");
+  const completedEl = document.getElementById("stat-completed-clips");
+  const workingEl = document.getElementById("stat-working-clips");
+  const queuedEl = document.getElementById("stat-queued-clips");
+
+  if (totalEl) totalEl.innerText = totalClips.toString();
+  if (completedEl) completedEl.innerText = completed.toString();
+  if (workingEl) workingEl.innerText = working.toString();
+  if (queuedEl) queuedEl.innerText = queued.toString();
+}
+
 function appendJobUi(job: RenderJob) {
   const row = document.createElement("div");
   row.className = "queue-row";
@@ -1804,7 +1824,7 @@ function appendJobUi(job: RenderJob) {
 
   const fill = document.createElement("div");
   fill.className = "queue-progress-fill";
-  fill.style.width = "0%";
+  fill.style.width = `${job.progress}%`;
 
   bar.appendChild(fill);
   colInfo.appendChild(title);
@@ -1816,14 +1836,37 @@ function appendJobUi(job: RenderJob) {
 
   const speed = document.createElement("div");
   speed.className = "queue-meta";
-  speed.innerText = "Speed: -- | ETA: --";
-
+  
   const status = document.createElement("div");
   status.style.marginTop = "6px";
   const badge = document.createElement("span");
-  badge.className = "status-badge queued";
-  badge.innerText = "Queued";
+  
+  let badgeClass = "queued";
+  if (job.status === "Encoding" || job.status === "Finalizing") {
+    badgeClass = "encoding";
+  } else if (job.status === "Completed") {
+    badgeClass = "completed";
+  } else if (job.status === "Cancelled") {
+    badgeClass = "cancelled";
+  } else if (job.status === "Failed") {
+    badgeClass = "failed";
+  }
+  badge.className = `status-badge ${badgeClass}`;
+  badge.innerText = job.status;
   status.appendChild(badge);
+
+  if (job.status === "Completed") {
+    speed.innerText = "Finished successfully";
+  } else if (job.status === "Failed") {
+    speed.innerText = job.error_message ? `Error: ${job.error_message}` : "Failed";
+  } else if (job.status === "Cancelled") {
+    speed.innerText = "Cancelled by user";
+  } else if (job.speed) {
+    const etaStr = job.eta_seconds !== null ? formatDuration(job.eta_seconds) : "--:--";
+    speed.innerText = `Speed: ${job.speed} | ETA: ${etaStr}`;
+  } else {
+    speed.innerText = "Speed: -- | ETA: --";
+  }
 
   colStats.appendChild(speed);
   colStats.appendChild(status);
@@ -1841,6 +1884,11 @@ function appendJobUi(job: RenderJob) {
     TauriService.cancelRenderJob(job.id);
   });
 
+  if (job.status === "Completed" || job.status === "Cancelled" || job.status === "Failed") {
+    cancelBtn.disabled = true;
+    cancelBtn.innerText = job.status === "Completed" ? "Done" : job.status;
+  }
+
   colActions.appendChild(cancelBtn);
 
   row.appendChild(colInfo);
@@ -1849,6 +1897,15 @@ function appendJobUi(job: RenderJob) {
 
   jobsListContainer.appendChild(row);
   activeJobUis.set(job.id, row);
+
+  // Sync to stateManager.renderQueue
+  const existingIdx = stateManager.renderQueue.findIndex(j => j.id === job.id);
+  if (existingIdx >= 0) {
+    stateManager.renderQueue[existingIdx] = job;
+  } else {
+    stateManager.renderQueue.push(job);
+  }
+  updateRenderStats();
 }
 
 function setupTauriEventListeners() {
@@ -1859,6 +1916,11 @@ function setupTauriEventListeners() {
       badge.className = "status-badge encoding";
       badge.innerText = "Encoding";
     }
+    const job = stateManager.renderQueue.find(j => j.id === id);
+    if (job) {
+      job.status = "Encoding";
+    }
+    updateRenderStats();
   });
 
   TauriService.onJobProgress((id, progress, speed, _elapsed, eta) => {
@@ -1871,6 +1933,13 @@ function setupTauriEventListeners() {
       const etaStr = eta !== null ? formatDuration(eta) : "--:--";
       stats.innerText = `Speed: ${speed} | ETA: ${etaStr}`;
     }
+    const job = stateManager.renderQueue.find(j => j.id === id);
+    if (job) {
+      job.progress = progress;
+      job.speed = speed;
+      job.status = "Encoding";
+    }
+    updateRenderStats();
   });
 
   TauriService.onJobCompleted((id) => {
@@ -1892,6 +1961,82 @@ function setupTauriEventListeners() {
       
       showToast("Clip render complete!", "success");
     }
+    const job = stateManager.renderQueue.find(j => j.id === id);
+    if (job) {
+      job.status = "Completed";
+      job.progress = 100;
+    }
+    updateRenderStats();
+  });
+
+  TauriService.onJobFailed((id, error) => {
+    const row = activeJobUis.get(id);
+    if (row) {
+      const fill = row.querySelector(".queue-progress-fill") as HTMLDivElement;
+      fill.style.background = "var(--danger)"; // visual indicator for failed job bar
+
+      const badge = row.querySelector(".status-badge") as HTMLSpanElement;
+      badge.className = "status-badge failed";
+      badge.innerText = "Failed";
+
+      const stats = row.querySelector(".queue-meta") as HTMLDivElement;
+      stats.innerText = `Error: ${error.length > 50 ? error.substring(0, 47) + '...' : error}`;
+
+      const cancelBtn = row.querySelector("button") as HTMLButtonElement;
+      cancelBtn.disabled = true;
+      cancelBtn.innerText = "Failed";
+      
+      showToast("Clip render failed!", "error");
+    }
+    const job = stateManager.renderQueue.find(j => j.id === id);
+    if (job) {
+      job.status = "Failed";
+      job.error_message = error;
+    }
+    updateRenderStats();
+  });
+
+  TauriService.onJobCancelled((id) => {
+    const row = activeJobUis.get(id);
+    if (row) {
+      const badge = row.querySelector(".status-badge") as HTMLSpanElement;
+      badge.className = "status-badge cancelled";
+      badge.innerText = "Cancelled";
+
+      const stats = row.querySelector(".queue-meta") as HTMLDivElement;
+      stats.innerText = "Cancelled by user";
+
+      const cancelBtn = row.querySelector("button") as HTMLButtonElement;
+      cancelBtn.disabled = true;
+      cancelBtn.innerText = "Cancelled";
+    }
+    const job = stateManager.renderQueue.find(j => j.id === id);
+    if (job) {
+      job.status = "Cancelled";
+    }
+    updateRenderStats();
+  });
+
+  TauriService.onJobsCancelledAll(() => {
+    stateManager.renderQueue.forEach(job => {
+      if (job.status === "Queued" || job.status === "Preparing" || job.status === "Encoding") {
+        job.status = "Cancelled";
+        const row = activeJobUis.get(job.id);
+        if (row) {
+          const badge = row.querySelector(".status-badge") as HTMLSpanElement;
+          badge.className = "status-badge cancelled";
+          badge.innerText = "Cancelled";
+
+          const stats = row.querySelector(".queue-meta") as HTMLDivElement;
+          stats.innerText = "Cancelled by user";
+
+          const cancelBtn = row.querySelector("button") as HTMLButtonElement;
+          cancelBtn.disabled = true;
+          cancelBtn.innerText = "Cancelled";
+        }
+      }
+    });
+    updateRenderStats();
   });
 
   TauriService.onFFmpegLog((_id, _line) => {

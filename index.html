@@ -540,10 +540,27 @@
           </div>
         </div>
 
-        <!-- Render Queue Pane -->
         <div id="pane-render-queue" class="timeline-content-pane" style="display: none;">
           <div class="timeline-actions-row" style="margin-bottom: 12px; align-items: center; gap: 16px;">
             <button id="btn-cancel-all" class="toolbar-btn" style="background: var(--danger); color: white;">Cancel All Rendering</button>
+            <div id="render-stats-area" class="render-stats-container" style="margin-left: auto; margin-bottom: 0;">
+              <div class="render-stat-card">
+                <span class="render-stat-value" id="stat-total-clips">0</span>
+                <span class="render-stat-label">Total Clips</span>
+              </div>
+              <div class="render-stat-card">
+                <span class="render-stat-value" style="color: var(--success);" id="stat-completed-clips">0</span>
+                <span class="render-stat-label">Completed</span>
+              </div>
+              <div class="render-stat-card">
+                <span class="render-stat-value" style="color: var(--accent);" id="stat-working-clips">0</span>
+                <span class="render-stat-label">Working</span>
+              </div>
+              <div class="render-stat-card">
+                <span class="render-stat-value" style="color: var(--warning);" id="stat-queued-clips">0</span>
+                <span class="render-stat-label">Queued</span>
+              </div>
+            </div>
           </div>
           <div id="render-jobs-list">
             <!-- Active render queue rows populated here -->

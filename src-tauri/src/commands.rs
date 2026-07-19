@@ -1,4 +1,4 @@
-use tauri::{AppHandle, State, Manager};
+use tauri::{AppHandle, State, Manager, Emitter};
 use crate::state::AppState;
 use crate::errors::AppResult;
 use crate::config::AppConfig;
@@ -122,11 +122,14 @@ pub async fn start_render_queue(
         let cfg = config.clone();
         let jobs = state.job_manager.clone();
         let j_id = job_id.clone();
+        let app_handle_clone = app_handle.clone();
         
+        let fonts_list = state.fonts.clone();
         tokio::spawn(async move {
-            let res: AppResult<()> = export.export_clip(&cfg, clip_idx, total_clips, &j_id, &jobs);
+            let res: AppResult<()> = export.export_clip(&cfg, clip_idx, total_clips, &j_id, &jobs, &fonts_list);
             if let Err(e) = res {
                 jobs.fail_job(&j_id, &e.to_string());
+                let _ = app_handle_clone.emit("job-failed", (j_id, e.to_string()));
             }
         });
     }
@@ -135,13 +138,24 @@ pub async fn start_render_queue(
 }
 
 #[tauri::command]
-pub async fn cancel_render_job(state: State<'_, AppState>, job_id: String) -> AppResult<()> {
-    state.job_manager.cancel_job(&job_id)
+pub async fn cancel_render_job(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    job_id: String,
+) -> AppResult<()> {
+    state.job_manager.cancel_job(&job_id)?;
+    let _ = app_handle.emit("job-cancelled", job_id);
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn cancel_all_jobs(state: State<'_, AppState>) -> AppResult<()> {
-    state.job_manager.cancel_all()
+pub async fn cancel_all_jobs(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    state.job_manager.cancel_all()?;
+    let _ = app_handle.emit("jobs-cancelled-all", ());
+    Ok(())
 }
 
 #[tauri::command]

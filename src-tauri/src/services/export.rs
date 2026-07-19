@@ -9,6 +9,8 @@ use crate::ffmpeg::overlay::MediaOverlaySpec;
 use crate::ffmpeg::encoder::EncoderDetector;
 use crate::services::processing::ProcessingService;
 
+use crate::fonts::SystemFont;
+
 #[derive(Clone)]
 pub struct ExportService {
     app_handle: AppHandle,
@@ -30,6 +32,7 @@ impl ExportService {
         _total_clips: u32,
         job_id: &str,
         job_manager: &JobManager,
+        fonts: &[SystemFont],
     ) -> AppResult<()> {
         if config.input_paths.is_empty() && config.input_path.is_empty() {
             return Err(AppError::Config("No input video selected".to_string()));
@@ -169,20 +172,27 @@ impl ExportService {
             }
         }
 
+        // Helper to resolve font family name to absolute system font path
+        let resolve_font_path = |family: &str| -> Option<String> {
+            if family.is_empty() {
+                return None;
+            }
+            let lower_family = family.to_lowercase();
+            fonts.iter()
+                .find(|f| f.name.to_lowercase() == lower_family)
+                .map(|f| f.path.clone())
+        };
+
         // Apply overlays in order to builder
         for id in &normalized_order {
             if id == "text" {
                 if config.text_settings.enabled {
-                    let text_font = if !config.text_settings.font_family.is_empty() {
-                        Some(config.text_settings.font_family.as_str())
-                    } else {
-                        None
-                    };
+                    let font_path = resolve_font_path(&config.text_settings.font_family);
                     builder.overlay_text(
                         &template_text,
                         config.text_settings.font_size,
                         &config.text_settings.font_color,
-                        text_font,
+                        font_path.as_deref(),
                         &config.text_settings.x_position,
                         &config.text_settings.y_position,
                         config.text_settings.outline,
@@ -192,16 +202,12 @@ impl ExportService {
                 if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
                     if let Some(extra) = config.extra_overlays.get(idx) {
                         let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
-                        let extra_font = if !extra.font_family.is_empty() {
-                            Some(extra.font_family.as_str())
-                        } else {
-                            None
-                        };
+                        let font_path = resolve_font_path(&extra.font_family);
                         builder.overlay_text(
                             &extra_text,
                             extra.font_size,
                             &extra.font_color,
-                            extra_font,
+                            font_path.as_deref(),
                             &extra.x_position,
                             &extra.y_position,
                             extra.outline,
@@ -282,16 +288,12 @@ impl ExportService {
                 for id in &normalized_order {
                     if id == "text" {
                         if config.text_settings.enabled {
-                            let text_font = if !config.text_settings.font_family.is_empty() {
-                                Some(config.text_settings.font_family.as_str())
-                            } else {
-                                None
-                            };
+                            let font_path = resolve_font_path(&config.text_settings.font_family);
                             retry_builder.overlay_text(
                                 &template_text,
                                 config.text_settings.font_size,
                                 &config.text_settings.font_color,
-                                text_font,
+                                font_path.as_deref(),
                                 &config.text_settings.x_position,
                                 &config.text_settings.y_position,
                                 config.text_settings.outline,
@@ -301,16 +303,12 @@ impl ExportService {
                         if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
                             if let Some(extra) = config.extra_overlays.get(idx) {
                                 let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
-                                let extra_font = if !extra.font_family.is_empty() {
-                                    Some(extra.font_family.as_str())
-                                } else {
-                                    None
-                                };
+                                let font_path = resolve_font_path(&extra.font_family);
                                 retry_builder.overlay_text(
                                     &extra_text,
                                     extra.font_size,
                                     &extra.font_color,
-                                    extra_font,
+                                    font_path.as_deref(),
                                     &extra.x_position,
                                     &extra.y_position,
                                     extra.outline,

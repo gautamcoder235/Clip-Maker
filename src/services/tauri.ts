@@ -92,6 +92,26 @@ export class TauriService {
     });
   }
 
+  static onJobFailed(callback: (jobId: string, error: string) => void) {
+    type FailedPayload = [string, string];
+    return listen<FailedPayload>("job-failed", (event: Event<FailedPayload>) => {
+      const [jobId, error] = event.payload;
+      callback(jobId, error);
+    });
+  }
+
+  static onJobCancelled(callback: (jobId: string) => void) {
+    return listen<string>("job-cancelled", (event: Event<string>) => {
+      callback(event.payload);
+    });
+  }
+
+  static onJobsCancelledAll(callback: () => void) {
+    return listen<void>("jobs-cancelled-all", () => {
+      callback();
+    });
+  }
+
   static onFFmpegLog(callback: (jobId: string, line: string) => void) {
     type LogPayload = [string, string];
     return listen<LogPayload>("ffmpeg-log", (event: Event<LogPayload>) => {

@@ -540,8 +540,9 @@ export class CanvasContextMenu {
     if (!path) return;
 
     const overlays = [...(this.stateManager.project.media_overlays || [])];
+    const newIdx = overlays.length;
     overlays.push({
-      name: `Media ${overlays.length + 1}`,
+      name: `Media ${newIdx + 1}`,
       type: "video",
       path: path,
       x: x,
@@ -555,10 +556,21 @@ export class CanvasContextMenu {
       chroma_similarity: 0.3,
       chroma_blend: 0.05,
     });
+    
+    const order = [...this.stateManager.getNormalizedOverlayOrder(), `media-${newIdx}`];
+
     this.stateManager.updateProjectField("media_overlays", overlays);
+    this.stateManager.updateProjectField("overlay_order", order);
     this.actions.syncMediaOverlaysList();
     this.actions.refreshViewport();
     this.actions.showToast("Added media overlay!", "success");
+
+    // Auto-select and focus the new media overlay
+    this.domOverlay.setFocusedElement(`media-${newIdx}`);
+    const select = document.getElementById("list-media-overlays") as HTMLSelectElement | null;
+    if (select) {
+      select.value = newIdx.toString();
+    }
   }
 
   private togglePrimaryText(enable: boolean) {

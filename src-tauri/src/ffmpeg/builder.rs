@@ -182,9 +182,25 @@ impl FFmpegBuilder {
     }
 
     pub fn build(&mut self) -> Vec<String> {
+        // Apply FPS if set (must be done before filter graph construction)
+        if let Some(rate) = self.fps {
+            let fps_str = format!("fps={}", rate);
+            if !self.video_filters.contains(&fps_str) {
+                self.video_filters.push(fps_str);
+            }
+        }
+
+        // 1. Filter Graph Construction (called first to populate self.extra_inputs)
+        let has_canvas = self.background_canvas.is_some() && self.overlay_position.is_some();
+        let filter_args = if has_canvas || !self.overlays.is_empty() {
+            self.build_complex_filter()
+        } else {
+            self.build_simple_filter()
+        };
+
         let mut cmd = Vec::new();
 
-        // 1. Seek / Inputs setup
+        // 2. Seek / Inputs setup
         let mut ss_args = Vec::new();
         let mut output_ss_args = Vec::new();
         self.output_seek_offset = 0.0;
@@ -201,12 +217,18 @@ impl FFmpegBuilder {
                     output_ss_args.push(margin.to_string());
                     self.output_seek_offset = margin;
                 } else {
+                    // start <= margin: input seek to 0.0, output seek to start
                     ss_args.push("-ss".to_string());
-                    ss_args.push(start.to_string());
+                    ss_args.push("0.0".to_string());
+                    
+                    output_ss_args.push("-ss".to_string());
+                    output_ss_args.push(start.to_string());
+                    self.output_seek_offset = start;
                 }
             } else {
-                ss_args.push("-ss".to_string());
-                ss_args.push(start.to_string());
+                // For accurate slow seek, it must come AFTER -i, i.e., in output_ss_args
+                output_ss_args.push("-ss".to_string());
+                output_ss_args.push(start.to_string());
             }
         }
 
@@ -215,7 +237,7 @@ impl FFmpegBuilder {
         cmd.push("-hide_banner".to_string());
         cmd.push("-nostdin".to_string());
         cmd.push("-loglevel".to_string());
-        cmd.push("warning".to_string());
+        cmd.push("error".to_string()); // Change from warning to error to prevent swscaler/font warnings from flooding IPC
         cmd.push("-stats".to_string());
 
         // Fast seek input flags must come BEFORE -i
@@ -228,7 +250,12 @@ impl FFmpegBuilder {
             cmd.push(first_input.clone());
         }
 
-        // Output seeks (for accurate hybrid seek cut offsets)
+        // Inject extra inputs (bg images, media overlays) that were populated in build_complex_filter
+        if !self.extra_inputs.is_empty() {
+            cmd.extend(self.extra_inputs.clone());
+        }
+
+        // Output seeks (for accurate hybrid/slow seek cut offsets)
         if !output_ss_args.is_empty() {
             cmd.extend(output_ss_args);
         }
@@ -238,19 +265,7 @@ impl FFmpegBuilder {
             cmd.push(dur.to_string());
         }
 
-        // Apply FPS if set
-        if let Some(rate) = self.fps {
-            self.video_filters.push(format!("fps={}", rate));
-        }
-
-        // 2. Filter Graph Construction
-        let has_canvas = self.background_canvas.is_some() && self.overlay_position.is_some();
-        let filter_args = if has_canvas || !self.overlays.is_empty() {
-            self.build_complex_filter()
-        } else {
-            self.build_simple_filter()
-        };
-
+        // Add the filter args
         cmd.extend(filter_args);
 
         // 3. Encoder details
