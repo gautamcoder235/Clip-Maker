@@ -48,8 +48,7 @@ export class AppStateManager {
       clip_duration: 50,
       preview_clip_seconds: 10,
       preview_fps: 30,
-      start_offset: 0,
-      start_clip: 1,
+
       aspect_ratio: "original",
       crop_anchor: "Center",
       output_resolution: "1080x1920 (Shorts)",

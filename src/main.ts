@@ -1666,7 +1666,6 @@ function rebuildClipTimeline() {
 
     card.addEventListener("click", () => {
       stateManager.project.selected_clip_index = i;
-      stateManager.project.start_clip = i;
       
       // Seek video playback to the selected clip part's starting offset
       const seekTime = trimStart + (i - 1) * clipLength;
