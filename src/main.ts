@@ -1882,12 +1882,19 @@ function appendJobUi(job: RenderJob) {
 
   const bar = document.createElement("div");
   bar.className = "queue-progress-bar";
+  bar.style.position = "relative"; // for absolute text
 
   const fill = document.createElement("div");
   fill.className = "queue-progress-fill";
   fill.style.width = `${job.progress}%`;
 
+  const percentText = document.createElement("span");
+  percentText.className = "queue-progress-text";
+  percentText.innerText = `${job.progress.toFixed(1)}%`;
+
   bar.appendChild(fill);
+  bar.appendChild(percentText);
+
   colInfo.appendChild(title);
   colInfo.appendChild(bar);
 
@@ -1946,8 +1953,7 @@ function appendJobUi(job: RenderJob) {
   });
 
   if (job.status === "Completed" || job.status === "Cancelled" || job.status === "Failed") {
-    cancelBtn.disabled = true;
-    cancelBtn.innerText = job.status === "Completed" ? "Done" : job.status;
+    cancelBtn.style.display = "none";
   }
 
   colActions.appendChild(cancelBtn);
@@ -1989,6 +1995,8 @@ function setupTauriEventListeners() {
     if (row) {
       const fill = row.querySelector(".queue-progress-fill") as HTMLDivElement;
       fill.style.width = `${progress}%`;
+      const txt = row.querySelector(".queue-progress-text") as HTMLSpanElement;
+      if (txt) txt.innerText = `${progress.toFixed(1)}%`;
 
       const stats = row.querySelector(".queue-meta") as HTMLDivElement;
       const etaStr = eta !== null ? formatDuration(eta) : "--:--";
@@ -2008,6 +2016,8 @@ function setupTauriEventListeners() {
     if (row) {
       const fill = row.querySelector(".queue-progress-fill") as HTMLDivElement;
       fill.style.width = "100%";
+      const txt = row.querySelector(".queue-progress-text") as HTMLSpanElement;
+      if (txt) txt.innerText = `100.0%`;
 
       const badge = row.querySelector(".status-badge") as HTMLSpanElement;
       badge.className = "status-badge completed";
@@ -2017,8 +2027,7 @@ function setupTauriEventListeners() {
       stats.innerText = "Finished successfully";
 
       const cancelBtn = row.querySelector("button") as HTMLButtonElement;
-      cancelBtn.disabled = true;
-      cancelBtn.innerText = "Done";
+      if (cancelBtn) cancelBtn.style.display = "none";
       
       showToast("Clip render complete!", "success");
     }
@@ -2044,8 +2053,7 @@ function setupTauriEventListeners() {
       stats.innerText = `Error: ${error.length > 50 ? error.substring(0, 47) + '...' : error}`;
 
       const cancelBtn = row.querySelector("button") as HTMLButtonElement;
-      cancelBtn.disabled = true;
-      cancelBtn.innerText = "Failed";
+      if (cancelBtn) cancelBtn.style.display = "none";
       
       showToast("Clip render failed!", "error");
     }
@@ -2068,8 +2076,7 @@ function setupTauriEventListeners() {
       stats.innerText = "Cancelled by user";
 
       const cancelBtn = row.querySelector("button") as HTMLButtonElement;
-      cancelBtn.disabled = true;
-      cancelBtn.innerText = "Cancelled";
+      if (cancelBtn) cancelBtn.style.display = "none";
     }
     const job = stateManager.renderQueue.find(j => j.id === id);
     if (job) {
