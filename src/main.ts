@@ -963,6 +963,67 @@ function bindInputFields() {
     }
   });
 
+  // Quick Alignment Presets
+  document.querySelectorAll(".placement-cell").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const place = (e.currentTarget as HTMLElement).getAttribute("data-place");
+      const outW = stateManager.project.output_width || 1920;
+      const outH = stateManager.project.output_height || 1080;
+      
+      let currentW = parseInt(propPlacementW.value) || 0;
+      let currentH = parseInt(propPlacementH.value) || 0;
+      
+      let x = 0;
+      let y = 0;
+      if (place?.includes("c")) {
+         if (place === "tc" || place === "cc" || place === "bc") x = Math.round((outW - currentW) / 2);
+         if (place === "cl" || place === "cc" || place === "cr") y = Math.round((outH - currentH) / 2);
+      }
+      if (place?.includes("r")) x = outW - currentW;
+      if (place?.includes("b")) y = outH - currentH;
+      
+      propPlacementX.value = x.toString();
+      propPlacementY.value = y.toString();
+      propPlacementX.dispatchEvent(new Event("change"));
+      propPlacementY.dispatchEvent(new Event("change"));
+    });
+  });
+
+  document.getElementById("btn-place-fill")?.addEventListener("click", () => {
+      const outW = stateManager.project.output_width || 1920;
+      const outH = stateManager.project.output_height || 1080;
+      propPlacementX.value = "0";
+      propPlacementY.value = "0";
+      propPlacementW.value = outW.toString();
+      propPlacementH.value = outH.toString();
+      propPlacementX.dispatchEvent(new Event("change"));
+      propPlacementY.dispatchEvent(new Event("change"));
+      propPlacementW.dispatchEvent(new Event("change"));
+      propPlacementH.dispatchEvent(new Event("change"));
+  });
+  
+  document.getElementById("btn-place-fit")?.addEventListener("click", () => {
+      const outW = stateManager.project.output_width || 1920;
+      const outH = stateManager.project.output_height || 1080;
+      const focused = domOverlay.getFocusedElement() || "video";
+      const ratio = domOverlay.getNaturalRatio(focused) || (outW/outH);
+      
+      let newW = outW;
+      let newH = Math.round(outW / ratio);
+      if (newH > outH) {
+          newH = outH;
+          newW = Math.round(outH * ratio);
+      }
+      propPlacementX.value = Math.round((outW - newW) / 2).toString();
+      propPlacementY.value = Math.round((outH - newH) / 2).toString();
+      propPlacementW.value = newW.toString();
+      propPlacementH.value = newH.toString();
+      propPlacementX.dispatchEvent(new Event("change"));
+      propPlacementY.dispatchEvent(new Event("change"));
+      propPlacementW.dispatchEvent(new Event("change"));
+      propPlacementH.dispatchEvent(new Event("change"));
+  });
+
   propAspectRatio.addEventListener("change", () => {
     updateResolutionAndAspectRatio("ratio");
   });

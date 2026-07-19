@@ -249,6 +249,26 @@
                   <input type="number" id="prop-placement-h" value="1920" />
                 </div>
               </div>
+              <div class="placement-presets-container" style="margin-top: 12px;">
+                <label style="font-size: 11px; color: var(--text-secondary); font-weight: 600; display: block; margin-bottom: 6px;">Quick Alignment</label>
+                <div style="display: flex; gap: 8px; align-items: stretch;">
+                  <div class="placement-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 6px; width: 68px; height: 68px; flex-shrink: 0;">
+                    <button class="placement-cell" data-place="tl" title="Top Left"></button>
+                    <button class="placement-cell" data-place="tc" title="Top Center"></button>
+                    <button class="placement-cell" data-place="tr" title="Top Right"></button>
+                    <button class="placement-cell" data-place="cl" title="Center Left"></button>
+                    <button class="placement-cell" data-place="cc" title="Center"></button>
+                    <button class="placement-cell" data-place="cr" title="Center Right"></button>
+                    <button class="placement-cell" data-place="bl" title="Bottom Left"></button>
+                    <button class="placement-cell" data-place="bc" title="Bottom Center"></button>
+                    <button class="placement-cell" data-place="br" title="Bottom Right"></button>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+                    <button id="btn-place-fill" class="toolbar-btn" style="flex: 1; justify-content: center; font-size: 11px; font-weight: 500; height: auto;">Fill Screen</button>
+                    <button id="btn-place-fit" class="toolbar-btn" style="flex: 1; justify-content: center; font-size: 11px; font-weight: 500; height: auto;">Fit to Screen</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
