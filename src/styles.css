@@ -587,18 +587,7 @@ body {
   display: block;
 }
 
-.placement-cell {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid transparent;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  padding: 0;
-}
-.placement-cell:hover {
-  background: var(--accent);
-  border-color: rgba(255, 255, 255, 0.3);
-}
+
 
 #btn-browse-media-path {
   width: 100%;
