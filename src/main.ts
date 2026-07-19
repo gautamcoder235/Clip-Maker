@@ -1763,7 +1763,11 @@ async function startBatchExport() {
     for (const asset of assetsToExport) {
       if (!asset.metadata) continue;
 
-      const duration = asset.metadata.duration;
+      let duration = asset.metadata.duration;
+      const settings = stateManager.project.asset_settings?.[asset.id];
+      if (settings?.trim?.enabled) {
+        duration = settings.trim.end - settings.trim.start;
+      }
       const clipLength = stateManager.project.clip_duration || 50;
       const totalClips = Math.ceil(duration / clipLength);
 
