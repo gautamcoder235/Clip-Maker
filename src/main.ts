@@ -75,7 +75,7 @@ let propExtraFontColor: HTMLInputElement;
 let propExtraFontFamily: HTMLSelectElement;
 let propExtraOutline: HTMLInputElement;
 let btnAddExtra: HTMLButtonElement;
-let btnUpdateExtra: HTMLButtonElement;
+
 let btnRemoveExtra: HTMLButtonElement;
 
 // Media Overlays
@@ -322,7 +322,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   propExtraFontFamily = document.querySelector("#prop-extra-font-family")!;
   propExtraOutline = document.querySelector("#prop-extra-outline")!;
   btnAddExtra = document.querySelector("#btn-add-extra")!;
-  btnUpdateExtra = document.querySelector("#btn-update-extra")!;
+
   btnRemoveExtra = document.querySelector("#btn-remove-extra")!;
 
   listMediaOverlays = document.querySelector("#list-media-overlays")!;
@@ -1150,25 +1150,7 @@ function bindInputFields() {
     refreshViewport();
     showToast("Added extra text overlay!", "success");
   });
-  btnUpdateExtra.addEventListener("click", () => {
-    const idx = parseInt(listExtraOverlays.value);
-    if (isNaN(idx)) {
-      showToast("Select an extra overlay to update first!", "warning");
-      return;
-    }
-    const overlays = [...(stateManager.project.extra_overlays || [])];
-    if (overlays[idx]) {
-      overlays[idx].text = propExtraText.value || overlays[idx].text;
-      overlays[idx].font_size = parseInt(propExtraFontSize.value) || 80;
-      overlays[idx].font_color = propExtraFontColor.value;
-      overlays[idx].font_family = propExtraFontFamily.value;
-      overlays[idx].outline = propExtraOutline.checked;
-      stateManager.updateProjectField("extra_overlays", overlays);
-      syncExtraOverlaysList();
-      refreshViewport();
-      showToast("Updated extra overlay settings!", "success");
-    }
-  });
+
   btnRemoveExtra.addEventListener("click", () => {
     const idx = parseInt(listExtraOverlays.value);
     if (isNaN(idx)) return;
