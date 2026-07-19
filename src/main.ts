@@ -973,33 +973,45 @@ function bindInputFields() {
       let currentW = parseInt(propPlacementW.value) || 0;
       let currentH = parseInt(propPlacementH.value) || 0;
       
-      let x = 0;
-      let y = 0;
+      let x = parseInt(propPlacementX.value) || 0;
+      let y = parseInt(propPlacementY.value) || 0;
+
       if (place?.includes("c")) {
          if (place === "tc" || place === "cc" || place === "bc") x = Math.round((outW - currentW) / 2);
          if (place === "cl" || place === "cc" || place === "cr") y = Math.round((outH - currentH) / 2);
       }
+      if (place?.includes("l")) x = 0;
       if (place?.includes("r")) x = outW - currentW;
+      if (place?.includes("t")) y = 0;
       if (place?.includes("b")) y = outH - currentH;
       
+      const focused = domOverlay.getFocusedElement();
+      if (focused) {
+        domOverlay.updateFocusedElementBounds({ x, y });
+      } else {
+        const placement = { ...stateManager.project.video_placement, x, y };
+        stateManager.updateProjectField("video_placement", placement);
+      }
       propPlacementX.value = x.toString();
       propPlacementY.value = y.toString();
-      propPlacementX.dispatchEvent(new Event("change"));
-      propPlacementY.dispatchEvent(new Event("change"));
     });
   });
 
   document.getElementById("btn-place-fill")?.addEventListener("click", () => {
       const outW = stateManager.project.output_width || 1920;
       const outH = stateManager.project.output_height || 1080;
+      
+      const focused = domOverlay.getFocusedElement();
+      if (focused) {
+        domOverlay.updateFocusedElementBounds({ x: 0, y: 0, width: outW, height: outH });
+      } else {
+        const placement = { ...stateManager.project.video_placement, x: 0, y: 0, width: outW, height: outH };
+        stateManager.updateProjectField("video_placement", placement);
+      }
       propPlacementX.value = "0";
       propPlacementY.value = "0";
       propPlacementW.value = outW.toString();
       propPlacementH.value = outH.toString();
-      propPlacementX.dispatchEvent(new Event("change"));
-      propPlacementY.dispatchEvent(new Event("change"));
-      propPlacementW.dispatchEvent(new Event("change"));
-      propPlacementH.dispatchEvent(new Event("change"));
   });
   
   document.getElementById("btn-place-fit")?.addEventListener("click", () => {
@@ -1014,14 +1026,21 @@ function bindInputFields() {
           newH = outH;
           newW = Math.round(outH * ratio);
       }
-      propPlacementX.value = Math.round((outW - newW) / 2).toString();
-      propPlacementY.value = Math.round((outH - newH) / 2).toString();
+      
+      const x = Math.round((outW - newW) / 2);
+      const y = Math.round((outH - newH) / 2);
+
+      if (focused !== "video") {
+        domOverlay.updateFocusedElementBounds({ x, y, width: newW, height: newH });
+      } else {
+        const placement = { ...stateManager.project.video_placement, x, y, width: newW, height: newH };
+        stateManager.updateProjectField("video_placement", placement);
+      }
+      
+      propPlacementX.value = x.toString();
+      propPlacementY.value = y.toString();
       propPlacementW.value = newW.toString();
       propPlacementH.value = newH.toString();
-      propPlacementX.dispatchEvent(new Event("change"));
-      propPlacementY.dispatchEvent(new Event("change"));
-      propPlacementW.dispatchEvent(new Event("change"));
-      propPlacementH.dispatchEvent(new Event("change"));
   });
 
   propAspectRatio.addEventListener("change", () => {
