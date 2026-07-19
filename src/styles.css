@@ -540,6 +540,45 @@ body {
   min-width: 0;
 }
 
+/* Ratio lock button between Width & Height */
+.scale-row {
+  align-items: flex-end;
+}
+
+.ratio-lock-btn {
+  flex: 0 0 28px !important;
+  width: 28px;
+  height: 28px;
+  min-width: 28px !important;
+  padding: 0;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ratio-lock-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ratio-lock-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ratio-lock-btn:not(.active) .lock-shackle {
+  d: path("M8 11V7a4 4 0 0 1 8 0");
+}
+
 #btn-browse-media-path {
   width: 100%;
   display: block;

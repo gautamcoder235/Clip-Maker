@@ -38,6 +38,8 @@ let propPlacementX: HTMLInputElement;
 let propPlacementY: HTMLInputElement;
 let propPlacementW: HTMLInputElement;
 let propPlacementH: HTMLInputElement;
+let btnRatioLock: HTMLButtonElement;
+let ratioLocked = true;
 let propAspectRatio: HTMLSelectElement;
 let propCropAnchor: HTMLSelectElement;
 let propResolution: HTMLSelectElement;
@@ -286,6 +288,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   propPlacementY = document.querySelector("#prop-placement-y")!;
   propPlacementW = document.querySelector("#prop-placement-w")!;
   propPlacementH = document.querySelector("#prop-placement-h")!;
+  btnRatioLock = document.querySelector("#btn-ratio-lock")!;
   propAspectRatio = document.querySelector("#prop-aspect-ratio")!;
   propCropAnchor = document.querySelector("#prop-crop-anchor")!;
   propResolution = document.querySelector("#prop-resolution")!;
@@ -873,22 +876,63 @@ function bindInputFields() {
       stateManager.updateProjectField("video_placement", placement);
     }
   });
+  // Ratio lock toggle
+  btnRatioLock.addEventListener("click", () => {
+    ratioLocked = !ratioLocked;
+    btnRatioLock.classList.toggle("active", ratioLocked);
+    btnRatioLock.title = ratioLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
+  });
+
   propPlacementW.addEventListener("change", () => {
     const val = parseInt(propPlacementW.value) || 1080;
     if (domOverlay.getFocusedElement()) {
-      domOverlay.updateFocusedElementBounds({ width: val });
+      const bounds = domOverlay.getFocusedElementBounds();
+      if (ratioLocked && bounds && bounds.width > 0) {
+        const ratio = bounds.height / bounds.width;
+        const newH = Math.round(val * ratio);
+        propPlacementH.value = newH.toString();
+        domOverlay.updateFocusedElementBounds({ width: val, height: newH });
+      } else {
+        domOverlay.updateFocusedElementBounds({ width: val });
+      }
     } else {
-      const placement = { ...stateManager.project.video_placement, width: val };
-      stateManager.updateProjectField("video_placement", placement);
+      const p = stateManager.project.video_placement;
+      if (ratioLocked && p.width > 0) {
+        const ratio = p.height / p.width;
+        const newH = Math.round(val * ratio);
+        propPlacementH.value = newH.toString();
+        const placement = { ...p, width: val, height: newH };
+        stateManager.updateProjectField("video_placement", placement);
+      } else {
+        const placement = { ...p, width: val };
+        stateManager.updateProjectField("video_placement", placement);
+      }
     }
   });
   propPlacementH.addEventListener("change", () => {
     const val = parseInt(propPlacementH.value) || 1920;
     if (domOverlay.getFocusedElement()) {
-      domOverlay.updateFocusedElementBounds({ height: val });
+      const bounds = domOverlay.getFocusedElementBounds();
+      if (ratioLocked && bounds && bounds.height > 0) {
+        const ratio = bounds.width / bounds.height;
+        const newW = Math.round(val * ratio);
+        propPlacementW.value = newW.toString();
+        domOverlay.updateFocusedElementBounds({ width: newW, height: val });
+      } else {
+        domOverlay.updateFocusedElementBounds({ height: val });
+      }
     } else {
-      const placement = { ...stateManager.project.video_placement, height: val };
-      stateManager.updateProjectField("video_placement", placement);
+      const p = stateManager.project.video_placement;
+      if (ratioLocked && p.height > 0) {
+        const ratio = p.width / p.height;
+        const newW = Math.round(val * ratio);
+        propPlacementW.value = newW.toString();
+        const placement = { ...p, width: newW, height: val };
+        stateManager.updateProjectField("video_placement", placement);
+      } else {
+        const placement = { ...p, height: val };
+        stateManager.updateProjectField("video_placement", placement);
+      }
     }
   });
 
