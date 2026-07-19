@@ -96,11 +96,6 @@ impl FFmpegBuilder {
         self
     }
 
-    pub fn add_filters(&mut self, filters: Vec<String>) -> &mut Self {
-        self.video_filters.extend(filters);
-        self
-    }
-
     pub fn scale_to(&mut self, width: u32, height: u32, keep_aspect: bool) -> &mut Self {
         let filter = ScaleFilter::new(width, height, keep_aspect);
         self.video_filters.extend(filter.to_filter_strings());
@@ -414,7 +409,7 @@ impl FFmpegBuilder {
                         filters.push("format=rgba".to_string());
                         filters.push(format!(
                             "chromakey={}:{:.3}:{:.3}",
-                            norm_color, overlay.chroma_similarity, overlay.chroma_blend
+                            norm_color, overlay.chroma_similarity * 0.3, overlay.chroma_blend * 0.3
                         ));
                         filters.push("format=rgba".to_string());
                     }

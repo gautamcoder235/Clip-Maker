@@ -71,18 +71,6 @@ impl PreviewService {
         
         let mut builder = FFmpegBuilder::new(&self.ffmpeg_path);
         
-        // Compile and append active video effects filters
-        let mut active_effects = Vec::new();
-        if let Some(id) = asset_id {
-            if let Some(settings) = config.asset_settings.get(id) {
-                if let Some(ref effects) = settings.effects {
-                    active_effects = effects.clone();
-                }
-            }
-        }
-        let compiled_filters = crate::ffmpeg::EffectsMapper::map_effects_to_filters(&active_effects, trim_start);
-        builder.add_filters(compiled_filters);
-
         // Split/trim first clip preview using resolved trim parameters
         builder
             .input(input_path)

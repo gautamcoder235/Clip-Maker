@@ -102,6 +102,10 @@ pub async fn start_render_queue(
     } else {
         1
     };
+    let workers = config.parallel_workers.max(1) as usize;
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(workers));
+
+    let mut jobs_to_run = Vec::new();
 
     for clip_idx in start_clip..=end_clip {
         let job_name = format!("Render Clip {}", clip_idx);
@@ -112,27 +116,43 @@ pub async fn start_render_queue(
             &config.output_path,
             clip_idx,
             total_clips,
-            &state.ffmpeg_path, // Placeholder for selected encoder
+            &state.ffmpeg_path,
         );
 
         job_ids.push(job_id.clone());
-
-        // Spawn rendering task in tokio background thread
-        let export = std::sync::Arc::new(export_service.clone());
-        let cfg = config.clone();
-        let jobs = state.job_manager.clone();
-        let j_id = job_id.clone();
-        let app_handle_clone = app_handle.clone();
-        
-        let fonts_list = state.fonts.clone();
-        tokio::spawn(async move {
-            let res: AppResult<()> = export.export_clip(&cfg, clip_idx, total_clips, &j_id, &jobs, &fonts_list);
-            if let Err(e) = res {
-                jobs.fail_job(&j_id, &e.to_string());
-                let _ = app_handle_clone.emit("job-failed", (j_id, e.to_string()));
-            }
-        });
+        jobs_to_run.push((clip_idx, job_id));
     }
+
+    let export_service_arc = std::sync::Arc::new(export_service);
+    let cfg = config.clone();
+    let jobs_manager = state.job_manager.clone();
+    let fonts_list = state.fonts.clone();
+    let app_handle_clone = app_handle.clone();
+
+    // Spawn a single orchestrator task to enforce strict numerical order
+    tokio::spawn(async move {
+        for (clip_idx, j_id) in jobs_to_run {
+            // Strictly wait for an available worker slot before proceeding to next clip
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+            
+            let export = export_service_arc.clone();
+            let config_clone = cfg.clone();
+            let jobs = jobs_manager.clone();
+            let j_id_clone = j_id.clone();
+            let app_handle_inner = app_handle_clone.clone();
+            let fonts = fonts_list.clone();
+            
+            tokio::spawn(async move {
+                let res: AppResult<()> = export.export_clip(&config_clone, clip_idx, total_clips, &j_id_clone, &jobs, &fonts);
+                if let Err(e) = res {
+                    jobs.fail_job(&j_id_clone, &e.to_string());
+                    let _ = app_handle_inner.emit("job-failed", (j_id_clone, e.to_string()));
+                }
+                // The permit drops here, releasing the slot for the orchestrator to spawn the next clip
+                drop(permit);
+            });
+        }
+    });
 
     Ok(job_ids)
 }

@@ -2,7 +2,6 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { AppStateManager } from "./state/app_state";
 import { CanvasRenderer } from "./editor/canvas";
 import { DOMOverlay } from "./editor/dom_overlay";
-import { bootstrapPreviewShaders } from "./editor/renderer/shaders/catalog";
 import { CanvasContextMenu } from "./editor/context_menu";
 import { TauriService } from "./services/tauri";
 import { AppConfig, ImportedAsset, RenderJob, ProjectData } from "./types";
@@ -50,7 +49,6 @@ let propTextTemplate: HTMLInputElement;
 let propFontSize: HTMLInputElement;
 let propFontColor: HTMLInputElement;
 let propFontFamily: HTMLSelectElement;
-let propTextOutline: HTMLInputElement;
 let propGpuAccel: HTMLInputElement;
 let propIncludeAudio: HTMLInputElement;
 let propClipDuration: HTMLInputElement;
@@ -264,9 +262,6 @@ function initFontPicker(pickerId: string, hiddenSelect: HTMLSelectElement, fontN
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
-  // Bootstrap effect preview shaders
-  bootstrapPreviewShaders();
-
   // Bind Cache Elements
   assetListContainer = document.querySelector("#asset-list")!;
   clipsGridContainer = document.querySelector("#timeline-clips-grid")!;
@@ -303,7 +298,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   propFontSize = document.querySelector("#prop-font-size")!;
   propFontColor = document.querySelector("#prop-font-color")!;
   propFontFamily = document.querySelector("#prop-font-family")!;
-  propTextOutline = document.querySelector("#prop-text-outline")!;
   propGpuAccel = document.querySelector("#prop-gpu-accel")!;
   propIncludeAudio = document.querySelector("#prop-include-audio")!;
   propClipDuration = document.querySelector("#prop-clip-duration")!;
@@ -680,7 +674,6 @@ function syncConfigToUi() {
   propFontColor.value = proj.text_settings.font_color;
   propFontFamily.value = proj.text_settings.font_family;
   propFontFamily.style.fontFamily = proj.text_settings.font_family;
-  propTextOutline.checked = proj.text_settings.outline !== false;
   // Sync font picker display (without dispatching change to avoid infinite loop)
   const primaryPickerValue = document.querySelector("#font-picker-primary .font-picker-value") as HTMLSpanElement;
   if (primaryPickerValue) {
@@ -1004,11 +997,6 @@ function bindInputFields() {
 
   propFontFamily.addEventListener("change", () => {
     const textSettings = { ...stateManager.project.text_settings, font_family: propFontFamily.value };
-    stateManager.updateProjectField("text_settings", textSettings);
-  });
-
-  propTextOutline.addEventListener("change", () => {
-    const textSettings = { ...stateManager.project.text_settings, outline: propTextOutline.checked };
     stateManager.updateProjectField("text_settings", textSettings);
   });
 
@@ -1582,7 +1570,7 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
   // Load selected video immediately to the preview engine
   try {
     const webSrc = convertFileSrc(asset.path);
-    canvasRenderer.setVideoSource(webSrc, asset.id);
+    canvasRenderer.setVideoSource(webSrc);
     
     const settings = stateManager.project.asset_settings?.[asset.id];
     const trim = settings?.trim;
@@ -1702,7 +1690,7 @@ async function generatePreview() {
     
     // Convert resolved path to web-safe Tauri asset URL
     const webSrc = convertFileSrc(path);
-    canvasRenderer.setVideoSource(webSrc, currentSelectedAsset.id);
+    canvasRenderer.setVideoSource(webSrc);
     canvasRenderer.play();
     
     showToast("Preview loaded successfully!", "success");
