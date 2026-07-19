@@ -2,6 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { AppStateManager } from "./state/app_state";
 import { CanvasRenderer } from "./editor/canvas";
 import { DOMOverlay } from "./editor/dom_overlay";
+import { bootstrapPreviewShaders } from "./editor/renderer/shaders/catalog";
 import { CanvasContextMenu } from "./editor/context_menu";
 import { TauriService } from "./services/tauri";
 import { AppConfig, ImportedAsset, RenderJob, ProjectData } from "./types";
@@ -263,6 +264,9 @@ function initFontPicker(pickerId: string, hiddenSelect: HTMLSelectElement, fontN
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+  // Bootstrap effect preview shaders
+  bootstrapPreviewShaders();
+
   // Bind Cache Elements
   assetListContainer = document.querySelector("#asset-list")!;
   clipsGridContainer = document.querySelector("#timeline-clips-grid")!;

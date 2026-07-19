@@ -101,6 +101,18 @@ impl ExportService {
             .input(input_path)
             .split(start_time, duration, true, 3.0);
 
+        // Compile and append active video effects filters
+        let mut active_effects = Vec::new();
+        if let Some(id) = asset_id {
+            if let Some(settings) = config.asset_settings.get(id) {
+                if let Some(ref effects) = settings.effects {
+                    active_effects = effects.clone();
+                }
+            }
+        }
+        let compiled_filters = crate::ffmpeg::EffectsMapper::map_effects_to_filters(&active_effects, start_time);
+        builder.add_filters(compiled_filters.clone());
+
         if config.aspect_ratio == "9:16" {
             builder.crop("9:16", &config.crop_anchor);
         }
@@ -259,6 +271,9 @@ impl ExportService {
                 retry_builder
                     .input(input_path)
                     .split(start_time, duration, true, 3.0);
+                
+                // Re-compile and append active video effects filters for CPU fallback
+                retry_builder.add_filters(compiled_filters);
 
                 if config.aspect_ratio == "9:16" {
                     retry_builder.crop("9:16", &config.crop_anchor);

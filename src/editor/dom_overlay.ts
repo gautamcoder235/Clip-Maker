@@ -71,7 +71,6 @@ export class DOMOverlay {
     const span = document.createElement("span");
     span.style.fontFamily = fontFamily;
     span.style.fontSize = `${fontSize}px`;
-    span.style.fontWeight = "bold";
     span.style.whiteSpace = "nowrap";
     span.style.position = "absolute";
     span.style.visibility = "hidden";
@@ -348,7 +347,6 @@ export class DOMOverlay {
       textContent.style.fontSize = `${scaledFontSize}px`;
       textContent.style.color = fontColor;
       textContent.style.fontFamily = fontFamily;
-      textContent.style.fontWeight = "bold";
       textContent.style.lineHeight = "1";
       textContent.style.whiteSpace = "nowrap";
       textContent.style.pointerEvents = "none";

@@ -5,6 +5,7 @@ pub mod filters;
 pub mod logger;
 pub mod overlay;
 pub mod probe;
+pub mod effects_mapper;
 
 pub use builder::FFmpegBuilder;
 pub use crop::CropFilter;
@@ -13,3 +14,4 @@ pub use filters::{ScaleFilter, CanvasPlacementFilter};
 pub use logger::FFmpegLogger;
 pub use overlay::{TextOverlayFilter, MediaOverlaySpec, OverlayStep};
 pub use probe::{VideoProbe, VideoMetadata};
+pub use effects_mapper::EffectsMapper;

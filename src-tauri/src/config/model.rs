@@ -89,8 +89,33 @@ pub struct TrimSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyframePoint {
+    pub time: f64,
+    pub value: serde_json::Value,
+    pub easing: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EffectParameterState {
+    pub parameter_id: String,
+    pub points: Vec<KeyframePoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EffectState {
+    pub effect_id: String,
+    pub enabled: bool,
+    pub parameters: std::collections::HashMap<String, EffectParameterState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssetSettings {
     pub trim: Option<TrimSettings>,
+    #[serde(default)]
+    pub effects: Option<Vec<EffectState>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -2,6 +2,7 @@ import { ProjectData } from "../types";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { WebGL2Renderer } from "./renderer/webgl2";
 import { RenderGraph, DecodeNode, EffectNode } from "./renderer/graph";
+import { RenderGraphOptimizer } from "./renderer/optimizer";
 
 export class CanvasRenderer {
   private container: HTMLDivElement;
@@ -267,6 +268,9 @@ export class CanvasRenderer {
     this.renderGraph.connect("video-source", "effects-node");
     this.renderGraph.connect("effects-node", "output");
     this.renderGraph.setOutputNode("output");
+
+    // Optimize and merge shaders
+    RenderGraphOptimizer.optimize(this.renderGraph);
 
     // Execute shader evaluation draw pass
     this.webglRenderer.draw(time, this.renderGraph);
