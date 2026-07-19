@@ -1793,7 +1793,7 @@ async function startBatchExport() {
         output_path: outPath,
       };
 
-      const settings = stateManager.project.asset_settings?.[asset.id];
+
       if (settings) {
         if (settings.video_placement) config.video_placement = settings.video_placement;
         if (settings.text_settings) config.text_settings = settings.text_settings;
