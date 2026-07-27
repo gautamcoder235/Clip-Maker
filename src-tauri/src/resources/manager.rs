@@ -42,7 +42,9 @@ impl ResourceManager {
 
     pub fn import_asset(&self, path: &str) -> AppResult<ImportedAsset> {
         let abs_path = std::fs::canonicalize(path)?;
-        let abs_path_str = abs_path.to_string_lossy().replace("\\", "/");
+        let abs_path_str = abs_path.to_string_lossy()
+            .trim_start_matches(r"\\?\")
+            .replace("\\", "/");
         
         let hash = self.get_asset_hash(&abs_path_str);
         

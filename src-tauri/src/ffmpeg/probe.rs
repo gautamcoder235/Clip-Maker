@@ -1,4 +1,5 @@
 use std::process::Command;
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use serde::{Deserialize, Serialize};
 use crate::errors::{AppResult, AppError};

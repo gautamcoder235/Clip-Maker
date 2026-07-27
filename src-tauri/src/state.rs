@@ -21,7 +21,7 @@ pub struct AppState {
 impl AppState {
     pub fn init(app_handle: &AppHandle) -> AppResult<Self> {
         let app_dir = app_handle.path().app_data_dir()?;
-        let workspace_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let cache_dir = app_handle.path().app_cache_dir().unwrap_or_else(|_| app_dir.join("cache"));
 
         // Resolve bundled binaries: try executable's directory first (works in NSIS installs),
         // then resource_dir (works in dev mode), then fall back to system PATH.
@@ -34,7 +34,7 @@ impl AppState {
         let ffprobe_path = Self::resolve_binary("ffprobe.exe", &exe_dir, &resource_dir);
 
         let config_manager = ConfigManager::new(&app_dir);
-        let cache_manager = CacheManager::new(&workspace_dir);
+        let cache_manager = CacheManager::new(&cache_dir);
         cache_manager.init()?;
 
         let resource_manager = ResourceManager::new(

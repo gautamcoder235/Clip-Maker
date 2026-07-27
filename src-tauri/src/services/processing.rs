@@ -1,5 +1,6 @@
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::sync::atomic::Ordering;
 use std::time::Instant;

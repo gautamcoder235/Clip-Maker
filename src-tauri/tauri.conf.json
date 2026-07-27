@@ -42,6 +42,11 @@
     ],
     "resources": [
       "binaries/*"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
   }
 }

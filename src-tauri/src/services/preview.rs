@@ -1,6 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use std::process::Command;
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
 use crate::errors::{AppResult, AppError};
