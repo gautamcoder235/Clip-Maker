@@ -80,7 +80,7 @@ pub async fn generate_preview_clip(state: State<'_, AppState>, config: AppConfig
         state.cache_manager.clone(),
         &state.ffmpeg_path,
     );
-    preview_service.generate_preview(&config)
+    preview_service.generate_preview(&config, &state.fonts)
 }
 
 #[tauri::command]

@@ -1202,8 +1202,9 @@ function bindInputFields() {
     try {
       const path = await invoke<string>("select_video_file");
       if (!path) return;
-      const bg = { ...stateManager.project.background, image_path: path };
+      const bg = { ...stateManager.project.background, mode: "image", image_path: path };
       stateManager.updateProjectField("background", bg);
+      if (propBgMode) propBgMode.value = "image";
       showToast(`Background image set to: ${path.split(/[/\\]/).pop()}`, "success");
       refreshViewport();
     } catch (err) {

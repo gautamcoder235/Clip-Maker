@@ -26,9 +26,20 @@ impl TextOverlayFilter {
             font_arg = format!(":fontfile='{}'", Self::escape_drawtext(&normalized_ff));
         }
 
+        let norm_x = match x.trim() {
+            "(w-text_w)/2" | "(W-tw)/2" | "(main_w-text_w)/2" | "center" => "(main_w-text_w)/2".to_string(),
+            other => other.to_string(),
+        };
+        let norm_y = match y.trim() {
+            "(h-text_h)/2" | "(H-th)/2" | "(main_h-text_h)/2" | "center" | "middle" => "(main_h-text_h)/2".to_string(),
+            "top" => "100".to_string(),
+            "bottom" => "(main_h-text_h-100)".to_string(),
+            other => other.to_string(),
+        };
+
         let mut drawtext = format!(
             "drawtext=text='{}'{}:fontsize={}:fontcolor={}:x={}:y={}",
-            escaped_text, font_arg, font_size, safe_color, x, y
+            escaped_text, font_arg, font_size, safe_color, norm_x, norm_y
         );
 
         if outline {

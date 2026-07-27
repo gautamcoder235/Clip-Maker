@@ -143,10 +143,14 @@ export class CanvasRenderer {
 
   private drawCachedBackgroundImage(project: ProjectData, scale: number) {
     if (this.ctx && this.bgImage) {
-      const imgX = project.background.image_x * scale;
-      const imgY = project.background.image_y * scale;
-      const imgW = project.background.image_width * scale;
-      const imgH = project.background.image_height * scale;
+      const imgX = (project.background.image_x || 0) * scale;
+      const imgY = (project.background.image_y || 0) * scale;
+      const imgW = (project.background.image_width && project.background.image_width > 0)
+        ? project.background.image_width * scale
+        : this.canvasElement.width;
+      const imgH = (project.background.image_height && project.background.image_height > 0)
+        ? project.background.image_height * scale
+        : this.canvasElement.height;
       this.ctx.drawImage(this.bgImage, imgX, imgY, imgW, imgH);
     }
   }

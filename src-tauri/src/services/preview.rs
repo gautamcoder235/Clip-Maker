@@ -7,6 +7,7 @@ use crate::errors::{AppResult, AppError};
 use crate::config::AppConfig;
 use crate::resources::cache::CacheManager;
 use crate::ffmpeg::builder::FFmpegBuilder;
+use crate::fonts::SystemFont;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -23,7 +24,7 @@ impl PreviewService {
         }
     }
 
-    pub fn generate_preview(&self, config: &AppConfig) -> AppResult<String> {
+    pub fn generate_preview(&self, config: &AppConfig, fonts: &[SystemFont]) -> AppResult<String> {
         if config.input_paths.is_empty() && config.input_path.is_empty() {
             return Err(AppError::Config("No input video selected".to_string()));
         }
@@ -89,15 +90,20 @@ impl PreviewService {
 
         // Apply scaling or canvas placement
         let resolution = self.resolve_resolution(&config.output_resolution, config.output_width, config.output_height);
-        if config.video_placement.enabled && resolution.is_some() {
+        let has_bg_image = config.background.mode == "image" && !config.background.image_path.is_empty();
+        if (config.video_placement.enabled || has_bg_image) && resolution.is_some() {
             let res = resolution.unwrap();
+            let vid_w = if config.video_placement.enabled { config.video_placement.width as u32 } else { res.0 };
+            let vid_h = if config.video_placement.enabled { config.video_placement.height as u32 } else { res.1 };
+            let vid_x = if config.video_placement.enabled { config.video_placement.x } else { 0 };
+            let vid_y = if config.video_placement.enabled { config.video_placement.y } else { 0 };
             builder.place_on_canvas(
                 res.0,
                 res.1,
-                config.video_placement.width as u32,
-                config.video_placement.height as u32,
-                config.video_placement.x,
-                config.video_placement.y,
+                vid_w,
+                vid_h,
+                vid_x,
+                vid_y,
                 &config.background.color,
                 if config.background.mode == "image" { Some(&config.background.image_path) } else { None },
                 config.background.image_x,
@@ -108,6 +114,23 @@ impl PreviewService {
         } else if let Some(res) = resolution {
             builder.scale_to(res.0, res.1, true);
         }
+
+        // Helper to resolve font family name to absolute system font path
+        let resolve_font_path = |family: &str| -> Option<String> {
+            if family.is_empty() {
+                return None;
+            }
+            let lower_family = family.to_lowercase();
+            // 1. Exact match
+            if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase() == lower_family) {
+                return Some(f.path.clone());
+            }
+            // 2. Partial / prefix match
+            if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase().starts_with(&lower_family) || f.name.to_lowercase().contains(&lower_family)) {
+                return Some(f.path.clone());
+            }
+            None
+        };
 
         // Use overlay_order if available, otherwise default order
         let default_order: Vec<String> = {
@@ -130,16 +153,12 @@ impl PreviewService {
                     } else {
                         config.text_template.replace("{part}", "1").trim().to_string()
                     };
-                    let text_font = if !config.text_settings.font_family.is_empty() {
-                        Some(config.text_settings.font_family.as_str())
-                    } else {
-                        None
-                    };
+                    let font_path = resolve_font_path(&config.text_settings.font_family);
                     builder.overlay_text(
                         &template_text,
                         config.text_settings.font_size,
                         &config.text_settings.font_color,
-                        text_font,
+                        font_path.as_deref(),
                         &config.text_settings.x_position,
                         &config.text_settings.y_position,
                         config.text_settings.outline,
@@ -151,16 +170,12 @@ impl PreviewService {
                 if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
                     if let Some(extra) = config.extra_overlays.get(idx) {
                         let extra_text = extra.text.replace("{part}", "1").trim().to_string();
-                        let extra_font = if !extra.font_family.is_empty() {
-                            Some(extra.font_family.as_str())
-                        } else {
-                            None
-                        };
+                        let font_path = resolve_font_path(&extra.font_family);
                         builder.overlay_text(
                             &extra_text,
                             extra.font_size,
                             &extra.font_color,
-                            extra_font,
+                            font_path.as_deref(),
                             &extra.x_position,
                             &extra.y_position,
                             extra.outline,

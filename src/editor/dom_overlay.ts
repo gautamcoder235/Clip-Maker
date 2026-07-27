@@ -171,16 +171,18 @@ export class DOMOverlay {
       const boxH = txtMetrics.height + 4;
 
 
-      if (project.text_settings.x_position === "(w-text_w)/2") {
+      const posX = (project.text_settings.x_position || "").trim();
+      if (posX === "(w-text_w)/2" || posX === "(main_w-text_w)/2" || posX === "center") {
         textX = (canvasW - boxW) / 2;
       } else {
-        textX = parseFloat(project.text_settings.x_position) * scale || 10;
+        textX = parseFloat(posX) * scale || 10;
       }
 
-      if (project.text_settings.y_position === "(h-text_h)/2") {
+      const posY = (project.text_settings.y_position || "").trim();
+      if (posY === "(h-text_h)/2" || posY === "(main_h-text_h)/2" || posY === "center" || posY === "middle") {
         textY = (canvasH - boxH) / 2;
       } else {
-        textY = parseFloat(project.text_settings.y_position) * scale || 10;
+        textY = parseFloat(posY) * scale || 10;
       }
 
       this.textBox = this.createInteractiveBox("text", textX, textY, boxW, boxH, scale, txtVal);
@@ -204,15 +206,18 @@ export class DOMOverlay {
 
         let x = 20;
         let y = 20;
-        if (overlay.x_position === "(w-text_w)/2") {
+        const exPosX = (overlay.x_position || "").trim();
+        if (exPosX === "(w-text_w)/2" || exPosX === "(main_w-text_w)/2" || exPosX === "center") {
           x = (canvasW - extraBoxW) / 2;
         } else {
-          x = parseFloat(overlay.x_position) * scale || 20;
+          x = parseFloat(exPosX) * scale || 20;
         }
-        if (overlay.y_position === "(h-text_h)/2") {
+
+        const exPosY = (overlay.y_position || "").trim();
+        if (exPosY === "(h-text_h)/2" || exPosY === "(main_h-text_h)/2" || exPosY === "center" || exPosY === "middle") {
           y = (canvasH - extraBoxH) / 2;
         } else {
-          y = parseFloat(overlay.y_position) * scale || 20;
+          y = parseFloat(exPosY) * scale || 20;
         }
 
         const box = this.createInteractiveBox(`extra-${idx}`, x, y, extraBoxW, extraBoxH, scale, extraTxt);

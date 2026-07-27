@@ -115,15 +115,20 @@ impl ExportService {
         }
 
         let resolution = self.resolve_resolution(&config.output_resolution, config.output_width, config.output_height);
-        if config.video_placement.enabled && resolution.is_some() {
+        let has_bg_image = config.background.mode == "image" && !config.background.image_path.is_empty();
+        if (config.video_placement.enabled || has_bg_image) && resolution.is_some() {
             let res = resolution.unwrap();
+            let vid_w = if config.video_placement.enabled { config.video_placement.width as u32 } else { res.0 };
+            let vid_h = if config.video_placement.enabled { config.video_placement.height as u32 } else { res.1 };
+            let vid_x = if config.video_placement.enabled { config.video_placement.x } else { 0 };
+            let vid_y = if config.video_placement.enabled { config.video_placement.y } else { 0 };
             builder.place_on_canvas(
                 res.0,
                 res.1,
-                config.video_placement.width as u32,
-                config.video_placement.height as u32,
-                config.video_placement.x,
-                config.video_placement.y,
+                vid_w,
+                vid_h,
+                vid_x,
+                vid_y,
                 &config.background.color,
                 if config.background.mode == "image" { Some(&config.background.image_path) } else { None },
                 config.background.image_x,
@@ -187,9 +192,15 @@ impl ExportService {
                 return None;
             }
             let lower_family = family.to_lowercase();
-            fonts.iter()
-                .find(|f| f.name.to_lowercase() == lower_family)
-                .map(|f| f.path.clone())
+            // 1. Exact match
+            if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase() == lower_family) {
+                return Some(f.path.clone());
+            }
+            // 2. Partial / prefix match
+            if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase().starts_with(&lower_family) || f.name.to_lowercase().contains(&lower_family)) {
+                return Some(f.path.clone());
+            }
+            None
         };
 
         // Apply overlays in order to builder
@@ -277,15 +288,20 @@ impl ExportService {
                     retry_builder.crop("9:16", &config.crop_anchor);
                 }
 
-                if config.video_placement.enabled && resolution.is_some() {
+                let has_bg_image = config.background.mode == "image" && !config.background.image_path.is_empty();
+                if (config.video_placement.enabled || has_bg_image) && resolution.is_some() {
                     let res = resolution.unwrap();
+                    let vid_w = if config.video_placement.enabled { config.video_placement.width as u32 } else { res.0 };
+                    let vid_h = if config.video_placement.enabled { config.video_placement.height as u32 } else { res.1 };
+                    let vid_x = if config.video_placement.enabled { config.video_placement.x } else { 0 };
+                    let vid_y = if config.video_placement.enabled { config.video_placement.y } else { 0 };
                     retry_builder.place_on_canvas(
                         res.0,
                         res.1,
-                        config.video_placement.width as u32,
-                        config.video_placement.height as u32,
-                        config.video_placement.x,
-                        config.video_placement.y,
+                        vid_w,
+                        vid_h,
+                        vid_x,
+                        vid_y,
                         &config.background.color,
                         if config.background.mode == "image" { Some(&config.background.image_path) } else { None },
                         config.background.image_x,
