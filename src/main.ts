@@ -2488,6 +2488,7 @@ function setupTauriEventListeners() {
       job.progress = progress;
       job.speed = speed;
       job.eta_seconds = eta;
+      job.elapsed_seconds = _elapsed;
       job.status = "Encoding";
     }
     updateRenderStats();

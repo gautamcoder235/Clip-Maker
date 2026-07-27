@@ -34,6 +34,12 @@ impl ExportService {
         job_manager: &JobManager,
         fonts: &[SystemFont],
     ) -> AppResult<()> {
+        if let Some(job) = job_manager.get_job(job_id) {
+            if job.status == "Cancelled" {
+                return Err(AppError::Job("Job was cancelled by user".to_string()));
+            }
+        }
+
         if config.input_paths.is_empty() && config.input_path.is_empty() {
             return Err(AppError::Config("No input video selected".to_string()));
         }
@@ -380,6 +386,12 @@ impl ExportService {
                     "veryfast",
                     22,
                 );
+
+                if let Some(job) = job_manager.get_job(job_id) {
+                    if job.status == "Cancelled" {
+                        return Err(AppError::Job("Job was cancelled by user".to_string()));
+                    }
+                }
 
                 res = processor.execute_render_job(job_id, duration, &mut retry_builder, job_manager);
             }

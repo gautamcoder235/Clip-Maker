@@ -22,6 +22,7 @@ pub struct RenderJob {
     pub encoder: String,
     pub start_time: Option<DateTime<Utc>>,
     pub error_message: Option<String>,
+    pub created_at: DateTime<Utc>,
 }
 
 pub struct ActiveProcess {
@@ -68,6 +69,7 @@ impl JobManager {
             encoder: encoder.to_string(),
             start_time: None,
             error_message: None,
+            created_at: Utc::now(),
         };
 
         self.jobs.lock().unwrap().insert(id.clone(), job);
@@ -112,8 +114,10 @@ impl JobManager {
     pub fn fail_job(&self, job_id: &str, error: &str) {
         let mut jobs = self.jobs.lock().unwrap();
         if let Some(job) = jobs.get_mut(job_id) {
-            job.status = "Failed".to_string();
-            job.error_message = Some(error.to_string());
+            if job.status != "Cancelled" {
+                job.status = "Failed".to_string();
+                job.error_message = Some(error.to_string());
+            }
         }
         self.processes.lock().unwrap().remove(job_id);
     }
@@ -188,8 +192,15 @@ impl JobManager {
     pub fn get_all_jobs(&self) -> Vec<RenderJob> {
         let jobs = self.jobs.lock().unwrap();
         let mut list: Vec<RenderJob> = jobs.values().cloned().collect();
-        // Sort by start time or ID
-        list.sort_by(|a, b| a.id.cmp(&b.id));
+        // Sort serially by creation time, with clip_index as tiebreaker for tight loops
+        list.sort_by(|a, b| {
+            let cmp = a.created_at.cmp(&b.created_at);
+            if cmp == std::cmp::Ordering::Equal {
+                a.clip_index.cmp(&b.clip_index)
+            } else {
+                cmp
+            }
+        });
         list
     }
 

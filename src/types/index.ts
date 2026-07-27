@@ -150,6 +150,7 @@ export interface RenderJob {
   encoder: string;
   start_time: string | null;
   error_message: string | null;
+  created_at: string;
 }
 
 export interface SystemFont {
