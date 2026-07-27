@@ -721,6 +721,14 @@ function syncConfigToUi() {
   propPlacementW.value = proj.video_placement.width.toString();
   propPlacementH.value = proj.video_placement.height.toString();
 
+  const isLocked = proj.video_placement.ratio_locked !== false;
+  ratioLocked = isLocked;
+  if (domOverlay) domOverlay.ratioLocked = isLocked;
+  if (btnRatioLock) {
+    btnRatioLock.classList.toggle("active", isLocked);
+    btnRatioLock.title = isLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
+  }
+
   propAspectRatio.value = proj.aspect_ratio;
   propCropAnchor.value = proj.crop_anchor;
   propResolution.value = proj.output_resolution;
@@ -954,6 +962,9 @@ function bindInputFields() {
     btnRatioLock.classList.toggle("active", ratioLocked);
     btnRatioLock.title = ratioLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
 
+    const placement = { ...stateManager.project.video_placement, ratio_locked: ratioLocked };
+    stateManager.updateProjectField("video_placement", placement);
+
     if (ratioLocked) {
       const focused = domOverlay.getFocusedElement() || "video";
       const ratio = domOverlay.getNaturalRatio(focused);
@@ -962,8 +973,8 @@ function bindInputFields() {
           const p = stateManager.project.video_placement;
           const newH = Math.round(p.width / ratio);
           propPlacementH.value = newH.toString();
-          const placement = { ...p, height: newH };
-          stateManager.updateProjectField("video_placement", placement);
+          const placementWithH = { ...p, height: newH, ratio_locked: ratioLocked };
+          stateManager.updateProjectField("video_placement", placementWithH);
         } else {
           const bounds = domOverlay.getFocusedElementBounds();
           if (bounds) {
@@ -1785,8 +1796,9 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
     stateManager.project.output_height = asset.metadata.height;
   }
 
-  // Adjust video placement box to match the loaded video's actual aspect ratio to prevent pixel stretching
-  if (asset.metadata && asset.metadata.width && asset.metadata.height) {
+  // Adjust video placement box to match the loaded video's actual aspect ratio if not previously configured
+  const hasSavedPlacement = !!stateManager.project.asset_settings?.[asset.id]?.video_placement;
+  if (!hasSavedPlacement && asset.metadata && asset.metadata.width && asset.metadata.height) {
     const assetRatio = asset.metadata.width / asset.metadata.height;
     const canvasW = stateManager.project.output_width || 1080;
     const canvasH = stateManager.project.output_height || 1920;
@@ -1803,6 +1815,7 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
       y: newY,
       width: newW,
       height: newH,
+      ratio_locked: true,
     };
   }
 

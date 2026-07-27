@@ -71,6 +71,7 @@ export class AppStateManager {
         y: 0,
         width: 1080,
         height: 1920,
+        ratio_locked: true,
       },
       text_mode: "Per Clip",
       text_template: "PART {part}",

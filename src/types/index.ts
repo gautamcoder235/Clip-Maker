@@ -14,6 +14,7 @@ export interface VideoPlacementConfig {
   y: number;
   width: number;
   height: number;
+  ratio_locked?: boolean;
 }
 
 export interface TextSettings {

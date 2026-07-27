@@ -18,6 +18,8 @@ pub struct VideoPlacementConfig {
     pub y: i32,
     pub width: i32,
     pub height: i32,
+    #[serde(default)]
+    pub ratio_locked: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,6 +194,7 @@ impl Default for AppConfig {
                 y: 0,
                 width: 0,
                 height: 0,
+                ratio_locked: Some(true),
             },
             text_mode: "Per Clip".to_string(),
             text_template: "PART {part}".to_string(),
