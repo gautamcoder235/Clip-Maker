@@ -43,12 +43,10 @@ impl TextOverlayFilter {
         );
 
         if outline {
-            let base_border = (font_size as f32 / 35.0).max(1.5);
-            let weight_scale = (font_weight as f32 / 400.0).clamp(0.5, 2.5);
-            let border_w = (base_border * weight_scale).round() as u32;
-            drawtext.push_str(&format!(":borderw={}", border_w.max(1)));
-        } else if font_weight > 400 {
-            let bold_thickness = ((font_weight as f32 - 400.0) / 100.0 * (font_size as f32 / 80.0)).clamp(0.5, 6.0);
+            let border_w = ((font_size as f32) / 50.0).clamp(1.5, 3.5).round() as u32;
+            drawtext.push_str(&format!(":borderw={}:bordercolor=black", border_w.max(1)));
+        } else if font_weight > 600 && font_file.is_none() {
+            let bold_thickness = ((font_weight as f32 - 400.0) / 300.0 * (font_size as f32 / 100.0)).clamp(0.5, 2.5);
             drawtext.push_str(&format!(":borderw={:.1}:bordercolor={}", bold_thickness, safe_color));
         }
 

@@ -167,9 +167,8 @@ export class DOMOverlay {
       const scaledFS = txtFS * scale;
       const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily, txtLetterSpacing, txtFontWeight);
 
-      const boxW = txtMetrics.width + 4; // small padding to prevent edge clipping
-      const boxH = txtMetrics.height + 4;
-
+      const boxW = txtMetrics.width;
+      const boxH = txtMetrics.height;
 
       const posX = (project.text_settings.x_position || "").trim();
       if (posX === "(w-text_w)/2" || posX === "(main_w-text_w)/2" || posX === "center") {
@@ -201,8 +200,8 @@ export class DOMOverlay {
         const extraScaledFS = extraFS * scale;
         const extraMetrics = this.measureText(extraTxt, extraScaledFS, extraFontFamily, extraLetterSpacing, extraFontWeight);
 
-        const extraBoxW = extraMetrics.width + 4;
-        const extraBoxH = extraMetrics.height + 4;
+        const extraBoxW = extraMetrics.width;
+        const extraBoxH = extraMetrics.height;
 
         let x = 20;
         let y = 20;

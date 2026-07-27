@@ -115,12 +115,24 @@ impl PreviewService {
             builder.scale_to(res.0, res.1, true);
         }
 
-        // Helper to resolve font family name to absolute system font path
-        let resolve_font_path = |family: &str| -> Option<String> {
+        // Helper to resolve font family name and font weight to absolute system font path
+        let resolve_font_path = |family: &str, weight: u32| -> Option<String> {
             if family.is_empty() {
                 return None;
             }
             let lower_family = family.to_lowercase();
+            let is_bold = weight >= 700;
+
+            if is_bold {
+                let bold_name = format!("{} bold", lower_family);
+                if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase() == bold_name) {
+                    return Some(f.path.clone());
+                }
+                if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase().contains(&lower_family) && (f.name.to_lowercase().contains("bold") || f.path.to_lowercase().contains("bd") || f.path.to_lowercase().contains("b.ttf"))) {
+                    return Some(f.path.clone());
+                }
+            }
+
             // 1. Exact match
             if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase() == lower_family) {
                 return Some(f.path.clone());
@@ -153,7 +165,7 @@ impl PreviewService {
                     } else {
                         config.text_template.replace("{part}", "1").trim().to_string()
                     };
-                    let font_path = resolve_font_path(&config.text_settings.font_family);
+                    let font_path = resolve_font_path(&config.text_settings.font_family, config.text_settings.font_weight);
                     builder.overlay_text(
                         &template_text,
                         config.text_settings.font_size,
@@ -170,7 +182,7 @@ impl PreviewService {
                 if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
                     if let Some(extra) = config.extra_overlays.get(idx) {
                         let extra_text = extra.text.replace("{part}", "1").trim().to_string();
-                        let font_path = resolve_font_path(&extra.font_family);
+                        let font_path = resolve_font_path(&extra.font_family, extra.font_weight);
                         builder.overlay_text(
                             &extra_text,
                             extra.font_size,

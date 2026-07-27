@@ -186,12 +186,24 @@ impl ExportService {
             }
         }
 
-        // Helper to resolve font family name to absolute system font path
-        let resolve_font_path = |family: &str| -> Option<String> {
+        // Helper to resolve font family name and font weight to absolute system font path
+        let resolve_font_path = |family: &str, weight: u32| -> Option<String> {
             if family.is_empty() {
                 return None;
             }
             let lower_family = family.to_lowercase();
+            let is_bold = weight >= 700;
+
+            if is_bold {
+                let bold_name = format!("{} bold", lower_family);
+                if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase() == bold_name) {
+                    return Some(f.path.clone());
+                }
+                if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase().contains(&lower_family) && (f.name.to_lowercase().contains("bold") || f.path.to_lowercase().contains("bd") || f.path.to_lowercase().contains("b.ttf"))) {
+                    return Some(f.path.clone());
+                }
+            }
+
             // 1. Exact match
             if let Some(f) = fonts.iter().find(|f| f.name.to_lowercase() == lower_family) {
                 return Some(f.path.clone());
@@ -207,7 +219,7 @@ impl ExportService {
         for id in &normalized_order {
             if id == "text" {
                 if config.text_settings.enabled {
-                    let font_path = resolve_font_path(&config.text_settings.font_family);
+                    let font_path = resolve_font_path(&config.text_settings.font_family, config.text_settings.font_weight);
                     builder.overlay_text(
                         &template_text,
                         config.text_settings.font_size,
@@ -224,7 +236,7 @@ impl ExportService {
                 if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
                     if let Some(extra) = config.extra_overlays.get(idx) {
                         let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
-                        let font_path = resolve_font_path(&extra.font_family);
+                        let font_path = resolve_font_path(&extra.font_family, extra.font_weight);
                         builder.overlay_text(
                             &extra_text,
                             extra.font_size,
@@ -317,7 +329,7 @@ impl ExportService {
                 for id in &normalized_order {
                     if id == "text" {
                         if config.text_settings.enabled {
-                            let font_path = resolve_font_path(&config.text_settings.font_family);
+                            let font_path = resolve_font_path(&config.text_settings.font_family, config.text_settings.font_weight);
                             retry_builder.overlay_text(
                                 &template_text,
                                 config.text_settings.font_size,
@@ -334,7 +346,7 @@ impl ExportService {
                         if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
                             if let Some(extra) = config.extra_overlays.get(idx) {
                                 let extra_text = extra.text.replace("{part}", &clip_index.to_string()).trim().to_string();
-                                let font_path = resolve_font_path(&extra.font_family);
+                                let font_path = resolve_font_path(&extra.font_family, extra.font_weight);
                                 retry_builder.overlay_text(
                                     &extra_text,
                                     extra.font_size,
