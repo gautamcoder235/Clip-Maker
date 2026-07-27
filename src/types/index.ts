@@ -15,6 +15,11 @@ export interface VideoPlacementConfig {
   width: number;
   height: number;
   ratio_locked?: boolean;
+  rotation?: number;
+  crop_top?: number;
+  crop_right?: number;
+  crop_bottom?: number;
+  crop_left?: number;
 }
 
 export interface TextSettings {
@@ -73,6 +78,11 @@ export interface MediaOverlay {
   chroma_similarity: number;
   chroma_blend: number;
   ratio_locked?: boolean;
+  rotation?: number;
+  crop_top?: number;
+  crop_right?: number;
+  crop_bottom?: number;
+  crop_left?: number;
 }
 
 export interface ProjectAsset {

@@ -123,9 +123,28 @@ impl PreviewService {
                 config.background.image_y,
                 config.background.image_width as u32,
                 config.background.image_height as u32,
+                config.video_placement.crop_left.unwrap_or(0.0),
+                config.video_placement.crop_top.unwrap_or(0.0),
             );
         } else if let Some(res) = resolution {
             builder.scale_to(res.0, res.1, true);
+        }
+
+        let crop_t = config.video_placement.crop_top.unwrap_or(0.0);
+        let crop_b = config.video_placement.crop_bottom.unwrap_or(0.0);
+        let crop_l = config.video_placement.crop_left.unwrap_or(0.0);
+        let crop_r = config.video_placement.crop_right.unwrap_or(0.0);
+        
+        if crop_t > 0.0 || crop_b > 0.0 || crop_l > 0.0 || crop_r > 0.0 {
+            builder.add_video_filter(&format!(
+                "crop=iw-{}-{}:ih-{}-{}:{}:{}",
+                crop_l, crop_r, crop_t, crop_b, crop_l, crop_t
+            ));
+        }
+
+        let rot = config.video_placement.rotation.unwrap_or(0.0);
+        if rot != 0.0 {
+            builder.add_video_filter(&format!("rotate={rot}*PI/180:c=black@0:ow=iw*abs(cos({rot}*PI/180))+ih*abs(sin({rot}*PI/180)):oh=iw*abs(sin({rot}*PI/180))+ih*abs(cos({rot}*PI/180))", rot=rot));
         }
 
         // Helper to resolve font family name and font weight to absolute system font path
@@ -230,7 +249,7 @@ impl PreviewService {
             &preview_path_str,
             config.gpu_acceleration,
             None, // No specific GPU encoder for preview
-            false, // strip audio for fast preview
+            config.include_audio, // keep audio if enabled in project
             "ultrafast",
             30, // Lower quality, faster render
         );

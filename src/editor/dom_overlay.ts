@@ -37,6 +37,13 @@ export class DOMOverlay {
   private elementStartW = 0;
   private elementStartH = 0;
   private elementStartFontSize = 32;
+  
+  private isCropping = false;
+  private isRotating = false;
+  private elementStartCropT = 0;
+  private elementStartCropR = 0;
+  private elementStartCropB = 0;
+  private elementStartCropL = 0;
 
   private onLayoutChangeCallback: () => void = () => {};
   private onFocusChangeCallback: (focusedElement: string | null) => void = () => {};
@@ -150,12 +157,18 @@ export class DOMOverlay {
 
     // Render Video Box
     if (project.video_placement.enabled) {
-      const boxX = project.video_placement.x * scale;
-      const boxY = project.video_placement.y * scale;
-      const boxW = project.video_placement.width * scale;
-      const boxH = project.video_placement.height * scale;
+      const cropT = (project.video_placement.crop_top || 0) * scale;
+      const cropR = (project.video_placement.crop_right || 0) * scale;
+      const cropB = (project.video_placement.crop_bottom || 0) * scale;
+      const cropL = (project.video_placement.crop_left || 0) * scale;
 
-      this.videoBox = this.createInteractiveBox("video", boxX, boxY, boxW, boxH, scale);
+      const boxX = project.video_placement.x * scale + cropL;
+      const boxY = project.video_placement.y * scale + cropT;
+      const boxW = project.video_placement.width * scale - cropL - cropR;
+      const boxH = project.video_placement.height * scale - cropT - cropB;
+      const rot = project.video_placement.rotation || 0;
+
+      this.videoBox = this.createInteractiveBox("video", boxX, boxY, boxW, boxH, scale, undefined, rot, cropT, cropR, cropB, cropL);
       this.overlayContainer.appendChild(this.videoBox);
     }
 
@@ -241,8 +254,13 @@ export class DOMOverlay {
         const y = (overlay.y || 0) * scale;
         const w = (overlay.width || 200) * scale;
         const h = (overlay.height || 120) * scale;
+        const rot = overlay.rotation || 0;
+        const cropT = (overlay.crop_top || 0) * scale;
+        const cropR = (overlay.crop_right || 0) * scale;
+        const cropB = (overlay.crop_bottom || 0) * scale;
+        const cropL = (overlay.crop_left || 0) * scale;
 
-        const box = this.createInteractiveBox(`media-${idx}`, x, y, w, h, scale, overlay.name);
+        const box = this.createInteractiveBox(`media-${idx}`, x, y, w, h, scale, overlay.name, rot, cropT, cropR, cropB, cropL);
 
         // Append canvas inside box for video/image rendering
         const canvas = document.createElement("canvas");
@@ -310,7 +328,12 @@ export class DOMOverlay {
     w: number,
     h: number,
     scale: number,
-    labelText?: string
+    labelText?: string,
+    rotation: number = 0,
+    cropTop: number = 0,
+    cropRight: number = 0,
+    cropBottom: number = 0,
+    cropLeft: number = 0
   ): HTMLDivElement {
     const box = document.createElement("div");
     box.className = `editor-interactive-box selection-${type}`;
@@ -320,7 +343,12 @@ export class DOMOverlay {
     box.style.top = `${y}px`;
     box.style.width = `${w}px`;
     box.style.height = `${h}px`;
-    
+    box.style.transform = `rotate(${rotation}deg)`;
+    box.dataset.cropT = cropTop.toString();
+    box.dataset.cropR = cropRight.toString();
+    box.dataset.cropB = cropBottom.toString();
+    box.dataset.cropL = cropLeft.toString();
+
     // Manage borders and handles via focused class states rather than hardcoded inline values
     if (this.focusedElement === type) {
       box.classList.add("focused");
@@ -329,7 +357,7 @@ export class DOMOverlay {
     box.style.cursor = "move";
     box.style.pointerEvents = "auto";
     box.style.zIndex = type === "video" ? "5" : "10";
-    box.style.overflow = (type === "text" || type.startsWith("extra-")) ? "visible" : "hidden";
+    box.style.overflow = "visible";
 
     // Render visible text content inside the box for text overlays
     if (type === "text" || type.startsWith("extra-")) {
@@ -480,7 +508,15 @@ export class DOMOverlay {
       handle.addEventListener("mousedown", (e) => {
         e.stopPropagation();
         e.preventDefault();
-        this.isResizing = true;
+        
+        if (e.altKey && type !== "text" && !type.startsWith("extra-")) {
+          this.isCropping = true;
+          this.isResizing = false;
+        } else {
+          this.isResizing = true;
+          this.isCropping = false;
+        }
+        
         this.activeElement = type;
         this.resizeHandle = c;
 
@@ -494,6 +530,14 @@ export class DOMOverlay {
         this.elementStartY = parseFloat(box.style.top);
         this.elementStartW = parseFloat(box.style.width);
         this.elementStartH = parseFloat(box.style.height);
+        
+        const bounds = this.getFocusedElementBounds();
+        if (bounds) {
+          this.elementStartCropT = (bounds.crop_top || 0) * scale;
+          this.elementStartCropR = (bounds.crop_right || 0) * scale;
+          this.elementStartCropB = (bounds.crop_bottom || 0) * scale;
+          this.elementStartCropL = (bounds.crop_left || 0) * scale;
+        }
 
         // Capture starting font size for dynamic text scaling
         if (type === "text") {
@@ -555,7 +599,15 @@ export class DOMOverlay {
       handle.addEventListener("mousedown", (e) => {
         e.stopPropagation();
         e.preventDefault();
-        this.isResizing = true;
+        
+        if (e.altKey && type !== "text" && !type.startsWith("extra-")) {
+          this.isCropping = true;
+          this.isResizing = false;
+        } else {
+          this.isResizing = true;
+          this.isCropping = false;
+        }
+        
         this.activeElement = type;
         this.resizeHandle = s;
 
@@ -570,6 +622,14 @@ export class DOMOverlay {
         this.elementStartW = parseFloat(box.style.width);
         this.elementStartH = parseFloat(box.style.height);
 
+        const bounds = this.getFocusedElementBounds();
+        if (bounds) {
+          this.elementStartCropT = (bounds.crop_top || 0) * scale;
+          this.elementStartCropR = (bounds.crop_right || 0) * scale;
+          this.elementStartCropB = (bounds.crop_bottom || 0) * scale;
+          this.elementStartCropL = (bounds.crop_left || 0) * scale;
+        }
+
         // Capture starting font size for dynamic text scaling
         if (type === "text") {
           this.elementStartFontSize = this.stateManager.project.text_settings.font_size;
@@ -580,6 +640,42 @@ export class DOMOverlay {
       });
 
       box.appendChild(handle);
+    }
+
+    if (type !== "text" && !type.startsWith("extra-")) {
+      const rotHandle = document.createElement("div");
+      rotHandle.className = "rot-handle resize-handle";
+      rotHandle.style.position = "absolute";
+      rotHandle.style.width = "24px";
+      rotHandle.style.height = "24px";
+      rotHandle.style.background = (type === "video" ? "#3b82f6" : "#a855f7");
+      rotHandle.style.borderRadius = "50%";
+      rotHandle.style.left = "50%";
+      rotHandle.style.top = "-36px";
+      rotHandle.style.transform = "translateX(-50%)";
+      rotHandle.style.cursor = "crosshair";
+      rotHandle.style.display = "flex";
+      rotHandle.style.alignItems = "center";
+      rotHandle.style.justifyContent = "center";
+      rotHandle.style.color = "white";
+      rotHandle.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+      rotHandle.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21l5.67-5.67"/></svg>`;
+
+      box.appendChild(rotHandle);
+
+      rotHandle.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.isRotating = true;
+        this.activeElement = type;
+        
+        this.focusedElement = type;
+        this.refreshFocus();
+
+        const boxRect = box.getBoundingClientRect();
+        this.dragStartX = boxRect.left + boxRect.width / 2; // center X
+        this.dragStartY = boxRect.top + boxRect.height / 2; // center Y
+      });
     }
 
     // Drag setup
@@ -621,7 +717,7 @@ export class DOMOverlay {
 
   private setupGlobalEvents() {
     window.addEventListener("mousemove", (e) => {
-      if (!this.isDragging && !this.isResizing) return;
+      if (!this.isDragging && !this.isResizing && !this.isCropping && !this.isRotating) return;
       e.preventDefault();
 
       const dx = e.clientX - this.dragStartX;
@@ -661,6 +757,62 @@ export class DOMOverlay {
         activeBox.style.left = `${newX}px`;
         activeBox.style.top = `${newY}px`;
 
+      } else if (this.isRotating) {
+        const rect = activeBox.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const dx = e.clientX - centerX;
+        const dy = e.clientY - centerY;
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        
+        // The rotate handle is at the top center, which is -90 degrees in atan2.
+        // We add 90 so that pointing straight up equals 0 degrees rotation.
+        let rotation = angle + 90;
+        
+        // Add snapping to 15 degree increments if shift is held
+        if (e.shiftKey) {
+          rotation = Math.round(rotation / 15) * 15;
+        }
+
+        activeBox.style.transform = `rotate(${rotation}deg)`;
+        
+      } else if (this.isCropping && this.resizeHandle) {
+        let cropT = this.elementStartCropT;
+        let cropB = this.elementStartCropB;
+        let cropL = this.elementStartCropL;
+        let cropR = this.elementStartCropR;
+
+        if (this.resizeHandle.includes("t")) cropT = Math.max(0, this.elementStartCropT + dy);
+        if (this.resizeHandle.includes("b")) cropB = Math.max(0, this.elementStartCropB - dy);
+        if (this.resizeHandle.includes("l")) cropL = Math.max(0, this.elementStartCropL + dx);
+        if (this.resizeHandle.includes("r")) cropR = Math.max(0, this.elementStartCropR - dx);
+
+        // Prevent cropping more than the box size
+        if (cropT + cropB >= this.elementStartH) {
+           if (this.resizeHandle.includes("t")) cropT = this.elementStartH - cropB - 1;
+           if (this.resizeHandle.includes("b")) cropB = this.elementStartH - cropT - 1;
+        }
+        if (cropL + cropR >= this.elementStartW) {
+           if (this.resizeHandle.includes("l")) cropL = this.elementStartW - cropR - 1;
+           if (this.resizeHandle.includes("r")) cropR = this.elementStartW - cropL - 1;
+        }
+
+        const deltaL = cropL - this.elementStartCropL;
+        const deltaR = cropR - this.elementStartCropR;
+        const deltaT = cropT - this.elementStartCropT;
+        const deltaB = cropB - this.elementStartCropB;
+
+        activeBox.dataset.cropT = cropT.toString();
+        activeBox.dataset.cropB = cropB.toString();
+        activeBox.dataset.cropL = cropL.toString();
+        activeBox.dataset.cropR = cropR.toString();
+
+        activeBox.style.left = `${this.elementStartX + deltaL}px`;
+        activeBox.style.top = `${this.elementStartY + deltaT}px`;
+        activeBox.style.width = `${this.elementStartW - deltaL - deltaR}px`;
+        activeBox.style.height = `${this.elementStartH - deltaT - deltaB}px`;
+        
       } else if (this.isResizing && this.resizeHandle) {
         let newW = this.elementStartW;
         let newH = this.elementStartH;
@@ -843,6 +995,42 @@ export class DOMOverlay {
         activeBox.style.width = `${newW}px`;
         activeBox.style.height = `${newH}px`;
 
+        // Live update the actual video element beneath the overlay
+        if (this.activeElement === "video") {
+          const videoElement = document.getElementById("preview-video");
+          if (videoElement) {
+            const bounds = this.getFocusedElementBounds();
+            if (bounds) {
+              const scale = Math.min(
+                this.overlayContainer.clientWidth / (this.stateManager.project.output_width || 1080),
+                this.overlayContainer.clientHeight / (this.stateManager.project.output_height || 1920)
+              );
+              
+              const vidX = bounds.x * scale;
+              const vidY = bounds.y * scale;
+              const vidW = bounds.width * scale;
+              const vidH = bounds.height * scale;
+              
+              videoElement.style.left = `${vidX}px`;
+              videoElement.style.top = `${vidY}px`;
+              videoElement.style.width = `${vidW}px`;
+              videoElement.style.height = `${vidH}px`;
+              videoElement.style.transform = `rotate(${bounds.rotation || 0}deg)`;
+              
+              const cropT = (bounds.crop_top || 0) * scale;
+              const cropR = (bounds.crop_right || 0) * scale;
+              const cropB = (bounds.crop_bottom || 0) * scale;
+              const cropL = (bounds.crop_left || 0) * scale;
+              
+              if (cropT > 0 || cropR > 0 || cropB > 0 || cropL > 0) {
+                videoElement.style.clipPath = `inset(${cropT}px ${cropR}px ${cropB}px ${cropL}px)`;
+              } else {
+                videoElement.style.clipPath = "none";
+              }
+            }
+          }
+        }
+
         // Live update text font size inside the overlay box during resize
         if (this.activeElement === "text" || (this.activeElement && this.activeElement.startsWith("extra-"))) {
           const scaleFactor = newW / this.elementStartW;
@@ -860,7 +1048,7 @@ export class DOMOverlay {
     });
 
     window.addEventListener("mouseup", () => {
-      if (!this.isDragging && !this.isResizing) return;
+      if (!this.isDragging && !this.isResizing && !this.isRotating && !this.isCropping) return;
 
       // Hide all guides
       this.renderGuides([]);
@@ -873,10 +1061,16 @@ export class DOMOverlay {
       const activeBox = this.getActiveBox();
 
       if (this.activeElement && activeBox) {
-        const xVal = Math.round(parseFloat(activeBox.style.left) / scale);
-        const yVal = Math.round(parseFloat(activeBox.style.top) / scale);
-        const wVal = Math.round(parseFloat(activeBox.style.width) / scale);
-        const hVal = Math.round(parseFloat(activeBox.style.height) / scale);
+        const bounds = this.getFocusedElementBounds();
+        const xVal = bounds?.x ?? Math.round(parseFloat(activeBox.style.left) / scale);
+        const yVal = bounds?.y ?? Math.round(parseFloat(activeBox.style.top) / scale);
+        const wVal = bounds?.width ?? Math.round(parseFloat(activeBox.style.width) / scale);
+        const hVal = bounds?.height ?? Math.round(parseFloat(activeBox.style.height) / scale);
+        const rotVal = bounds?.rotation || 0;
+        const cropTVal = bounds?.crop_top || 0;
+        const cropRVal = bounds?.crop_right || 0;
+        const cropBVal = bounds?.crop_bottom || 0;
+        const cropLVal = bounds?.crop_left || 0;
 
         if (this.activeElement === "video") {
           this.stateManager.updateProjectField("video_placement", {
@@ -886,6 +1080,11 @@ export class DOMOverlay {
             y: yVal,
             width: wVal,
             height: hVal,
+            rotation: rotVal,
+            crop_top: cropTVal,
+            crop_right: cropRVal,
+            crop_bottom: cropBVal,
+            crop_left: cropLVal,
           });
         } else if (this.activeElement === "text") {
           const settings = { ...this.stateManager.project.text_settings };
@@ -928,6 +1127,11 @@ export class DOMOverlay {
               y: yVal,
               width: wVal,
               height: hVal,
+              rotation: rotVal,
+              crop_top: cropTVal,
+              crop_right: cropRVal,
+              crop_bottom: cropBVal,
+              crop_left: cropLVal,
             };
             this.stateManager.updateProjectField("media_overlays", overlays);
           }
@@ -936,6 +1140,8 @@ export class DOMOverlay {
 
       this.isDragging = false;
       this.isResizing = false;
+      this.isRotating = false;
+      this.isCropping = false;
       this.activeElement = null;
       this.resizeHandle = null;
 
@@ -1140,7 +1346,7 @@ export class DOMOverlay {
     return null;
   }
 
-  getFocusedElementBounds(): { x: number; y: number; width: number; height: number } | null {
+  getFocusedElementBounds(): { x: number; y: number; width: number; height: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; } | null {
     if (!this.focusedElement) return null;
     
     const scale = Math.min(
@@ -1151,15 +1357,34 @@ export class DOMOverlay {
     const box = this.overlayContainer.querySelector(`.editor-interactive-box.selection-${this.focusedElement}`) as HTMLDivElement | null;
     if (!box) return null;
 
+    let rotation = 0;
+    const transform = box.style.transform;
+    if (transform && transform.includes("rotate(")) {
+      rotation = parseFloat(transform.match(/rotate\((.*?)deg\)/)?.[1] || "0");
+    }
+
+    const crop_top = parseFloat(box.dataset.cropT || "0") / scale;
+    const crop_right = parseFloat(box.dataset.cropR || "0") / scale;
+    const crop_bottom = parseFloat(box.dataset.cropB || "0") / scale;
+    const crop_left = parseFloat(box.dataset.cropL || "0") / scale;
+
+    const croppedX = parseFloat(box.style.left);
+    const croppedY = parseFloat(box.style.top);
+    const croppedW = parseFloat(box.style.width);
+    const croppedH = parseFloat(box.style.height);
+
+    const x = Math.round((croppedX - crop_left * scale) / scale);
+    const y = Math.round((croppedY - crop_top * scale) / scale);
+    const width = Math.round((croppedW + crop_left * scale + crop_right * scale) / scale);
+    const height = Math.round((croppedH + crop_top * scale + crop_bottom * scale) / scale);
+
     return {
-      x: Math.round(parseFloat(box.style.left) / scale),
-      y: Math.round(parseFloat(box.style.top) / scale),
-      width: Math.round(parseFloat(box.style.width) / scale),
-      height: Math.round(parseFloat(box.style.height) / scale)
+      x, y, width, height,
+      rotation, crop_top, crop_right, crop_bottom, crop_left
     };
   }
 
-  updateFocusedElementBounds(bounds: { x?: number; y?: number; width?: number; height?: number }) {
+  updateFocusedElementBounds(bounds: { x?: number; y?: number; width?: number; height?: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; }) {
     if (!this.focusedElement) return;
 
     if (this.focusedElement === "video") {
@@ -1168,6 +1393,11 @@ export class DOMOverlay {
       if (bounds.y !== undefined) placement.y = bounds.y;
       if (bounds.width !== undefined) placement.width = bounds.width;
       if (bounds.height !== undefined) placement.height = bounds.height;
+      if (bounds.rotation !== undefined) placement.rotation = bounds.rotation;
+      if (bounds.crop_top !== undefined) placement.crop_top = bounds.crop_top;
+      if (bounds.crop_right !== undefined) placement.crop_right = bounds.crop_right;
+      if (bounds.crop_bottom !== undefined) placement.crop_bottom = bounds.crop_bottom;
+      if (bounds.crop_left !== undefined) placement.crop_left = bounds.crop_left;
       this.stateManager.updateProjectField("video_placement", placement);
     } else if (this.focusedElement === "text") {
       const settings = { ...this.stateManager.project.text_settings };
@@ -1204,6 +1434,11 @@ export class DOMOverlay {
         if (bounds.y !== undefined) overlays[idx].y = bounds.y;
         if (bounds.width !== undefined) overlays[idx].width = bounds.width;
         if (bounds.height !== undefined) overlays[idx].height = bounds.height;
+        if (bounds.rotation !== undefined) overlays[idx].rotation = bounds.rotation;
+        if (bounds.crop_top !== undefined) overlays[idx].crop_top = bounds.crop_top;
+        if (bounds.crop_right !== undefined) overlays[idx].crop_right = bounds.crop_right;
+        if (bounds.crop_bottom !== undefined) overlays[idx].crop_bottom = bounds.crop_bottom;
+        if (bounds.crop_left !== undefined) overlays[idx].crop_left = bounds.crop_left;
         this.stateManager.updateProjectField("media_overlays", overlays);
       }
     }

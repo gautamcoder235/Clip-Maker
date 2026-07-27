@@ -1,5 +1,5 @@
-use std::process::Command;
 use std::os::windows::process::CommandExt;
+use std::process::Command;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -16,7 +16,7 @@ impl EncoderDetector {
 
     pub fn detect_gpu_encoder(&self) -> Option<String> {
         let candidates = vec!["h264_nvenc", "h264_qsv", "h264_amf", "h264_videotoolbox"];
-        
+
         let mut cmd = Command::new(&self.ffmpeg_path);
         #[cfg(target_os = "windows")]
         cmd.creation_flags(CREATE_NO_WINDOW);
@@ -27,7 +27,7 @@ impl EncoderDetector {
             if output.status.success() {
                 let text = String::from_utf8_lossy(&output.stdout).to_string()
                     + &String::from_utf8_lossy(&output.stderr);
-                
+
                 for enc in candidates {
                     if text.contains(enc) {
                         return Some(enc.to_string());

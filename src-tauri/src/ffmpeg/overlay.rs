@@ -21,11 +21,19 @@ impl TextOverlayFilter {
             let num_spaces = (letter_spacing / 5).max(1) as usize;
             let space_str = "\u{200A}".repeat(num_spaces);
             let chars: Vec<char> = text.chars().collect();
-            final_text = chars.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(&space_str);
+            final_text = chars
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>()
+                .join(&space_str);
         }
         let escaped_text = Self::escape_drawtext(&final_text);
-        let safe_color = if font_color.is_empty() { "black" } else { font_color };
-        
+        let safe_color = if font_color.is_empty() {
+            "black"
+        } else {
+            font_color
+        };
+
         let mut font_arg = String::new();
         if let Some(ff) = font_file {
             let normalized_ff = ff.replace("\\", "/");
@@ -33,11 +41,15 @@ impl TextOverlayFilter {
         }
 
         let norm_x = match x.trim() {
-            "(w-text_w)/2" | "(W-tw)/2" | "(main_w-text_w)/2" | "center" => "(main_w-text_w)/2".to_string(),
+            "(w-text_w)/2" | "(W-tw)/2" | "(main_w-text_w)/2" | "center" => {
+                "(main_w-text_w)/2".to_string()
+            }
             other => other.to_string(),
         };
         let norm_y = match y.trim() {
-            "(h-text_h)/2" | "(H-th)/2" | "(main_h-text_h)/2" | "center" | "middle" => "(main_h-text_h)/2".to_string(),
+            "(h-text_h)/2" | "(H-th)/2" | "(main_h-text_h)/2" | "center" | "middle" => {
+                "(main_h-text_h)/2".to_string()
+            }
             "top" => "100".to_string(),
             "bottom" => "(main_h-text_h-100)".to_string(),
             other => other.to_string(),
@@ -84,7 +96,6 @@ impl TextOverlayFilter {
         filters.join(",")
     }
 
-
     pub fn escape_drawtext(text: &str) -> String {
         text.replace("\\", "\\\\")
             .replace(":", "\\:")
@@ -107,6 +118,11 @@ pub struct MediaOverlaySpec {
     pub chroma_similarity: f32,
     pub chroma_blend: f32,
     pub start_offset_seconds: f64,
+    pub rotation: f64,
+    pub crop_top: f64,
+    pub crop_right: f64,
+    pub crop_bottom: f64,
+    pub crop_left: f64,
 }
 
 impl MediaOverlaySpec {
@@ -124,6 +140,11 @@ impl MediaOverlaySpec {
             chroma_similarity: overlay.chroma_similarity,
             chroma_blend: overlay.chroma_blend,
             start_offset_seconds: start_offset,
+            rotation: overlay.rotation.unwrap_or(0.0),
+            crop_top: overlay.crop_top.unwrap_or(0.0),
+            crop_right: overlay.crop_right.unwrap_or(0.0),
+            crop_bottom: overlay.crop_bottom.unwrap_or(0.0),
+            crop_left: overlay.crop_left.unwrap_or(0.0),
         }
     }
 }
@@ -143,4 +164,3 @@ pub enum OverlayStep {
         font_weight: u32,
     },
 }
-

@@ -20,6 +20,16 @@ pub struct VideoPlacementConfig {
     pub height: i32,
     #[serde(default)]
     pub ratio_locked: Option<bool>,
+    #[serde(default)]
+    pub rotation: Option<f64>,
+    #[serde(default)]
+    pub crop_top: Option<f64>,
+    #[serde(default)]
+    pub crop_right: Option<f64>,
+    #[serde(default)]
+    pub crop_bottom: Option<f64>,
+    #[serde(default)]
+    pub crop_left: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +100,16 @@ pub struct MediaOverlay {
     pub chroma_blend: f32,
     #[serde(default)]
     pub ratio_locked: Option<bool>,
+    #[serde(default)]
+    pub rotation: Option<f64>,
+    #[serde(default)]
+    pub crop_top: Option<f64>,
+    #[serde(default)]
+    pub crop_right: Option<f64>,
+    #[serde(default)]
+    pub crop_bottom: Option<f64>,
+    #[serde(default)]
+    pub crop_left: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,6 +219,11 @@ impl Default for AppConfig {
                 width: 0,
                 height: 0,
                 ratio_locked: Some(true),
+                rotation: Some(0.0),
+                crop_top: Some(0.0),
+                crop_right: Some(0.0),
+                crop_bottom: Some(0.0),
+                crop_left: Some(0.0),
             },
             text_mode: "Per Clip".to_string(),
             text_template: "PART {part}".to_string(),

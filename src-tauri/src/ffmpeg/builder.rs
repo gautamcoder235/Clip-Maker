@@ -446,7 +446,7 @@ impl FFmpegBuilder {
                     }
 
                     if overlay.rotation != 0.0 {
-                        filters.push(format!("rotate={}*PI/180:c=black@0:ow=rotw(a):oh=roth(a)", overlay.rotation));
+                        filters.push(format!("rotate={rot}*PI/180:c=black@0:ow=iw*abs(cos({rot}*PI/180))+ih*abs(sin({rot}*PI/180)):oh=iw*abs(sin({rot}*PI/180))+ih*abs(cos({rot}*PI/180))", rot=overlay.rotation));
                     }
 
                     let scale_filter = filters.join(",");

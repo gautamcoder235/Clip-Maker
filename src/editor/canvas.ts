@@ -131,6 +131,20 @@ export class CanvasRenderer {
       this.videoElement.style.width = `${vidW}px`;
       this.videoElement.style.height = `${vidH}px`;
       this.videoElement.style.objectFit = "fill";
+
+      const rot = project.video_placement.rotation || 0;
+      this.videoElement.style.transform = `rotate(${rot}deg)`;
+
+      const cropT = (project.video_placement.crop_top || 0) * scale;
+      const cropR = (project.video_placement.crop_right || 0) * scale;
+      const cropB = (project.video_placement.crop_bottom || 0) * scale;
+      const cropL = (project.video_placement.crop_left || 0) * scale;
+      
+      if (cropT > 0 || cropR > 0 || cropB > 0 || cropL > 0) {
+        this.videoElement.style.clipPath = `inset(${cropT}px ${cropR}px ${cropB}px ${cropL}px)`;
+      } else {
+        this.videoElement.style.clipPath = "none";
+      }
     } else {
       // Default: fit to canvas
       this.videoElement.style.left = "0px";
