@@ -68,7 +68,16 @@ export class DOMOverlay {
     this.setupGlobalEvents();
   }
 
-  private measureText(text: string, fontSize: number, fontFamily: string, letterSpacing: number = 0, fontWeight: number = 400): { width: number; height: number; ascent: number } {
+  private applyLetterSpacing(text: string, letterSpacing: number): string {
+    if (letterSpacing > 0) {
+      const numSpaces = Math.max(1, Math.floor(letterSpacing / 5));
+      const spaceStr = "\u200A".repeat(numSpaces);
+      return Array.from(text).join(spaceStr);
+    }
+    return text;
+  }
+
+  private measureText(text: string, fontSize: number, fontFamily: string, fontWeight: number = 400): { width: number; height: number; ascent: number } {
     const span = document.createElement("span");
     span.style.fontFamily = fontFamily;
     span.style.fontSize = `${fontSize}px`;
@@ -78,9 +87,6 @@ export class DOMOverlay {
     span.style.visibility = "hidden";
     span.style.pointerEvents = "none";
     span.style.lineHeight = "1";
-    if (letterSpacing !== 0) {
-      span.style.letterSpacing = `${letterSpacing}px`;
-    }
     span.textContent = text;
     
     document.body.appendChild(span);
@@ -159,14 +165,14 @@ export class DOMOverlay {
       let textY = 10;
       const partNum = project.selected_clip_index || 1;
       const rawTemplate = project.text_template || "PART {part}";
-      const txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
+      let txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
+      txtVal = this.applyLetterSpacing(txtVal, project.text_settings.letter_spacing || 0);
       const txtFS = project.text_settings.font_size || 120;
       const txtFontFamily = project.text_settings.font_family || "Arial";
-      const txtLetterSpacing = (project.text_settings.letter_spacing || 0) * scale;
       const txtFontWeight = project.text_settings.font_weight || 400;
       // Measure at the actual rendered pixel size to avoid font hinting discrepancies
       const scaledFS = txtFS * scale;
-      const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily, txtLetterSpacing, txtFontWeight);
+      const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily, txtFontWeight);
 
       const boxW = txtMetrics.width;
       const boxH = txtMetrics.height;
@@ -192,14 +198,14 @@ export class DOMOverlay {
     // Render Extra Overlays
     if (project.extra_overlays) {
       project.extra_overlays.forEach((overlay, idx) => {
-        const extraTxt = (overlay.text || "Static Text").trim();
+        let extraTxt = (overlay.text || "Static Text").trim();
+        extraTxt = this.applyLetterSpacing(extraTxt, overlay.letter_spacing || 0);
         const extraFS = overlay.font_size || 80;
         const extraFontFamily = overlay.font_family || "Arial";
-        const extraLetterSpacing = (overlay.letter_spacing || 0) * scale;
         const extraFontWeight = overlay.font_weight || 400;
         // Measure at the actual rendered pixel size
         const extraScaledFS = extraFS * scale;
-        const extraMetrics = this.measureText(extraTxt, extraScaledFS, extraFontFamily, extraLetterSpacing, extraFontWeight);
+        const extraMetrics = this.measureText(extraTxt, extraScaledFS, extraFontFamily, extraFontWeight);
 
         const extraBoxW = extraMetrics.width;
         const extraBoxH = extraMetrics.height;
@@ -367,30 +373,25 @@ export class DOMOverlay {
       textContent.style.pointerEvents = "none";
       textContent.style.userSelect = "none";
 
-      let letterSpacing = 0;
       let fontWeight = 400;
       if (type === "text") {
-        letterSpacing = this.stateManager.project.text_settings.letter_spacing || 0;
         fontWeight = this.stateManager.project.text_settings.font_weight || 400;
       } else if (type.startsWith("extra-")) {
         const idx = parseInt(type.split("-")[1]);
         const overlay = (this.stateManager.project.extra_overlays || [])[idx];
         if (overlay) {
-          letterSpacing = overlay.letter_spacing || 0;
           fontWeight = overlay.font_weight || 400;
         }
       }
 
-      if (letterSpacing !== 0) {
-        textContent.style.letterSpacing = `${letterSpacing * scale}px`;
-      }
       textContent.style.fontWeight = fontWeight.toString();
 
       if (hasOutline) {
         // Use textShadow instead of webkitTextStroke so it doesn't eat into the font thickness
-        textContent.style.textShadow = "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0px 2px 0 #000, 2px 0px 0 #000, 0px -2px 0 #000, -2px 0px 0 #000";
+        const ot = Math.max(1, Math.round(fontSize / 30 * scale));
+        textContent.style.textShadow = `-${ot}px -${ot}px 0 #000, ${ot}px -${ot}px 0 #000, -${ot}px ${ot}px 0 #000, ${ot}px ${ot}px 0 #000, 0px ${ot}px 0 #000, ${ot}px 0px 0 #000, 0px -${ot}px 0 #000, -${ot}px 0px 0 #000`;
         // Add inner padding so shadow doesn't clip at box edges
-        textContent.style.padding = "2px 4px";
+        textContent.style.padding = `${ot}px ${ot * 2}px`;
       }
 
       textContent.style.overflow = "visible";
@@ -1092,7 +1093,8 @@ export class DOMOverlay {
     } else if (type === "text") {
       const partNum = this.stateManager.project.selected_clip_index || 1;
       const rawTemplate = this.stateManager.project.text_template || "PART {part}";
-      const txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
+      let txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
+      txtVal = this.applyLetterSpacing(txtVal, this.stateManager.project.text_settings.letter_spacing || 0);
       const txtFS = this.stateManager.project.text_settings.font_size || 120;
       const txtFontFamily = this.stateManager.project.text_settings.font_family || "Arial";
       const metrics = this.measureText(txtVal, txtFS, txtFontFamily);
@@ -1103,7 +1105,8 @@ export class DOMOverlay {
       const idx = parseInt(type.split("-")[1]);
       const overlay = (this.stateManager.project.extra_overlays || [])[idx];
       if (overlay) {
-        const extraTxt = (overlay.text || "Static Text").trim();
+        let extraTxt = (overlay.text || "Static Text").trim();
+        extraTxt = this.applyLetterSpacing(extraTxt, overlay.letter_spacing || 0);
         const extraFS = overlay.font_size || 80;
         const extraFontFamily = overlay.font_family || "Arial";
         const metrics = this.measureText(extraTxt, extraFS, extraFontFamily);
