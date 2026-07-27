@@ -255,6 +255,7 @@ impl PreviewService {
         let mut hasher = DefaultHasher::new();
         input_path.hash(&mut hasher);
         config.clip_duration.hash(&mut hasher);
+        config.selected_clip_index.hash(&mut hasher);
 
         config.aspect_ratio.hash(&mut hasher);
         config.crop_anchor.hash(&mut hasher);
