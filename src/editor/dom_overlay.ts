@@ -72,7 +72,7 @@ export class DOMOverlay {
     span.style.fontFamily = fontFamily;
     span.style.fontSize = `${fontSize}px`;
     span.style.fontWeight = fontWeight.toString();
-    span.style.whiteSpace = "nowrap";
+    span.style.whiteSpace = "pre";
     span.style.position = "absolute";
     span.style.visibility = "hidden";
     span.style.pointerEvents = "none";
@@ -80,7 +80,7 @@ export class DOMOverlay {
     if (letterSpacing !== 0) {
       span.style.letterSpacing = `${letterSpacing}px`;
     }
-    span.innerText = text;
+    span.textContent = text;
     
     document.body.appendChild(span);
     const rect = span.getBoundingClientRect();
@@ -357,12 +357,12 @@ export class DOMOverlay {
       }
 
       const scaledFontSize = Math.max(8, fontSize * scale);
-      textContent.innerText = labelText || "Text";
+      textContent.textContent = labelText || "Text";
       textContent.style.fontSize = `${scaledFontSize}px`;
       textContent.style.color = fontColor;
       textContent.style.fontFamily = fontFamily;
       textContent.style.lineHeight = "1";
-      textContent.style.whiteSpace = "nowrap";
+      textContent.style.whiteSpace = "pre";
       textContent.style.pointerEvents = "none";
       textContent.style.userSelect = "none";
 
