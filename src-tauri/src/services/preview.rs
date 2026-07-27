@@ -58,7 +58,7 @@ impl PreviewService {
 
         // Resolve trim settings if configured
         let mut trim_start = 0.0;
-        let mut trim_duration = preview_clip_seconds;
+        let mut trim_end = f64::MAX;
 
         let asset_id = config.imported_assets.iter()
             .find(|asset| asset.path == *input_path)
@@ -69,19 +69,32 @@ impl PreviewService {
                 if let Some(trim) = &settings.trim {
                     if trim.enabled && trim.start >= 0.0 && trim.end > trim.start {
                         trim_start = trim.start;
-                        // Clamp preview to no longer than the trim boundaries
-                        trim_duration = f64::min(preview_clip_seconds, trim.end - trim.start);
+                        trim_end = trim.end;
                     }
                 }
             }
         }
+
+        let mut preview_start = trim_start;
+        if let Some(idx) = config.selected_clip_index {
+            if idx >= 1 {
+                let clip_len = config.clip_duration.max(1) as f64;
+                preview_start = trim_start + (idx - 1) as f64 * clip_len;
+            }
+        }
+
+        let preview_duration = if trim_end != f64::MAX {
+            f64::min(preview_clip_seconds, (trim_end - preview_start).max(0.0))
+        } else {
+            preview_clip_seconds
+        };
         
         let mut builder = FFmpegBuilder::new(&self.ffmpeg_path);
         
-        // Split/trim first clip preview using resolved trim parameters
+        // Split/trim clip preview using resolved parameters
         builder
             .input(input_path)
-            .split(trim_start, trim_duration, true, 3.0)
+            .split(preview_start, preview_duration, true, 3.0)
             .set_fps(preview_fps);
 
         if config.aspect_ratio == "9:16" {
@@ -160,10 +173,11 @@ impl PreviewService {
         for id in normalized_order {
             if id == "text" {
                 if config.text_settings.enabled {
+                    let part_str = config.selected_clip_index.unwrap_or(1).to_string();
                     let template_text = if config.text_mode == "Fixed Text" {
                         config.text_template.trim().to_string()
                     } else {
-                        config.text_template.replace("{part}", "1").trim().to_string()
+                        config.text_template.replace("{part}", &part_str).trim().to_string()
                     };
                     let font_path = resolve_font_path(&config.text_settings.font_family, config.text_settings.font_weight);
                     builder.overlay_text(
@@ -181,7 +195,8 @@ impl PreviewService {
             } else if id.starts_with("extra-") {
                 if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
                     if let Some(extra) = config.extra_overlays.get(idx) {
-                        let extra_text = extra.text.replace("{part}", "1").trim().to_string();
+                        let part_str = config.selected_clip_index.unwrap_or(1).to_string();
+                        let extra_text = extra.text.replace("{part}", &part_str).trim().to_string();
                         let font_path = resolve_font_path(&extra.font_family, extra.font_weight);
                         builder.overlay_text(
                             &extra_text,

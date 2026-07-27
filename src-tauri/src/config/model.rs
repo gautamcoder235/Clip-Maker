@@ -147,6 +147,8 @@ pub struct AppConfig {
     pub parallel_workers: u32,
     pub text_settings: TextSettings,
     pub gpu_acceleration: bool,
+    #[serde(default)]
+    pub selected_clip_index: Option<usize>,
 }
 
 fn default_version() -> u32 {
@@ -221,6 +223,7 @@ impl Default for AppConfig {
                 font_weight: 400,
             },
             gpu_acceleration: false,
+            selected_clip_index: None,
         }
     }
 }

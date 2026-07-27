@@ -126,13 +126,13 @@ export interface AppConfig {
   parallel_workers: number;
   text_settings: TextSettings;
   gpu_acceleration: boolean;
+  selected_clip_index: number | null;
 }
 
 export interface ProjectData extends AppConfig {
   name: string;
   imported_videos: string[];
   timeline_zoom: number;
-  selected_clip_index: number | null;
 }
 
 export interface RenderJob {

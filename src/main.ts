@@ -1154,6 +1154,10 @@ function bindInputFields() {
       e.preventDefault();
       e.stopPropagation();
     }
+    if (!stateManager.project.selected_clip_index) {
+      showToast("Please select a clip first!", "warning");
+      return;
+    }
     previewModal.style.display = "flex";
     await generateAndShowPreview();
   });
@@ -2337,6 +2341,11 @@ function updateRenderStats() {
 
   if (queueEtaBanner) {
     queueEtaBanner.innerText = hasEta ? `⏳ Queue: ${formatEtaHuman(totalEtaSeconds)}` : "";
+  }
+  
+  const timeLeftEl = document.getElementById("stat-total-time-left");
+  if (timeLeftEl) {
+    timeLeftEl.innerText = hasEta ? formatEtaHuman(totalEtaSeconds) : "--:--";
   }
 }
 
