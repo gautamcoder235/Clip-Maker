@@ -35,6 +35,8 @@ pub struct ProjectData {
     pub parallel_workers: u32,
     pub text_settings: TextSettings,
     pub gpu_acceleration: bool,
+    #[serde(default)]
+    pub overlay_order: Option<Vec<String>>,
     
     // UI specific layouts
     #[serde(default)]
@@ -77,6 +79,7 @@ impl Default for ProjectData {
             parallel_workers: default_config.parallel_workers,
             text_settings: default_config.text_settings,
             gpu_acceleration: default_config.gpu_acceleration,
+            overlay_order: default_config.overlay_order,
             timeline_zoom: 1.0,
             selected_clip_index: None,
         }

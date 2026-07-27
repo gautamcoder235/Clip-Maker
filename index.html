@@ -907,54 +907,61 @@
           <!-- Getting Started Tab -->
           <div id="tab-getting-started" class="manual-tab-content active">
             <h4>Welcome to Clip Maker!</h4>
-            <p>Clip Maker is a premium tool designed to easily crop, trim, overlay, and render video clips for platforms like Shorts, TikTok, and Reels. Here is how to get started:</p>
+            <p>Clip Maker is a high-performance desktop application designed to crop, split, layout, overlay, and batch-render video clips for YouTube Shorts, TikTok, and Instagram Reels.</p>
             <ol>
-              <li><strong>Import Video:</strong> Click the <span class="highlight">Import +</span> button in the Left Panel to import your source MP4 or MOV video.</li>
-              <li><strong>Adjust Settings:</strong> In the Right Panel, choose the <strong>Aspect Ratio</strong> (e.g., 9:16 Vertical Crop for Shorts) and resolution.</li>
-              <li><strong>Set Clip Duration:</strong> In the "Encoding & Advanced Settings" section, adjust the <strong>Clip Duration</strong> (default is 50 seconds) to determine how long each output segment should be.</li>
-              <li><strong>Split Clips:</strong> When a video is imported, it automatically generates a list of clips in the <strong>Clips Queue</strong> at the bottom.</li>
+              <li><strong>Import Video:</strong> Click the <span class="highlight">Import +</span> button in the Left Panel to import your source MP4, MOV, or WebM video assets.</li>
+              <li><strong>Live Video Viewport & Canvas:</strong> Use the interactive canvas to reposition, drag, or resize video placement and text overlay boxes in real-time.</li>
+              <li><strong>Aspect Ratio & Crop Anchor:</strong> Choose <strong>9:16 Vertical Crop (Shorts)</strong> or <strong>16:9 Horizontal</strong> and select crop anchors (Center, Left, Right, Top, Bottom).</li>
+              <li><strong>Live Preview Player:</strong> Click the <span class="highlight">🎬 Live Preview</span> button in the top toolbar to generate and view an instant real-time FFmpeg draft video in the built-in modal player!</li>
+              <li><strong>Clips Queue:</strong> Imported videos are automatically split into target duration parts in the bottom queue ready for batch export.</li>
             </ol>
           </div>
           
           <!-- Overlays & Presets Tab -->
           <div id="tab-overlays-presets" class="manual-tab-content">
-            <h4>Dynamic Text & Media Overlays</h4>
-            <p>Personalize your clips with headers, captions, progress marks, or custom images/videos.</p>
+            <h4>Layout, Backgrounds & Dynamic Overlays</h4>
+            <p>Personalize your clips with custom backgrounds, headers, captions, progress marks, or facecam footage:</p>
             <ul>
-              <li><strong>Primary Text:</strong> Edit the template text (e.g., <code>PART {part}</code>). The <code>{part}</code> placeholder automatically increments for each rendered clip!</li>
-              <li><strong>Text Presets:</strong> Manage cycling text templates to change text stylings across frames. Use the <em>Add Preset</em> button to register templates.</li>
-              <li><strong>Additional Text Overlays:</strong> Add arbitrary overlay labels. You can place them anywhere on the preview canvas using drag-and-drop!</li>
-              <li><strong>Media Overlays:</strong> Insert overlay images or green-screen (chroma) videos to superimpose templates, facecam footage, or stickers. Toggle <em>Chroma Key</em> and fine-tune Similarity and Blend to remove green background.</li>
+              <li><strong>Position & Scale Controls:</strong> Adjust X, Y, Width, and Height for video placement. Use the <span class="highlight">Aspect Ratio Lock (🔗)</span> button to toggle between proportional scaling and free un-constrained stretching.</li>
+              <li><strong>Canvas & Background:</strong> Choose between a solid <em>Background Color</em> or click <em>Select Background Image</em> to overlay custom background graphics behind cropped videos.</li>
+              <li><strong>Primary Text & Font Picker:</strong> Edit template text (e.g., <code>PART {part}</code>). Select custom system fonts using the integrated font search picker, adjust font size, letter spacing, font weight boldness, and text outline.</li>
+              <li><strong>Text Presets & Cycling:</strong> Switch between <em>Single Template</em> or <em>Cycle Presets</em> mode to loop dynamic titles automatically across clips in the queue.</li>
+              <li><strong>Additional Text Overlays:</strong> Add multiple independent text blocks with custom positions, colors, and font styles. Drag them anywhere on the viewport canvas!</li>
+              <li><strong>Media Overlays & Chroma Key:</strong> Add image/video stickers or facecam overlays. Toggle <strong>Chroma Key</strong> settings to remove green screen backgrounds automatically.</li>
             </ul>
           </div>
           
           <!-- Exporting Tab -->
           <div id="tab-exporting" class="manual-tab-content">
             <h4>Rendering & Batch Export</h4>
-            <p>Run renders in parallel with advanced GPU hardware acceleration.</p>
+            <p>Export single clips or batch render entire queues with GPU hardware acceleration:</p>
             <ul>
-              <li><strong>Preview Selection:</strong> To preview a draft render, select a clip part in the Clips Queue and select "Command: Preview Draft Clip" from the Command Palette (<kbd>Ctrl+K</kbd>).</li>
-              <li><strong>Batch Export:</strong> Specify the range of clips (e.g., from Part 1 to 5) and click <em>Export Queue</em> to start rendering. Renders run concurrently using the allocated background worker slots.</li>
-              <li><strong>GPU Acceleration:</strong> Check <em>GPU Hardware Encoding</em> for NVENC/AMF/VAAPI acceleration to speed up video processing by up to 10x!</li>
-              <li><strong>Track Progress:</strong> Check the <em>Render Queue</em> tab at the bottom to view completion status, current progress bar, and logs of active render processes.</li>
+              <li><strong>Live Preview Testing:</strong> Click <em>Live Preview</em> to verify layout, font styles, text overlays, and background placement before running full exports.</li>
+              <li><strong>Batch Export Queue:</strong> Click <em>Export Queue</em> to render all clips in the queue simultaneously using multi-threaded parallel background workers.</li>
+              <li><strong>GPU Acceleration:</strong> Check <em>GPU Hardware Encoding</em> to enable NVENC/AMF/VAAPI acceleration for up to 10x faster export rendering.</li>
+              <li><strong>Render Queue Monitor:</strong> Switch to the <em>Render Queue</em> tab at the bottom to view real-time progress bars, completion timers, and detailed render logs.</li>
+              <li><strong>Project Save & Import:</strong> Save your entire project configuration via <code>Ctrl+S</code> or the Save toolbar button to reload your project setup anytime!</li>
             </ul>
           </div>
           
           <!-- Shortcuts Tab -->
           <div id="tab-shortcuts" class="manual-tab-content">
             <h4>Keyboard Shortcuts</h4>
-            <p>Speed up your workflow using built-in keyboard hotkeys:</p>
+            <p>Speed up your video creation workflow with built-in hotkeys:</p>
             <div class="shortcut-list">
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>K</kbd> <span>Open Command Palette</span></div>
               <div class="shortcut-item"><kbd>Space</kbd> <span>Toggle Play / Pause viewport video</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>S</kbd> <span>Save Current Project</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>O</kbd> <span>Open Existing Project</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>N</kbd> <span>Create New Project</span></div>
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>Z</kbd> <span>Undo last configuration change</span></div>
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>Y</kbd> <span>Redo undone change</span></div>
-              <div class="shortcut-item"><kbd>Esc</kbd> <span>Close current Modal / Palette</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>B</kbd> <span>Toggle Left Sidebar</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>J</kbd> <span>Toggle Bottom Queue</span></div>
+              <div class="shortcut-item"><kbd>Esc</kbd> <span>Close active modal or palette</span></div>
               <div class="shortcut-item"><kbd>H</kbd> <span>Fit video layout horizontally</span></div>
               <div class="shortcut-item"><kbd>V</kbd> <span>Fit video layout vertically</span></div>
-              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>D</kbd> <span>Deselect active focused overlay element</span></div>
-              <div class="shortcut-item"><kbd>[</kbd> <span>Set trim start to current playback offset</span></div>
-              <div class="shortcut-item"><kbd>]</kbd> <span>Set trim end to current playback offset</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>D</kbd> <span>Deselect active focused element</span></div>
             </div>
           </div>
         </div>
