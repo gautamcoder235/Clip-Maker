@@ -43,20 +43,45 @@ impl TextOverlayFilter {
             other => other.to_string(),
         };
 
-        let mut drawtext = format!(
-            "drawtext=text='{}'{}:fontsize={}:fontcolor={}:x={}:y={}",
-            escaped_text, font_arg, font_size, safe_color, norm_x, norm_y
-        );
+        let mut filters = Vec::new();
+        let has_bold = font_weight > 600;
+        let bold_thickness = if has_bold {
+            ((font_weight as f32 - 400.0) / 300.0 * (font_size as f32 / 100.0)).clamp(0.5, 4.0)
+        } else {
+            0.0
+        };
 
-        if outline {
+        if outline && has_bold {
+            // Draw background outline + bold thickness in black
+            let border_w = ((font_size as f32) / 30.0).round().max(1.0) + bold_thickness;
+            filters.push(format!(
+                "drawtext=text='{}'{}:fontsize={}:fontcolor=black:borderw={:.1}:bordercolor=black:x={}:y={}",
+                escaped_text, font_arg, font_size, border_w, norm_x, norm_y
+            ));
+            // Draw foreground text + bold thickness in safe_color
+            filters.push(format!(
+                "drawtext=text='{}'{}:fontsize={}:fontcolor={}:borderw={:.1}:bordercolor={}:x={}:y={}",
+                escaped_text, font_arg, font_size, safe_color, bold_thickness, safe_color, norm_x, norm_y
+            ));
+        } else if outline {
             let border_w = ((font_size as f32) / 30.0).round().max(1.0) as u32;
-            drawtext.push_str(&format!(":borderw={}:bordercolor=black", border_w));
-        } else if font_weight > 600 && font_file.is_none() {
-            let bold_thickness = ((font_weight as f32 - 400.0) / 300.0 * (font_size as f32 / 100.0)).clamp(0.5, 2.5);
-            drawtext.push_str(&format!(":borderw={:.1}:bordercolor={}", bold_thickness, safe_color));
+            filters.push(format!(
+                "drawtext=text='{}'{}:fontsize={}:fontcolor={}:borderw={}:bordercolor=black:x={}:y={}",
+                escaped_text, font_arg, font_size, safe_color, border_w, norm_x, norm_y
+            ));
+        } else if has_bold {
+            filters.push(format!(
+                "drawtext=text='{}'{}:fontsize={}:fontcolor={}:borderw={:.1}:bordercolor={}:x={}:y={}",
+                escaped_text, font_arg, font_size, safe_color, bold_thickness, safe_color, norm_x, norm_y
+            ));
+        } else {
+            filters.push(format!(
+                "drawtext=text='{}'{}:fontsize={}:fontcolor={}:x={}:y={}",
+                escaped_text, font_arg, font_size, safe_color, norm_x, norm_y
+            ));
         }
 
-        drawtext
+        filters.join(",")
     }
 
 

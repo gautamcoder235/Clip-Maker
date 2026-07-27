@@ -640,7 +640,7 @@
             <button id="btn-export-all" class="toolbar-btn" style="background: var(--success); color: white;">Export Queue</button>
             <span id="txt-queue-status" style="font-size: 13px; color: var(--text-secondary); margin-left: auto;">No clips generated. Import a video file.</span>
           </div>
-          <div id="timeline-clips-grid" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;">
+          <div id="timeline-clips-grid" style="display: flex; flex-wrap: wrap; gap: 12px; padding-bottom: 8px;">
             <!-- Split clips list populated here -->
           </div>
         </div>
@@ -667,6 +667,10 @@
               <div class="render-stat-card">
                 <span class="render-stat-value" style="color: var(--warning);" id="stat-queued-clips">0</span>
                 <span class="render-stat-label">Queued</span>
+              </div>
+              <div class="render-stat-card">
+                <span class="render-stat-value" style="color: var(--accent);" id="stat-total-time-left">--:--</span>
+                <span class="render-stat-label">Time Left</span>
               </div>
             </div>
           </div>

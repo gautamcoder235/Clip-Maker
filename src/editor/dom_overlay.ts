@@ -386,6 +386,12 @@ export class DOMOverlay {
 
       textContent.style.fontWeight = fontWeight.toString();
 
+      if (fontWeight > 600) {
+        // Synthesize boldness visually to match user expectations (FFmpeg backend fakes bold too)
+        const boldThickness = Math.max(1, ((fontWeight - 400) / 200) * (fontSize / 100) * scale);
+        textContent.style.setProperty('-webkit-text-stroke', `${boldThickness}px ${fontColor}`);
+      }
+
       if (hasOutline) {
         // Use textShadow instead of webkitTextStroke so it doesn't eat into the font thickness
         const ot = Math.max(1, Math.round(fontSize / 30 * scale));
