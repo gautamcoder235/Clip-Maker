@@ -130,7 +130,7 @@ export class CanvasRenderer {
       this.videoElement.style.top = `${vidY}px`;
       this.videoElement.style.width = `${vidW}px`;
       this.videoElement.style.height = `${vidH}px`;
-      this.videoElement.style.objectFit = "cover";
+      this.videoElement.style.objectFit = "fill";
     } else {
       // Default: fit to canvas
       this.videoElement.style.left = "0px";

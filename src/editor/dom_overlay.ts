@@ -873,6 +873,7 @@ export class DOMOverlay {
 
         if (this.activeElement === "video") {
           this.stateManager.updateProjectField("video_placement", {
+            ...this.stateManager.project.video_placement,
             enabled: true,
             x: xVal,
             y: yVal,
@@ -914,10 +915,13 @@ export class DOMOverlay {
           const idx = parseInt(this.activeElement.split("-")[1]);
           const overlays = [...(this.stateManager.project.media_overlays || [])];
           if (overlays[idx]) {
-            overlays[idx].x = xVal;
-            overlays[idx].y = yVal;
-            overlays[idx].width = wVal;
-            overlays[idx].height = hVal;
+            overlays[idx] = {
+              ...overlays[idx],
+              x: xVal,
+              y: yVal,
+              width: wVal,
+              height: hVal,
+            };
             this.stateManager.updateProjectField("media_overlays", overlays);
           }
         }

@@ -39,7 +39,6 @@ let propPlacementY: HTMLInputElement;
 let propPlacementW: HTMLInputElement;
 let propPlacementH: HTMLInputElement;
 let btnRatioLock: HTMLButtonElement;
-let ratioLocked = true;
 let propAspectRatio: HTMLSelectElement;
 let propCropAnchor: HTMLSelectElement;
 let propResolution: HTMLSelectElement;
@@ -60,6 +59,16 @@ let previewVideo: HTMLVideoElement;
 let btnPreviewClose: HTMLButtonElement;
 let btnPreviewRefresh: HTMLButtonElement;
 let previewStatus: HTMLSpanElement;
+let btnPreviewPlayPause: HTMLButtonElement;
+let previewPlayIcon: HTMLElement;
+let previewPauseIcon: HTMLElement;
+let previewTimeDisplay: HTMLSpanElement;
+let previewSeekSlider: HTMLInputElement;
+let btnPreviewMute: HTMLButtonElement;
+let previewVolumeIconOn: HTMLElement;
+let previewVolumeIconOff: HTMLElement;
+let previewVolumeSlider: HTMLInputElement;
+let btnPreviewFullscreen: HTMLButtonElement;
 let btnExportZip: HTMLButtonElement;
 let queueEtaBanner: HTMLSpanElement;
 let propGpuAccel: HTMLInputElement;
@@ -290,7 +299,6 @@ function initFontPicker(pickerId: string, hiddenSelect: HTMLSelectElement, fontN
 
 function syncRatioLockUI(target: string | null = domOverlay?.getFocusedElement()) {
   const isLocked = domOverlay ? domOverlay.getElementRatioLocked(target) : (stateManager.project.video_placement?.ratio_locked !== false);
-  ratioLocked = isLocked;
   if (btnRatioLock) {
     btnRatioLock.classList.toggle("active", isLocked);
     btnRatioLock.title = isLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
@@ -345,6 +353,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   btnPreviewClose = document.querySelector("#btn-preview-close")!;
   btnPreviewRefresh = document.querySelector("#btn-preview-refresh")!;
   previewStatus = document.querySelector("#preview-status")!;
+  btnPreviewPlayPause = document.querySelector("#btn-preview-play-pause")!;
+  previewPlayIcon = document.querySelector("#preview-play-icon")!;
+  previewPauseIcon = document.querySelector("#preview-pause-icon")!;
+  previewTimeDisplay = document.querySelector("#preview-time-display")!;
+  previewSeekSlider = document.querySelector("#preview-seek-slider")!;
+  btnPreviewMute = document.querySelector("#btn-preview-mute")!;
+  previewVolumeIconOn = document.querySelector("#preview-volume-icon-on")!;
+  previewVolumeIconOff = document.querySelector("#preview-volume-icon-off")!;
+  previewVolumeSlider = document.querySelector("#preview-volume-slider")!;
+  btnPreviewFullscreen = document.querySelector("#btn-preview-fullscreen")!;
   btnExportZip = document.querySelector("#btn-export-zip")!;
   queueEtaBanner = document.querySelector("#queue-eta-banner")!;
   propGpuAccel = document.querySelector("#prop-gpu-accel")!;
@@ -993,10 +1011,11 @@ function bindInputFields() {
 
   propPlacementW.addEventListener("change", () => {
     const val = parseInt(propPlacementW.value) || 1080;
-    const focused = domOverlay.getFocusedElement();
-    if (focused) {
+    const focused = domOverlay.getFocusedElement() || "video";
+    const isLocked = domOverlay.getElementRatioLocked(focused);
+    if (focused !== "video") {
       const bounds = domOverlay.getFocusedElementBounds();
-      if (ratioLocked && bounds && bounds.width > 0) {
+      if (isLocked && bounds && bounds.width > 0) {
         const ratio = domOverlay.getNaturalRatio(focused) || (bounds.width / bounds.height);
         const newH = Math.round(val / ratio);
         propPlacementH.value = newH.toString();
@@ -1006,7 +1025,7 @@ function bindInputFields() {
       }
     } else {
       const p = stateManager.project.video_placement;
-      if (ratioLocked && p.width > 0) {
+      if (isLocked && p.width > 0) {
         const ratio = domOverlay.getNaturalRatio("video") || (p.width / p.height);
         const newH = Math.round(val / ratio);
         propPlacementH.value = newH.toString();
@@ -1020,10 +1039,11 @@ function bindInputFields() {
   });
   propPlacementH.addEventListener("change", () => {
     const val = parseInt(propPlacementH.value) || 1920;
-    const focused = domOverlay.getFocusedElement();
-    if (focused) {
+    const focused = domOverlay.getFocusedElement() || "video";
+    const isLocked = domOverlay.getElementRatioLocked(focused);
+    if (focused !== "video") {
       const bounds = domOverlay.getFocusedElementBounds();
-      if (ratioLocked && bounds && bounds.height > 0) {
+      if (isLocked && bounds && bounds.height > 0) {
         const ratio = domOverlay.getNaturalRatio(focused) || (bounds.width / bounds.height);
         const newW = Math.round(val * ratio);
         propPlacementW.value = newW.toString();
@@ -1033,7 +1053,7 @@ function bindInputFields() {
       }
     } else {
       const p = stateManager.project.video_placement;
-      if (ratioLocked && p.height > 0) {
+      if (isLocked && p.height > 0) {
         const ratio = domOverlay.getNaturalRatio("video") || (p.width / p.height);
         const newW = Math.round(val * ratio);
         propPlacementW.value = newW.toString();
@@ -1146,6 +1166,91 @@ function bindInputFields() {
       if (previewStatus) previewStatus.innerText = "Refreshing...";
       await TauriService.clearCache();
       await generateAndShowPreview();
+    });
+  }
+
+  // Custom Modern Video Player Controls
+  if (btnPreviewPlayPause) {
+    btnPreviewPlayPause.addEventListener("click", () => {
+      if (!previewVideo) return;
+      if (previewVideo.paused) {
+        previewVideo.play().catch(err => console.warn(err));
+      } else {
+        previewVideo.pause();
+      }
+    });
+  }
+
+  if (previewVideo) {
+    previewVideo.addEventListener("play", () => {
+      if (previewPlayIcon) previewPlayIcon.style.display = "none";
+      if (previewPauseIcon) previewPauseIcon.style.display = "inline-block";
+    });
+
+    previewVideo.addEventListener("pause", () => {
+      if (previewPlayIcon) previewPlayIcon.style.display = "inline-block";
+      if (previewPauseIcon) previewPauseIcon.style.display = "none";
+    });
+
+    previewVideo.addEventListener("timeupdate", () => {
+      const current = previewVideo.currentTime || 0;
+      const duration = previewVideo.duration || 0;
+      if (previewTimeDisplay) {
+        previewTimeDisplay.textContent = `${formatDuration(current)} / ${formatDuration(duration)}`;
+      }
+      if (duration > 0 && previewSeekSlider) {
+        const pct = (current / duration) * 100;
+        previewSeekSlider.value = pct.toString();
+      }
+    });
+  }
+
+  if (previewSeekSlider) {
+    previewSeekSlider.addEventListener("input", () => {
+      if (!previewVideo) return;
+      const pct = parseFloat(previewSeekSlider.value) || 0;
+      const duration = previewVideo.duration || 0;
+      if (duration > 0) {
+        previewVideo.currentTime = (pct / 100) * duration;
+      }
+    });
+  }
+
+  const updateVolumeUI = () => {
+    if (!previewVideo) return;
+    const isMuted = previewVideo.muted || previewVideo.volume === 0;
+    if (previewVolumeIconOn) previewVolumeIconOn.style.display = isMuted ? "none" : "inline-block";
+    if (previewVolumeIconOff) previewVolumeIconOff.style.display = isMuted ? "inline-block" : "none";
+  };
+
+  if (btnPreviewMute) {
+    btnPreviewMute.addEventListener("click", () => {
+      if (!previewVideo) return;
+      previewVideo.muted = !previewVideo.muted;
+      updateVolumeUI();
+    });
+  }
+
+  if (previewVolumeSlider) {
+    previewVolumeSlider.addEventListener("input", () => {
+      if (!previewVideo) return;
+      const vol = parseFloat(previewVolumeSlider.value) || 0;
+      previewVideo.volume = vol;
+      previewVideo.muted = vol === 0;
+      updateVolumeUI();
+    });
+  }
+
+  if (btnPreviewFullscreen) {
+    btnPreviewFullscreen.addEventListener("click", () => {
+      const container = document.querySelector(".preview-video-wrapper") as HTMLElement | null;
+      if (container) {
+        if (!document.fullscreenElement) {
+          container.requestFullscreen().catch(err => console.warn(err));
+        } else {
+          document.exitFullscreen().catch(err => console.warn(err));
+        }
+      }
     });
   }
 
