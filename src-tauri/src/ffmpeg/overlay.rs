@@ -11,13 +11,19 @@ impl TextOverlayFilter {
         x: &str,
         y: &str,
         outline: bool,
-        _letter_spacing: i32,
+        letter_spacing: i32,
         font_weight: u32,
     ) -> String {
         // Note: FFmpeg drawtext has no native letter-spacing/tracking support.
-        // Letter spacing is rendered visually in the DOM canvas preview only.
-        // The FFmpeg output uses standard character spacing to avoid text explosion.
-        let escaped_text = Self::escape_drawtext(text);
+        // We use a best-effort approximation by injecting Unicode Hair Spaces (U+200A)
+        let mut final_text = text.to_string();
+        if letter_spacing > 0 {
+            let num_spaces = (letter_spacing / 5).max(1) as usize;
+            let space_str = "\u{200A}".repeat(num_spaces);
+            let chars: Vec<char> = text.chars().collect();
+            final_text = chars.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(&space_str);
+        }
+        let escaped_text = Self::escape_drawtext(&final_text);
         let safe_color = if font_color.is_empty() { "black" } else { font_color };
         
         let mut font_arg = String::new();
@@ -43,8 +49,8 @@ impl TextOverlayFilter {
         );
 
         if outline {
-            let border_w = ((font_size as f32) / 50.0).clamp(1.5, 3.5).round() as u32;
-            drawtext.push_str(&format!(":borderw={}:bordercolor=black", border_w.max(1)));
+            let border_w = ((font_size as f32) / 30.0).round().max(1.0) as u32;
+            drawtext.push_str(&format!(":borderw={}:bordercolor=black", border_w));
         } else if font_weight > 600 && font_file.is_none() {
             let bold_thickness = ((font_weight as f32 - 400.0) / 300.0 * (font_size as f32 / 100.0)).clamp(0.5, 2.5);
             drawtext.push_str(&format!(":borderw={:.1}:bordercolor={}", bold_thickness, safe_color));

@@ -51,8 +51,8 @@ let propFontFamily: HTMLSelectElement;
 let propTextOutline: HTMLInputElement;
 let propLetterSpacing: HTMLInputElement;
 let propFontWeight: HTMLInputElement;
-let letterSpacingValue: HTMLSpanElement;
-let fontWeightValue: HTMLSpanElement;
+let letterSpacingValue: HTMLInputElement;
+let fontWeightValue: HTMLInputElement;
 let btnLivePreview: HTMLButtonElement;
 let previewModal: HTMLDivElement;
 let previewVideo: HTMLVideoElement;
@@ -97,9 +97,9 @@ let propExtraFontColor: HTMLInputElement;
 let propExtraFontFamily: HTMLSelectElement;
 let propExtraOutline: HTMLInputElement;
 let propExtraLetterSpacing: HTMLInputElement;
-let extraLetterSpacingValue: HTMLSpanElement;
+let extraLetterSpacingValue: HTMLInputElement;
 let propExtraFontWeight: HTMLInputElement;
-let extraFontWeightValue: HTMLSpanElement;
+let extraFontWeightValue: HTMLInputElement;
 let btnAddExtra: HTMLButtonElement;
 
 
@@ -767,11 +767,11 @@ function syncConfigToUi() {
   propTextOutline.checked = proj.text_settings.outline ?? true;
   if (propLetterSpacing) {
     propLetterSpacing.value = (proj.text_settings.letter_spacing || 0).toString();
-    if (letterSpacingValue) letterSpacingValue.innerText = (proj.text_settings.letter_spacing || 0).toString();
+    if (letterSpacingValue) letterSpacingValue.value = (proj.text_settings.letter_spacing || 0).toString();
   }
   if (propFontWeight) {
     propFontWeight.value = (proj.text_settings.font_weight || 400).toString();
-    if (fontWeightValue) fontWeightValue.innerText = (proj.text_settings.font_weight || 400).toString();
+    if (fontWeightValue) fontWeightValue.value = (proj.text_settings.font_weight || 400).toString();
   }
   propFontFamily.value = proj.text_settings.font_family;
 
@@ -1106,7 +1106,15 @@ function bindInputFields() {
 
   propLetterSpacing.addEventListener("input", () => {
     const val = parseInt(propLetterSpacing.value) || 0;
-    if (letterSpacingValue) letterSpacingValue.innerText = val.toString();
+    if (letterSpacingValue) letterSpacingValue.value = val.toString();
+    const textSettings = { ...stateManager.project.text_settings, letter_spacing: val };
+    stateManager.updateProjectField("text_settings", textSettings);
+    refreshViewport();
+  });
+
+  letterSpacingValue.addEventListener("input", () => {
+    const val = parseInt(letterSpacingValue.value) || 0;
+    propLetterSpacing.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, letter_spacing: val };
     stateManager.updateProjectField("text_settings", textSettings);
     refreshViewport();
@@ -1114,7 +1122,15 @@ function bindInputFields() {
 
   propFontWeight.addEventListener("input", () => {
     const val = parseInt(propFontWeight.value) || 400;
-    if (fontWeightValue) fontWeightValue.innerText = val.toString();
+    if (fontWeightValue) fontWeightValue.value = val.toString();
+    const textSettings = { ...stateManager.project.text_settings, font_weight: val };
+    stateManager.updateProjectField("text_settings", textSettings);
+    refreshViewport();
+  });
+
+  fontWeightValue.addEventListener("input", () => {
+    const val = parseInt(fontWeightValue.value) || 400;
+    propFontWeight.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, font_weight: val };
     stateManager.updateProjectField("text_settings", textSettings);
     refreshViewport();
@@ -1345,11 +1361,11 @@ function bindInputFields() {
       propFontFamily.value = preset.font_family;
       if (propLetterSpacing) {
         propLetterSpacing.value = (preset.letter_spacing || 0).toString();
-        if (letterSpacingValue) letterSpacingValue.innerText = (preset.letter_spacing || 0).toString();
+        if (letterSpacingValue) letterSpacingValue.value = (preset.letter_spacing || 0).toString();
       }
       if (propFontWeight) {
         propFontWeight.value = (preset.font_weight || 400).toString();
-        if (fontWeightValue) fontWeightValue.innerText = (preset.font_weight || 400).toString();
+        if (fontWeightValue) fontWeightValue.value = (preset.font_weight || 400).toString();
       }
       // Sync font picker display
       const pv = document.querySelector("#font-picker-primary .font-picker-value") as HTMLSpanElement;
@@ -1411,11 +1427,11 @@ function bindInputFields() {
       propExtraFontFamily.style.fontFamily = overlay.font_family;
       if (propExtraLetterSpacing) {
         propExtraLetterSpacing.value = (overlay.letter_spacing || 0).toString();
-        if (extraLetterSpacingValue) extraLetterSpacingValue.innerText = `${overlay.letter_spacing || 0}px`;
+        if (extraLetterSpacingValue) extraLetterSpacingValue.value = (overlay.letter_spacing || 0).toString();
       }
       if (propExtraFontWeight) {
         propExtraFontWeight.value = (overlay.font_weight || 400).toString();
-        if (extraFontWeightValue) extraFontWeightValue.innerText = (overlay.font_weight || 400).toString();
+        if (extraFontWeightValue) extraFontWeightValue.value = (overlay.font_weight || 400).toString();
       }
       // Sync extra font picker display
       const extraPickerValue = document.querySelector("#font-picker-extra .font-picker-value") as HTMLSpanElement;
@@ -1431,29 +1447,49 @@ function bindInputFields() {
 
   propExtraLetterSpacing.addEventListener("input", () => {
     const val = parseInt(propExtraLetterSpacing.value) || 0;
-    if (extraLetterSpacingValue) extraLetterSpacingValue.innerText = `${val}px`;
+    if (extraLetterSpacingValue) extraLetterSpacingValue.value = val.toString();
     const idx = parseInt(listExtraOverlays.value);
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
-      if (overlays[idx]) {
-        overlays[idx].letter_spacing = val;
-        stateManager.updateProjectField("extra_overlays", overlays);
-        refreshViewport();
-      }
+      overlays[idx] = { ...overlays[idx], letter_spacing: val };
+      stateManager.updateProjectField("extra_overlays", overlays);
+      refreshViewport();
+    }
+  });
+
+  extraLetterSpacingValue.addEventListener("input", () => {
+    const val = parseInt(extraLetterSpacingValue.value) || 0;
+    propExtraLetterSpacing.value = val.toString();
+    const idx = parseInt(listExtraOverlays.value);
+    if (!isNaN(idx)) {
+      const overlays = [...(stateManager.project.extra_overlays || [])];
+      overlays[idx] = { ...overlays[idx], letter_spacing: val };
+      stateManager.updateProjectField("extra_overlays", overlays);
+      refreshViewport();
     }
   });
 
   propExtraFontWeight.addEventListener("input", () => {
     const val = parseInt(propExtraFontWeight.value) || 400;
-    if (extraFontWeightValue) extraFontWeightValue.innerText = val.toString();
+    if (extraFontWeightValue) extraFontWeightValue.value = val.toString();
     const idx = parseInt(listExtraOverlays.value);
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
-      if (overlays[idx]) {
-        overlays[idx].font_weight = val;
-        stateManager.updateProjectField("extra_overlays", overlays);
-        refreshViewport();
-      }
+      overlays[idx] = { ...overlays[idx], font_weight: val };
+      stateManager.updateProjectField("extra_overlays", overlays);
+      refreshViewport();
+    }
+  });
+
+  extraFontWeightValue.addEventListener("input", () => {
+    const val = parseInt(extraFontWeightValue.value) || 400;
+    propExtraFontWeight.value = val.toString();
+    const idx = parseInt(listExtraOverlays.value);
+    if (!isNaN(idx)) {
+      const overlays = [...(stateManager.project.extra_overlays || [])];
+      overlays[idx] = { ...overlays[idx], font_weight: val };
+      stateManager.updateProjectField("extra_overlays", overlays);
+      refreshViewport();
     }
   });
 
@@ -4263,6 +4299,9 @@ function customizeNumberInputs() {
     // Create wrapper
     const wrapper = document.createElement('div');
     wrapper.className = 'custom-number-wrapper';
+    if (numInput.classList.contains('number-input-compact')) {
+      wrapper.classList.add('custom-number-compact');
+    }
     
     // Copy parent flex / margin/ layout properties to wrapper so layouts don't break
     const computedStyle = window.getComputedStyle(numInput);
@@ -4270,8 +4309,8 @@ function customizeNumberInputs() {
       wrapper.style.flex = numInput.style.flex || computedStyle.flex;
       numInput.style.flex = "1";
     }
-    if (numInput.style.width || computedStyle.width !== 'auto') {
-      wrapper.style.width = numInput.style.width || computedStyle.width;
+    if (numInput.style.width) {
+      wrapper.style.width = numInput.style.width;
       numInput.style.width = "100%";
     }
     if (numInput.style.margin) {

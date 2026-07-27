@@ -398,21 +398,23 @@
                 <input type="checkbox" id="prop-text-outline" checked />
                 <label for="prop-text-outline" style="margin-bottom: 0;">Add Outline</label>
               </div>
-              <div class="control-group">
-                <label>Letter Spacing</label>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <input type="range" id="prop-letter-spacing" min="-10" max="50" value="0" style="flex: 1; accent-color: var(--accent);" />
-                  <span id="letter-spacing-value" style="min-width: 32px; text-align: right; font-size: 11px; color: var(--text-secondary);">0</span>
+              <!-- Letter Spacing & Boldness -->
+              <div class="control-row">
+                <div class="control-group">
+                  <label>Letter Spacing</label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" id="prop-letter-spacing" min="-10" max="50" value="0" style="flex: 1; min-width: 0; accent-color: var(--accent);" />
+                    <input type="number" id="letter-spacing-value" value="0" min="-10" max="50" class="number-input-compact" />
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label>Text Boldness</label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" id="prop-font-weight" min="100" max="900" step="100" value="400" style="flex: 1; min-width: 0; accent-color: var(--accent);" />
+                    <input type="number" id="font-weight-value" value="400" min="100" max="900" step="100" class="number-input-compact" />
+                  </div>
                 </div>
               </div>
-              <div class="control-group">
-                <label>Text Boldness</label>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <input type="range" id="prop-font-weight" min="100" max="900" step="100" value="400" style="flex: 1; accent-color: var(--accent);" />
-                  <span id="font-weight-value" style="min-width: 32px; text-align: right; font-size: 11px; color: var(--text-secondary);">400</span>
-                </div>
-              </div>
-
               <div class="control-group">
                 <label>Font Family</label>
                 <div class="font-picker" id="font-picker-primary">
@@ -504,19 +506,20 @@
                 <label for="prop-extra-outline">Add Outline</label>
               </div>
               <div class="control-row">
+                <!-- Letter Spacing -->
                 <div class="control-group">
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label>Letter Spacing</label>
-                    <span id="extra-letter-spacing-value" class="setting-desc" style="font-weight: 600; color: var(--accent);">0px</span>
+                  <label>Letter Spacing</label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" id="prop-extra-letter-spacing" min="-10" max="50" value="0" style="flex: 1; min-width: 0; accent-color: var(--accent);" />
+                    <input type="number" id="extra-letter-spacing-value" value="0" min="-10" max="50" class="number-input-compact" />
                   </div>
-                  <input type="range" id="prop-extra-letter-spacing" min="-10" max="50" value="0" />
                 </div>
                 <div class="control-group">
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label>Text Boldness</label>
-                    <span id="extra-font-weight-value" class="setting-desc" style="font-weight: 600; color: var(--accent);">400</span>
+                  <label>Text Boldness</label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" id="prop-extra-font-weight" min="100" max="900" step="100" value="400" style="flex: 1; min-width: 0; accent-color: var(--accent);" />
+                    <input type="number" id="extra-font-weight-value" value="400" min="100" max="900" step="100" class="number-input-compact" />
                   </div>
-                  <input type="range" id="prop-extra-font-weight" min="100" max="900" step="100" value="400" />
                 </div>
               </div>
               <div class="control-row">
