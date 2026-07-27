@@ -72,6 +72,7 @@ export interface MediaOverlay {
   chroma_color: string;
   chroma_similarity: number;
   chroma_blend: number;
+  ratio_locked?: boolean;
 }
 
 export interface ProjectAsset {

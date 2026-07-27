@@ -288,6 +288,15 @@ function initFontPicker(pickerId: string, hiddenSelect: HTMLSelectElement, fontN
   });
 }
 
+function syncRatioLockUI(target: string | null = domOverlay?.getFocusedElement()) {
+  const isLocked = domOverlay ? domOverlay.getElementRatioLocked(target) : (stateManager.project.video_placement?.ratio_locked !== false);
+  ratioLocked = isLocked;
+  if (btnRatioLock) {
+    btnRatioLock.classList.toggle("active", isLocked);
+    btnRatioLock.title = isLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
+  }
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   // Bind Cache Elements
   assetListContainer = document.querySelector("#asset-list")!;
@@ -448,6 +457,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   canvasRenderer = new CanvasRenderer(canvasViewport);
   domOverlay = new DOMOverlay(domOverlayContainer, stateManager);
+  domOverlay.onFocusChange((focused) => {
+    syncRatioLockUI(focused);
+  });
   new CanvasContextMenu(domOverlayContainer, stateManager, domOverlay, {
     syncExtraOverlaysList,
     syncMediaOverlaysList,
@@ -721,13 +733,7 @@ function syncConfigToUi() {
   propPlacementW.value = proj.video_placement.width.toString();
   propPlacementH.value = proj.video_placement.height.toString();
 
-  const isLocked = proj.video_placement.ratio_locked !== false;
-  ratioLocked = isLocked;
-  if (domOverlay) domOverlay.ratioLocked = isLocked;
-  if (btnRatioLock) {
-    btnRatioLock.classList.toggle("active", isLocked);
-    btnRatioLock.title = isLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
-  }
+  syncRatioLockUI();
 
   propAspectRatio.value = proj.aspect_ratio;
   propCropAnchor.value = proj.crop_anchor;
@@ -957,25 +963,22 @@ function bindInputFields() {
   });
   // Ratio lock toggle
   btnRatioLock.addEventListener("click", () => {
-    ratioLocked = !ratioLocked;
-    domOverlay.ratioLocked = ratioLocked;
-    btnRatioLock.classList.toggle("active", ratioLocked);
-    btnRatioLock.title = ratioLocked ? "Unlock aspect ratio" : "Lock aspect ratio";
+    const target = domOverlay.getFocusedElement() || "video";
+    const isLocked = !domOverlay.getElementRatioLocked(target);
 
-    const placement = { ...stateManager.project.video_placement, ratio_locked: ratioLocked };
-    stateManager.updateProjectField("video_placement", placement);
+    domOverlay.setElementRatioLocked(target, isLocked);
+    syncRatioLockUI(target);
 
-    if (ratioLocked) {
-      const focused = domOverlay.getFocusedElement() || "video";
-      const ratio = domOverlay.getNaturalRatio(focused);
+    if (isLocked) {
+      const ratio = domOverlay.getNaturalRatio(target);
       if (ratio !== null && ratio > 0) {
-        if (focused === "video") {
+        if (target === "video") {
           const p = stateManager.project.video_placement;
           const newH = Math.round(p.width / ratio);
           propPlacementH.value = newH.toString();
-          const placementWithH = { ...p, height: newH, ratio_locked: ratioLocked };
+          const placementWithH = { ...p, height: newH, ratio_locked: true };
           stateManager.updateProjectField("video_placement", placementWithH);
-        } else {
+        } else if (target.startsWith("media-")) {
           const bounds = domOverlay.getFocusedElementBounds();
           if (bounds) {
             const newH = Math.round(bounds.width / ratio);

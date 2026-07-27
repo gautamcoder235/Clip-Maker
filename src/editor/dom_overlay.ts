@@ -39,6 +39,7 @@ export class DOMOverlay {
   private elementStartFontSize = 32;
 
   private onLayoutChangeCallback: () => void = () => {};
+  private onFocusChangeCallback: (focusedElement: string | null) => void = () => {};
 
   constructor(container: HTMLDivElement, stateManager: AppStateManager) {
     this.overlayContainer = container;
@@ -659,7 +660,7 @@ export class DOMOverlay {
         let newX = this.elementStartX;
         let newY = this.elementStartY;
 
-        let isProportional = this.ratioLocked || (this.activeElement === "text" || (this.activeElement !== null && this.activeElement.startsWith("extra-")));
+        let isProportional = this.getElementRatioLocked(this.activeElement) || (this.activeElement === "text" || (this.activeElement !== null && this.activeElement.startsWith("extra-")));
         let startRatio = 1.0;
 
         if (this.activeElement) {
@@ -1027,6 +1028,40 @@ export class DOMOverlay {
     this.refreshFocus();
   }
 
+  onFocusChange(callback: (focusedElement: string | null) => void) {
+    this.onFocusChangeCallback = callback;
+  }
+
+  public getElementRatioLocked(elementId: string | null = this.focusedElement || "video"): boolean {
+    const proj = this.stateManager.project;
+    const target = elementId || this.focusedElement || "video";
+    if (target === "video") {
+      return proj.video_placement?.ratio_locked !== false;
+    }
+    if (target.startsWith("media-")) {
+      const idx = parseInt(target.split("-")[1]);
+      const overlay = (proj.media_overlays || [])[idx];
+      return overlay ? overlay.ratio_locked !== false : true;
+    }
+    return true;
+  }
+
+  public setElementRatioLocked(elementId: string | null, isLocked: boolean) {
+    const target = elementId || this.focusedElement || "video";
+    const proj = this.stateManager.project;
+    if (target === "video") {
+      const placement = { ...proj.video_placement, ratio_locked: isLocked };
+      this.stateManager.updateProjectField("video_placement", placement);
+    } else if (target.startsWith("media-")) {
+      const idx = parseInt(target.split("-")[1]);
+      const overlays = [...(proj.media_overlays || [])];
+      if (overlays[idx]) {
+        overlays[idx] = { ...overlays[idx], ratio_locked: isLocked };
+        this.stateManager.updateProjectField("media_overlays", overlays);
+      }
+    }
+  }
+
   private refreshFocus() {
     const boxes = [this.videoBox, this.textBox, ...this.extraBoxes, ...this.mediaBoxes];
     boxes.forEach((box) => {
@@ -1038,6 +1073,9 @@ export class DOMOverlay {
         box.classList.remove("focused");
       }
     });
+    if (this.onFocusChangeCallback) {
+      this.onFocusChangeCallback(this.focusedElement);
+    }
     this.onLayoutChangeCallback();
   }
 

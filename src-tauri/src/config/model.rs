@@ -88,6 +88,8 @@ pub struct MediaOverlay {
     pub chroma_color: String,
     pub chroma_similarity: f32,
     pub chroma_blend: f32,
+    #[serde(default)]
+    pub ratio_locked: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
