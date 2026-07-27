@@ -69,7 +69,12 @@ export class TauriService {
     return invoke<ProjectData | null>("load_autosave");
   }
 
+  static async exportClipsAsZip(clipPaths: string[], zipOutputPath: string): Promise<string> {
+    return invoke<string>("export_clips_as_zip", { clipPaths, zipOutputPath });
+  }
+
   // Listeners for render queue events
+
   static onJobStarted(callback: (jobId: string) => void) {
     return listen<string>("job-started", (event: Event<string>) => {
       callback(event.payload);

@@ -150,6 +150,8 @@ impl FFmpegBuilder {
         x: &str,
         y: &str,
         outline: bool,
+        letter_spacing: i32,
+        font_weight: u32,
     ) -> &mut Self {
         self.overlays.push(OverlayStep::Text {
             text: text.to_string(),
@@ -159,9 +161,12 @@ impl FFmpegBuilder {
             x: x.to_string(),
             y: y.to_string(),
             outline,
+            letter_spacing,
+            font_weight,
         });
         self
     }
+
 
     pub fn encode(
         &mut self,
@@ -239,6 +244,9 @@ impl FFmpegBuilder {
         cmd.push("-loglevel".to_string());
         cmd.push("error".to_string()); // Change from warning to error to prevent swscaler/font warnings from flooding IPC
         cmd.push("-stats".to_string());
+        cmd.push("-threads".to_string());
+        cmd.push("0".to_string());
+
 
         // Fast seek input flags must come BEFORE -i
         if !ss_args.is_empty() {
@@ -446,7 +454,7 @@ impl FFmpegBuilder {
                         base_label, overlay_label, overlay.x, overlay.y, eof_action, shortest_opt, next_label
                     ));
                 }
-                OverlayStep::Text { text, font_size, font_color, font_file, x, y, outline } => {
+                OverlayStep::Text { text, font_size, font_color, font_file, x, y, outline, letter_spacing, font_weight } => {
                     let drawtext_filter = TextOverlayFilter::build(
                         text,
                         *font_size,
@@ -455,7 +463,10 @@ impl FFmpegBuilder {
                         x,
                         y,
                         *outline,
+                        *letter_spacing,
+                        *font_weight,
                     );
+
                     chains.push(format!(
                         "[{}]{}[{}]",
                         base_label, drawtext_filter, next_label

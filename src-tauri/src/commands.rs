@@ -110,10 +110,19 @@ pub async fn start_render_queue(
     for clip_idx in start_clip..=end_clip {
         let job_name = format!("Render Clip {}", clip_idx);
         
+        let input_file = if !config.input_paths.is_empty() { &config.input_paths[0] } else { &config.input_path };
+        let movie_name = std::path::Path::new(input_file)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("clip");
+        let output_filename = format!("{}_part_{:03}.mp4", movie_name, clip_idx);
+        let output_filepath = std::path::Path::new(&config.output_path).join(&output_filename);
+        let output_file_str = output_filepath.to_string_lossy().replace("\\", "/");
+
         let job_id = state.job_manager.create_job(
             &job_name,
-            if !config.input_paths.is_empty() { &config.input_paths[0] } else { &config.input_path },
-            &config.output_path,
+            input_file,
+            &output_file_str,
             clip_idx,
             total_clips,
             &state.ffmpeg_path,
@@ -122,6 +131,7 @@ pub async fn start_render_queue(
         job_ids.push(job_id.clone());
         jobs_to_run.push((clip_idx, job_id));
     }
+
 
     let export_service_arc = std::sync::Arc::new(export_service);
     let cfg = config.clone();
@@ -192,10 +202,19 @@ pub async fn start_batch_render_queue(
         for clip_idx in req.start_clip..=req.end_clip {
             let job_name = format!("Render Clip {}", clip_idx);
             
+            let input_file = if !req.config.input_paths.is_empty() { &req.config.input_paths[0] } else { &req.config.input_path };
+            let movie_name = std::path::Path::new(input_file)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("clip");
+            let output_filename = format!("{}_part_{:03}.mp4", movie_name, clip_idx);
+            let output_filepath = std::path::Path::new(&req.config.output_path).join(&output_filename);
+            let output_file_str = output_filepath.to_string_lossy().replace("\\", "/");
+
             let job_id = state.job_manager.create_job(
                 &job_name,
-                if !req.config.input_paths.is_empty() { &req.config.input_paths[0] } else { &req.config.input_path },
-                &req.config.output_path,
+                input_file,
+                &output_file_str,
                 clip_idx,
                 total_clips,
                 &state.ffmpeg_path,
@@ -204,6 +223,7 @@ pub async fn start_batch_render_queue(
             job_ids.push(job_id.clone());
             jobs_to_run.push((clip_idx, total_clips, job_id, req.config.clone()));
         }
+
     }
 
     let export_service_arc = std::sync::Arc::new(export_service);
@@ -298,3 +318,72 @@ pub async fn load_autosave(app_handle: AppHandle) -> AppResult<Option<ProjectDat
     let project: ProjectData = serde_json::from_str(&content)?;
     Ok(Some(project))
 }
+
+#[tauri::command]
+pub async fn select_zip_file(default_name: String) -> AppResult<String> {
+    let dialog = rfd::FileDialog::new()
+        .set_file_name(&default_name)
+        .add_filter("ZIP Archive (*.zip)", &["zip"]);
+    
+    let file = dialog.save_file();
+    
+    match file {
+        Some(path) => Ok(path.to_string_lossy().to_string()),
+        None => Ok("".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn export_clips_as_zip(clip_paths: Vec<String>, zip_output_path: String) -> AppResult<String> {
+    use std::io::{Read, Write};
+    use crate::errors::AppError;
+
+    let target_path = std::path::Path::new(&zip_output_path);
+    if let Some(parent) = target_path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| AppError::Config(format!("Cannot create parent directory: {}", e)))?;
+        }
+    }
+
+    let zip_file = std::fs::File::create(&zip_output_path)
+        .map_err(|e| AppError::Config(format!("Cannot create ZIP file '{}': {}", zip_output_path, e)))?;
+    let mut zip_writer = zip::ZipWriter::new(zip_file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored);
+
+    for path_str in &clip_paths {
+        let path = std::path::Path::new(path_str);
+        if !path.exists() || path.is_dir() {
+            eprintln!("[export_clips_as_zip] Clip path does not exist or is a directory, skipping: {}", path_str);
+            continue;
+        }
+
+
+        let file_name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("clip.mp4");
+
+        zip_writer.start_file(file_name, options)
+            .map_err(|e| AppError::Config(format!("ZIP write error for '{}': {}", file_name, e)))?;
+
+        let mut file = std::fs::File::open(path)
+            .map_err(|e| AppError::Config(format!("Cannot read clip '{}': {}", path_str, e)))?;
+        let mut buffer = vec![0u8; 8 * 1024 * 1024]; // 8MB buffer
+        loop {
+            let bytes_read = file.read(&mut buffer)
+                .map_err(|e| AppError::Config(format!("Read error: {}", e)))?;
+            if bytes_read == 0 {
+                break;
+            }
+            zip_writer.write_all(&buffer[..bytes_read])
+                .map_err(|e| AppError::Config(format!("ZIP write error: {}", e)))?;
+        }
+    }
+
+    zip_writer.finish()
+        .map_err(|e| AppError::Config(format!("ZIP finalize error: {}", e)))?;
+    Ok(zip_output_path)
+}
+
+

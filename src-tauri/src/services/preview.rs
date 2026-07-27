@@ -7,7 +7,6 @@ use crate::errors::{AppResult, AppError};
 use crate::config::AppConfig;
 use crate::resources::cache::CacheManager;
 use crate::ffmpeg::builder::FFmpegBuilder;
-use crate::ffmpeg::overlay::MediaOverlaySpec;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -40,10 +39,17 @@ impl PreviewService {
         let preview_path = self.cache.preview_dir().join(&preview_filename);
         let preview_path_str = preview_path.to_string_lossy().replace("\\", "/");
 
-        // Cache hit
+        // Cache hit: verify file exists AND has valid non-zero size (> 1KB)
         if preview_path.exists() {
-            return Ok(preview_path_str);
+            if let Ok(meta) = std::fs::metadata(&preview_path) {
+                if meta.len() > 1024 {
+                    return Ok(preview_path_str);
+                }
+            }
+            // Delete corrupt or 0-byte preview file if present
+            let _ = std::fs::remove_file(&preview_path);
         }
+
 
         // Cache miss: Generate preview
         let preview_clip_seconds = config.preview_clip_seconds.max(1) as f64;
@@ -103,38 +109,79 @@ impl PreviewService {
             builder.scale_to(res.0, res.1, true);
         }
 
-        // Media Overlays
-        for overlay in &config.media_overlays {
-            if overlay.enabled {
-                let spec = MediaOverlaySpec::from_config(overlay, 0.0);
-                builder.add_media_overlay(spec);
+        // Use overlay_order if available, otherwise default order
+        let default_order: Vec<String> = {
+            let mut order = vec!["text".to_string()];
+            for (idx, _) in config.extra_overlays.iter().enumerate() {
+                order.push(format!("extra-{}", idx));
+            }
+            for (idx, _) in config.media_overlays.iter().enumerate() {
+                order.push(format!("media-{}", idx));
+            }
+            order
+        };
+        let normalized_order = config.overlay_order.as_ref().unwrap_or(&default_order);
+
+        for id in normalized_order {
+            if id == "text" {
+                if config.text_settings.enabled {
+                    let template_text = if config.text_mode == "Fixed Text" {
+                        config.text_template.trim().to_string()
+                    } else {
+                        config.text_template.replace("{part}", "1").trim().to_string()
+                    };
+                    let text_font = if !config.text_settings.font_family.is_empty() {
+                        Some(config.text_settings.font_family.as_str())
+                    } else {
+                        None
+                    };
+                    builder.overlay_text(
+                        &template_text,
+                        config.text_settings.font_size,
+                        &config.text_settings.font_color,
+                        text_font,
+                        &config.text_settings.x_position,
+                        &config.text_settings.y_position,
+                        config.text_settings.outline,
+                        config.text_settings.letter_spacing,
+                        config.text_settings.font_weight,
+                    );
+                }
+            } else if id.starts_with("extra-") {
+                if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {
+                    if let Some(extra) = config.extra_overlays.get(idx) {
+                        let extra_text = extra.text.replace("{part}", "1").trim().to_string();
+                        let extra_font = if !extra.font_family.is_empty() {
+                            Some(extra.font_family.as_str())
+                        } else {
+                            None
+                        };
+                        builder.overlay_text(
+                            &extra_text,
+                            extra.font_size,
+                            &extra.font_color,
+                            extra_font,
+                            &extra.x_position,
+                            &extra.y_position,
+                            extra.outline,
+                            extra.letter_spacing,
+                            extra.font_weight,
+                        );
+                    }
+                }
+            } else if id.starts_with("media-") {
+                if let Ok(idx) = id.replace("media-", "").parse::<usize>() {
+                    if let Some(overlay) = config.media_overlays.get(idx) {
+                        if overlay.enabled {
+                            let spec = crate::ffmpeg::overlay::MediaOverlaySpec::from_config(overlay, 0.0);
+                            builder.add_media_overlay(spec);
+                        }
+                    }
+                }
             }
         }
 
-        // Text Overlays (fixed or template replacement for start clip)
-        if config.text_settings.enabled {
-            let template_text = if config.text_mode == "Fixed Text" {
-                config.text_template.trim().to_string()
-            } else {
-                config.text_template.replace("{part}", &config.start_clip.to_string()).trim().to_string()
-            };
 
-            let text_font = if !config.text_settings.font_family.is_empty() {
-                Some(config.text_settings.font_family.as_str())
-            } else {
-                None
-            };
-
-            builder.overlay_text(
-                &template_text,
-                config.text_settings.font_size,
-                &config.text_settings.font_color,
-                text_font,
-                &config.text_settings.x_position,
-                &config.text_settings.y_position,
-                config.text_settings.outline,
-            );
-        }
 
         // Encode as lightweight draft
         builder.encode(
@@ -173,7 +220,12 @@ impl PreviewService {
         config.output_width.hash(&mut hasher);
         config.output_height.hash(&mut hasher);
         config.background.color.hash(&mut hasher);
+        config.background.mode.hash(&mut hasher);
         config.background.image_path.hash(&mut hasher);
+        config.background.image_x.hash(&mut hasher);
+        config.background.image_y.hash(&mut hasher);
+        config.background.image_width.hash(&mut hasher);
+        config.background.image_height.hash(&mut hasher);
         config.video_placement.enabled.hash(&mut hasher);
         config.video_placement.x.hash(&mut hasher);
         config.video_placement.y.hash(&mut hasher);
@@ -181,22 +233,66 @@ impl PreviewService {
         config.video_placement.height.hash(&mut hasher);
         config.text_mode.hash(&mut hasher);
         config.text_template.hash(&mut hasher);
+        config.text_settings.enabled.hash(&mut hasher);
         config.text_settings.font_size.hash(&mut hasher);
         config.text_settings.font_color.hash(&mut hasher);
         config.text_settings.font_family.hash(&mut hasher);
         config.text_settings.x_position.hash(&mut hasher);
         config.text_settings.y_position.hash(&mut hasher);
+        config.text_settings.outline.hash(&mut hasher);
+        config.text_settings.letter_spacing.hash(&mut hasher);
+        config.text_settings.font_weight.hash(&mut hasher);
         config.gpu_acceleration.hash(&mut hasher);
+        config.preview_clip_seconds.hash(&mut hasher);
+        config.preview_fps.hash(&mut hasher);
+
+        if let Some(ref order) = config.overlay_order {
+            for o in order {
+                o.hash(&mut hasher);
+            }
+        }
+
+        for extra in &config.extra_overlays {
+            extra.text.hash(&mut hasher);
+            extra.font_size.hash(&mut hasher);
+            extra.font_color.hash(&mut hasher);
+            extra.font_family.hash(&mut hasher);
+            extra.x_position.hash(&mut hasher);
+            extra.y_position.hash(&mut hasher);
+            extra.outline.hash(&mut hasher);
+            extra.letter_spacing.hash(&mut hasher);
+            extra.font_weight.hash(&mut hasher);
+        }
 
         for overlay in &config.media_overlays {
             overlay.path.hash(&mut hasher);
             overlay.enabled.hash(&mut hasher);
             overlay.x.hash(&mut hasher);
             overlay.y.hash(&mut hasher);
+            overlay.width.hash(&mut hasher);
+            overlay.height.hash(&mut hasher);
+            overlay.loop_mode.hash(&mut hasher);
+            overlay.chroma_key.hash(&mut hasher);
+        }
+
+        for (key, settings) in &config.asset_settings {
+            key.hash(&mut hasher);
+            if let Some(trim) = &settings.trim {
+                trim.enabled.hash(&mut hasher);
+                trim.start.to_bits().hash(&mut hasher);
+                trim.end.to_bits().hash(&mut hasher);
+            }
+        }
+
+        if let Ok(meta) = std::fs::metadata(input_path) {
+            if let Ok(mtime) = meta.modified() {
+                mtime.hash(&mut hasher);
+            }
         }
 
         format!("{:x}", hasher.finish())
     }
+
 
     fn resolve_resolution(&self, selection: &str, width: u32, height: u32) -> Option<(u32, u32)> {
         if selection == "Source" || selection.is_empty() {

@@ -149,28 +149,101 @@
 
       <!-- Top Toolbar -->
       <div id="toolbar">
+        <!-- Left Group: Project Management & History -->
         <div class="toolbar-group">
-          <button id="btn-new-project" class="toolbar-btn">New Project</button>
-          <button id="btn-open-project" class="toolbar-btn">Open Project</button>
-          <button id="btn-save-project" class="toolbar-btn">Save Project</button>
+          <button id="btn-new-project" class="toolbar-btn" title="Create New Project">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            <span class="btn-label">New</span>
+          </button>
+          <button id="btn-open-project" class="toolbar-btn" title="Open Existing Project">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="btn-label">Open</span>
+          </button>
+          <button id="btn-save-project" class="toolbar-btn" title="Save Current Project">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <span class="btn-label">Save</span>
+          </button>
+          <div class="toolbar-divider"></div>
+          <button id="btn-undo" class="toolbar-btn" disabled title="Undo (Ctrl+Z)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+            <span class="btn-label">Undo</span>
+          </button>
+          <button id="btn-redo" class="toolbar-btn" disabled title="Redo (Ctrl+Y)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+            <span class="btn-label">Redo</span>
+          </button>
         </div>
+
+        <!-- Right Group: Actions, Tools & Settings -->
         <div class="toolbar-group">
-          <button id="btn-undo" class="toolbar-btn" disabled>Undo (Ctrl+Z)</button>
-          <button id="btn-redo" class="toolbar-btn" disabled>Redo (Ctrl+Y)</button>
-        </div>
-        <div class="toolbar-group">
-          <button id="btn-command-palette" class="toolbar-btn">Palette (Ctrl+K)</button>
-          <button id="btn-clear-cache" class="toolbar-btn">Clear Cache</button>
-          <select id="select-theme" class="toolbar-btn" title="Change Theme" style="cursor: pointer;">
+          <button type="button" id="btn-live-preview" class="toolbar-btn btn-accent" title="Open Live Video Preview">
+            <span class="btn-spinner" style="display: none;"></span>
+            <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span class="btn-label">Live Preview</span>
+          </button>
+
+
+          <div class="toolbar-divider"></div>
+          <button id="btn-toggle-left" class="toolbar-btn active" title="Toggle Left Sidebar (Ctrl+B)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            <span class="btn-label">Sidebar</span>
+          </button>
+          <button id="btn-toggle-bottom" class="toolbar-btn active" title="Toggle Bottom Queue (Ctrl+J)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+            <span class="btn-label">Timeline</span>
+          </button>
+          <div class="toolbar-divider"></div>
+          <button id="btn-command-palette" class="toolbar-btn" title="Open Command Palette (Ctrl+K)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span class="btn-label">Palette</span>
+          </button>
+          <button id="btn-clear-cache" class="toolbar-btn" title="Clear Temporary Cache">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span class="btn-label">Clear</span>
+          </button>
+          <!-- Custom Glassmorphism Theme Dropdown -->
+          <div class="custom-dropdown" id="theme-dropdown">
+            <button class="toolbar-btn dropdown-trigger" id="theme-dropdown-trigger" title="Change App Theme">
+              <span id="theme-dropdown-label" class="dropdown-selected-text">Obsidian</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="dropdown-menu" id="theme-dropdown-menu" style="display: none;">
+              <div class="dropdown-item active" data-value="dark-obsidian" data-name="Obsidian">Obsidian</div>
+              <div class="dropdown-item" data-value="cyberpunk-neon" data-name="Cyberpunk">Cyberpunk</div>
+              <div class="dropdown-item" data-value="midnight-tokyo" data-name="Tokyo">Midnight Tokyo</div>
+              <div class="dropdown-item" data-value="sunset-crimson" data-name="Crimson">Sunset Crimson</div>
+              <div class="dropdown-item" data-value="emerald-mint" data-name="Emerald">Emerald Mint</div>
+              <div class="dropdown-item" data-value="nordic-frost" data-name="Nordic">Nordic Frost</div>
+              <div class="dropdown-item" data-value="royal-amethyst" data-name="Amethyst">Amethyst</div>
+              <div class="dropdown-item" data-value="forest-slate" data-name="Forest">Forest</div>
+              <div class="dropdown-item" data-value="monochrome-pure" data-name="Monochrome">Monochrome</div>
+              <div class="dropdown-item" data-value="light-glassmorphism" data-name="Light">Light Glass</div>
+            </div>
+          </div>
+          <select id="select-theme" style="display: none;">
             <option value="dark-obsidian">Obsidian</option>
             <option value="cyberpunk-neon">Cyberpunk</option>
-            <option value="forest-slate">Forest Slate</option>
+            <option value="midnight-tokyo">Tokyo</option>
+            <option value="sunset-crimson">Crimson</option>
+            <option value="emerald-mint">Emerald</option>
+            <option value="nordic-frost">Nordic</option>
             <option value="royal-amethyst">Amethyst</option>
-            <option value="light-glassmorphism">Light Glass</option>
+            <option value="forest-slate">Forest</option>
+            <option value="monochrome-pure">Monochrome</option>
+            <option value="light-glassmorphism">Light</option>
           </select>
-          <button id="btn-user-manual" class="toolbar-btn">Help ✨</button>
+
+
+          <button id="btn-user-manual" class="toolbar-btn" title="Help & User Guide">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </button>
         </div>
+
+
       </div>
+
+
+
 
       <!-- Main Workspace (Panels + Center view) -->
       <div id="main-workspace">
@@ -326,6 +399,21 @@
                 <label for="prop-text-outline" style="margin-bottom: 0;">Add Outline</label>
               </div>
               <div class="control-group">
+                <label>Letter Spacing</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="range" id="prop-letter-spacing" min="-10" max="50" value="0" style="flex: 1; accent-color: var(--accent);" />
+                  <span id="letter-spacing-value" style="min-width: 32px; text-align: right; font-size: 11px; color: var(--text-secondary);">0</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <label>Text Boldness</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="range" id="prop-font-weight" min="100" max="900" step="100" value="400" style="flex: 1; accent-color: var(--accent);" />
+                  <span id="font-weight-value" style="min-width: 32px; text-align: right; font-size: 11px; color: var(--text-secondary);">400</span>
+                </div>
+              </div>
+
+              <div class="control-group">
                 <label>Font Family</label>
                 <div class="font-picker" id="font-picker-primary">
                   <button class="font-picker-trigger" id="font-picker-primary-trigger">
@@ -416,9 +504,26 @@
                 <label for="prop-extra-outline">Add Outline</label>
               </div>
               <div class="control-row">
+                <div class="control-group">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label>Letter Spacing</label>
+                    <span id="extra-letter-spacing-value" class="setting-desc" style="font-weight: 600; color: var(--accent);">0px</span>
+                  </div>
+                  <input type="range" id="prop-extra-letter-spacing" min="-10" max="50" value="0" />
+                </div>
+                <div class="control-group">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label>Text Boldness</label>
+                    <span id="extra-font-weight-value" class="setting-desc" style="font-weight: 600; color: var(--accent);">400</span>
+                  </div>
+                  <input type="range" id="prop-extra-font-weight" min="100" max="900" step="100" value="400" />
+                </div>
+              </div>
+              <div class="control-row">
                 <button id="btn-add-extra" class="toolbar-btn" style="background: var(--accent); color: white;">Add</button>
                 <button id="btn-remove-extra" class="toolbar-btn" style="background: var(--danger); color: white;">Delete</button>
               </div>
+
             </div>
           </div>
 
@@ -540,7 +645,10 @@
         <div id="pane-render-queue" class="timeline-content-pane" style="display: none;">
           <div class="timeline-actions-row" style="margin-bottom: 12px; align-items: center; gap: 16px;">
             <button id="btn-cancel-all" class="toolbar-btn" style="background: var(--danger); color: white;">Cancel All Rendering</button>
+            <button id="btn-export-zip" class="toolbar-btn" style="background: var(--accent); color: white; display: none;">📦 Download All as ZIP</button>
+            <span id="queue-eta-banner" style="font-size: 12px; color: var(--warning); font-weight: 500;"></span>
             <div id="render-stats-area" class="render-stats-container" style="margin-left: auto; margin-bottom: 0;">
+
               <div class="render-stat-card">
                 <span class="render-stat-value" id="stat-total-clips">0</span>
                 <span class="render-stat-label">Total Clips</span>
@@ -873,6 +981,54 @@
       </div>
     </div>
 
+    <!-- Live Preview Video Modal -->
+    <div id="preview-modal" class="modal-overlay" style="display: none;">
+      <div class="preview-modal-content">
+        <div class="preview-modal-header">
+          <div class="preview-title-badge">
+            <span class="preview-title-icon">🎬</span>
+            <span class="preview-title-text">Live Preview Player</span>
+          </div>
+          <button id="btn-preview-close" class="modal-close-btn" aria-label="Close Preview" title="Close Preview">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="preview-video-wrapper">
+          <div id="preview-loader" class="preview-loading-overlay" style="display: none;">
+            <div class="preview-loading-spinner"></div>
+            <span>Rendering draft clip preview...</span>
+          </div>
+          <div id="preview-empty-state" class="preview-loading-overlay" style="display: none; background: rgba(15, 16, 20, 0.95); gap: 14px; text-align: center; padding: 24px;">
+            <div style="font-size: 42px;">🎬</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">No Video Clip Selected</div>
+            <div style="font-size: 13px; color: var(--text-secondary); max-width: 320px; line-height: 1.5;">Import or select a video asset from the left sidebar to generate a live preview.</div>
+            <button id="btn-preview-import" class="toolbar-btn" style="background: var(--accent); color: white; padding: 8px 18px; margin-top: 4px; border-radius: 8px;">
+              Import Video Asset +
+            </button>
+          </div>
+          <video id="preview-video" controls autoplay></video>
+        </div>
+
+        <div class="preview-actions">
+          <button id="btn-preview-refresh" class="preview-refresh-btn">
+            <svg class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+            <span>Refresh Preview</span>
+          </button>
+          <div class="preview-status-pill">
+            <span class="status-pulse-dot"></span>
+            <span id="preview-status">Ready</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
+

@@ -51,7 +51,16 @@ impl ExportService {
 
         let output_filename = format!("{}_part_{:03}.mp4", movie_name, clip_index);
         let output_filepath = Path::new(&config.output_path).join(&output_filename);
-        let output_filepath_str = output_filepath.to_string_lossy().replace("\\", "/");
+        let _output_filepath_str = output_filepath.to_string_lossy().replace("\\", "/");
+
+
+        // Clean up any old output file to prevent cache stale reads
+        let _ = std::fs::remove_file(&output_filepath);
+
+        // Use temporary path during active render
+        let temp_filename = format!("{}_part_{:03}.tmp.mp4", movie_name, clip_index);
+        let temp_filepath = Path::new(&config.output_path).join(&temp_filename);
+        let temp_filepath_str = temp_filepath.to_string_lossy().replace("\\", "/");
 
         // Calculate clip start/duration matching the ClipSplitter logic and user-specific trim settings
         let mut trim_start = 0.0;
@@ -99,7 +108,7 @@ impl ExportService {
         let mut builder = FFmpegBuilder::new(&self.ffmpeg_path);
         builder
             .input(input_path)
-            .split(start_time, duration, true, 3.0);
+            .split(start_time, duration, true, 0.5);
 
         if config.aspect_ratio == "9:16" {
             builder.crop("9:16", &config.crop_anchor);
@@ -196,6 +205,8 @@ impl ExportService {
                         &config.text_settings.x_position,
                         &config.text_settings.y_position,
                         config.text_settings.outline,
+                        config.text_settings.letter_spacing,
+                        config.text_settings.font_weight,
                     );
                 }
             } else if id.starts_with("extra-") {
@@ -211,6 +222,8 @@ impl ExportService {
                             &extra.x_position,
                             &extra.y_position,
                             extra.outline,
+                            extra.letter_spacing,
+                            extra.font_weight,
                         );
                     }
                 }
@@ -239,16 +252,16 @@ impl ExportService {
         }
 
         builder.encode(
-            &output_filepath_str,
+            &temp_filepath_str,
             active_gpu,
             active_encoder.as_deref(),
             config.include_audio,
-            "fast",
+            "veryfast",
             22,
         );
 
         // Run render job
-        let res = processor.execute_render_job(job_id, duration, &mut builder, job_manager);
+        let mut res = processor.execute_render_job(job_id, duration, &mut builder, job_manager);
 
         // CPU Fallback logic if GPU render fails
         if let Err(ref err) = res {
@@ -258,7 +271,7 @@ impl ExportService {
                 // rebuild identical configuration without GPU
                 retry_builder
                     .input(input_path)
-                    .split(start_time, duration, true, 3.0);
+                    .split(start_time, duration, true, 0.5);
 
                 if config.aspect_ratio == "9:16" {
                     retry_builder.crop("9:16", &config.crop_anchor);
@@ -297,6 +310,8 @@ impl ExportService {
                                 &config.text_settings.x_position,
                                 &config.text_settings.y_position,
                                 config.text_settings.outline,
+                                config.text_settings.letter_spacing,
+                                config.text_settings.font_weight,
                             );
                         }
                     } else if id.starts_with("extra-") {
@@ -312,6 +327,8 @@ impl ExportService {
                                     &extra.x_position,
                                     &extra.y_position,
                                     extra.outline,
+                                    extra.letter_spacing,
+                                    extra.font_weight,
                                 );
                             }
                         }
@@ -328,19 +345,33 @@ impl ExportService {
                 }
 
                 retry_builder.encode(
-                    &output_filepath_str,
+                    &temp_filepath_str,
                     false, // force CPU fallback
                     None,
                     config.include_audio,
-                    "fast",
+                    "veryfast",
                     22,
                 );
 
-                return processor.execute_render_job(job_id, duration, &mut retry_builder, job_manager);
+                res = processor.execute_render_job(job_id, duration, &mut retry_builder, job_manager);
             }
         }
 
+        // Finalize: Rename temp file to final target file if render succeeded
+        if res.is_ok() {
+            if temp_filepath.exists() {
+                std::fs::rename(&temp_filepath, &output_filepath).map_err(|e| {
+                    AppError::Io(format!("Failed to finalize export file rename: {}", e))
+                })?;
+            }
+        } else {
+
+            // Clean up temp file if render failed
+            let _ = std::fs::remove_file(&temp_filepath);
+        }
+
         res
+
     }
 
     fn resolve_resolution(&self, selection: &str, width: u32, height: u32) -> Option<(u32, u32)> {

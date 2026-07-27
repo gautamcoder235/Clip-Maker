@@ -31,6 +31,10 @@ pub struct TextSettings {
     pub y_position: String,
     pub outline: bool,
     pub placement: String, // "Custom", "Top Center", "Center", etc.
+    #[serde(default)]
+    pub letter_spacing: i32,
+    #[serde(default = "default_font_weight")]
+    pub font_weight: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +47,10 @@ pub struct TextPreset {
     pub x_position: String,
     pub y_position: String,
     pub outline: bool,
+    #[serde(default)]
+    pub letter_spacing: i32,
+    #[serde(default = "default_font_weight")]
+    pub font_weight: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,7 +64,12 @@ pub struct ExtraOverlay {
     pub font_color: String,
     pub font_family: String,
     pub outline: bool,
+    #[serde(default)]
+    pub letter_spacing: i32,
+    #[serde(default = "default_font_weight")]
+    pub font_weight: u32,
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaOverlay {
@@ -140,6 +153,10 @@ fn default_text_enabled() -> bool {
     true
 }
 
+fn default_font_weight() -> u32 {
+    400
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         AppConfig {
@@ -195,8 +212,11 @@ impl Default for AppConfig {
                 y_position: "10".to_string(),
                 outline: true,
                 placement: "Custom".to_string(),
+                letter_spacing: 0,
+                font_weight: 400,
             },
             gpu_acceleration: false,
         }
     }
 }
+

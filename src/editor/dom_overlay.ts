@@ -67,15 +67,19 @@ export class DOMOverlay {
     this.setupGlobalEvents();
   }
 
-  private measureText(text: string, fontSize: number, fontFamily: string): { width: number; height: number; ascent: number } {
+  private measureText(text: string, fontSize: number, fontFamily: string, letterSpacing: number = 0, fontWeight: number = 400): { width: number; height: number; ascent: number } {
     const span = document.createElement("span");
     span.style.fontFamily = fontFamily;
     span.style.fontSize = `${fontSize}px`;
+    span.style.fontWeight = fontWeight.toString();
     span.style.whiteSpace = "nowrap";
     span.style.position = "absolute";
     span.style.visibility = "hidden";
     span.style.pointerEvents = "none";
     span.style.lineHeight = "1";
+    if (letterSpacing !== 0) {
+      span.style.letterSpacing = `${letterSpacing}px`;
+    }
     span.innerText = text;
     
     document.body.appendChild(span);
@@ -157,12 +161,15 @@ export class DOMOverlay {
       const txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
       const txtFS = project.text_settings.font_size || 120;
       const txtFontFamily = project.text_settings.font_family || "Arial";
+      const txtLetterSpacing = (project.text_settings.letter_spacing || 0) * scale;
+      const txtFontWeight = project.text_settings.font_weight || 400;
       // Measure at the actual rendered pixel size to avoid font hinting discrepancies
       const scaledFS = txtFS * scale;
-      const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily);
+      const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily, txtLetterSpacing, txtFontWeight);
 
-      const boxW = txtMetrics.width;
-      const boxH = txtMetrics.height;
+      const boxW = txtMetrics.width + 4; // small padding to prevent edge clipping
+      const boxH = txtMetrics.height + 4;
+
 
       if (project.text_settings.x_position === "(w-text_w)/2") {
         textX = (canvasW - boxW) / 2;
@@ -186,12 +193,14 @@ export class DOMOverlay {
         const extraTxt = (overlay.text || "Static Text").trim();
         const extraFS = overlay.font_size || 80;
         const extraFontFamily = overlay.font_family || "Arial";
+        const extraLetterSpacing = (overlay.letter_spacing || 0) * scale;
+        const extraFontWeight = overlay.font_weight || 400;
         // Measure at the actual rendered pixel size
         const extraScaledFS = extraFS * scale;
-        const extraMetrics = this.measureText(extraTxt, extraScaledFS, extraFontFamily);
+        const extraMetrics = this.measureText(extraTxt, extraScaledFS, extraFontFamily, extraLetterSpacing, extraFontWeight);
 
-        const extraBoxW = extraMetrics.width;
-        const extraBoxH = extraMetrics.height;
+        const extraBoxW = extraMetrics.width + 4;
+        const extraBoxH = extraMetrics.height + 4;
 
         let x = 20;
         let y = 20;
@@ -211,6 +220,7 @@ export class DOMOverlay {
         this.extraBoxes.push(box);
       });
     }
+
 
     // Render Media Overlays
     if (project.media_overlays) {
@@ -352,13 +362,37 @@ export class DOMOverlay {
       textContent.style.pointerEvents = "none";
       textContent.style.userSelect = "none";
 
+      let letterSpacing = 0;
+      let fontWeight = 400;
+      if (type === "text") {
+        letterSpacing = this.stateManager.project.text_settings.letter_spacing || 0;
+        fontWeight = this.stateManager.project.text_settings.font_weight || 400;
+      } else if (type.startsWith("extra-")) {
+        const idx = parseInt(type.split("-")[1]);
+        const overlay = (this.stateManager.project.extra_overlays || [])[idx];
+        if (overlay) {
+          letterSpacing = overlay.letter_spacing || 0;
+          fontWeight = overlay.font_weight || 400;
+        }
+      }
+
+      if (letterSpacing !== 0) {
+        textContent.style.letterSpacing = `${letterSpacing * scale}px`;
+      }
+      textContent.style.fontWeight = fontWeight.toString();
+
       if (hasOutline) {
         // Use textShadow instead of webkitTextStroke so it doesn't eat into the font thickness
         textContent.style.textShadow = "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0px 2px 0 #000, 2px 0px 0 #000, 0px -2px 0 #000, -2px 0px 0 #000";
+        // Add inner padding so shadow doesn't clip at box edges
+        textContent.style.padding = "2px 4px";
       }
 
+      textContent.style.overflow = "visible";
       box.appendChild(textContent);
     }
+
+
 
     // Small type label badge (top-left corner, above the box)
     const label = document.createElement("div");

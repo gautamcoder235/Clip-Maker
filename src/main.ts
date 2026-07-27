@@ -50,7 +50,20 @@ let propFontSize: HTMLInputElement;
 let propFontColor: HTMLInputElement;
 let propFontFamily: HTMLSelectElement;
 let propTextOutline: HTMLInputElement;
+let propLetterSpacing: HTMLInputElement;
+let propFontWeight: HTMLInputElement;
+let letterSpacingValue: HTMLSpanElement;
+let fontWeightValue: HTMLSpanElement;
+let btnLivePreview: HTMLButtonElement;
+let previewModal: HTMLDivElement;
+let previewVideo: HTMLVideoElement;
+let btnPreviewClose: HTMLButtonElement;
+let btnPreviewRefresh: HTMLButtonElement;
+let previewStatus: HTMLSpanElement;
+let btnExportZip: HTMLButtonElement;
+let queueEtaBanner: HTMLSpanElement;
 let propGpuAccel: HTMLInputElement;
+
 let propIncludeAudio: HTMLInputElement;
 let propClipDuration: HTMLInputElement;
 let propExportScope: HTMLSelectElement;
@@ -74,7 +87,12 @@ let propExtraFontSize: HTMLInputElement;
 let propExtraFontColor: HTMLInputElement;
 let propExtraFontFamily: HTMLSelectElement;
 let propExtraOutline: HTMLInputElement;
+let propExtraLetterSpacing: HTMLInputElement;
+let extraLetterSpacingValue: HTMLSpanElement;
+let propExtraFontWeight: HTMLInputElement;
+let extraFontWeightValue: HTMLSpanElement;
 let btnAddExtra: HTMLButtonElement;
+
 
 let btnRemoveExtra: HTMLButtonElement;
 
@@ -143,10 +161,19 @@ let trimVolumeSlider: HTMLInputElement;
 let trimVolumeText: HTMLSpanElement;
 let savedVolume = 100;
 
+// Panel Toggles
+let btnToggleLeft: HTMLButtonElement;
+let btnToggleBottom: HTMLButtonElement;
+let isLeftPanelVisible = true;
+let isBottomPanelVisible = true;
+
 // Command Palette
+let btnCommandPalette: HTMLButtonElement;
 let commandPalette: HTMLDivElement;
 let paletteSearch: HTMLInputElement;
 let paletteResults: HTMLDivElement;
+
+
 
 // Managers & Renderers
 let stateManager: AppStateManager;
@@ -299,7 +326,20 @@ window.addEventListener("DOMContentLoaded", async () => {
   propFontColor = document.querySelector("#prop-font-color")!;
   propFontFamily = document.querySelector("#prop-font-family")!;
   propTextOutline = document.querySelector("#prop-text-outline")!;
+  propLetterSpacing = document.querySelector("#prop-letter-spacing")!;
+  propFontWeight = document.querySelector("#prop-font-weight")!;
+  letterSpacingValue = document.querySelector("#letter-spacing-value")!;
+  fontWeightValue = document.querySelector("#font-weight-value")!;
+  btnLivePreview = document.querySelector("#btn-live-preview")!;
+  previewModal = document.querySelector("#preview-modal")!;
+  previewVideo = document.querySelector("#preview-video")!;
+  btnPreviewClose = document.querySelector("#btn-preview-close")!;
+  btnPreviewRefresh = document.querySelector("#btn-preview-refresh")!;
+  previewStatus = document.querySelector("#preview-status")!;
+  btnExportZip = document.querySelector("#btn-export-zip")!;
+  queueEtaBanner = document.querySelector("#queue-eta-banner")!;
   propGpuAccel = document.querySelector("#prop-gpu-accel")!;
+
   propIncludeAudio = document.querySelector("#prop-include-audio")!;
   propClipDuration = document.querySelector("#prop-clip-duration")!;
   propExportScope = document.querySelector("#prop-export-scope")!;
@@ -320,7 +360,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   propExtraFontColor = document.querySelector("#prop-extra-font-color")!;
   propExtraFontFamily = document.querySelector("#prop-extra-font-family")!;
   propExtraOutline = document.querySelector("#prop-extra-outline")!;
+  propExtraLetterSpacing = document.querySelector("#prop-extra-letter-spacing")!;
+  extraLetterSpacingValue = document.querySelector("#extra-letter-spacing-value")!;
+  propExtraFontWeight = document.querySelector("#prop-extra-font-weight")!;
+  extraFontWeightValue = document.querySelector("#extra-font-weight-value")!;
   btnAddExtra = document.querySelector("#btn-add-extra")!;
+
 
   btnRemoveExtra = document.querySelector("#btn-remove-extra")!;
 
@@ -357,9 +402,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   selectTheme = document.querySelector("#select-theme")!;
   btnUserManual = document.querySelector("#btn-user-manual")!;
 
+  btnToggleLeft = document.querySelector("#btn-toggle-left")!;
+  btnToggleBottom = document.querySelector("#btn-toggle-bottom")!;
+
+  btnCommandPalette = document.querySelector("#btn-command-palette")!;
   commandPalette = document.querySelector("#command-palette")!;
   paletteSearch = document.querySelector("#palette-search")!;
   paletteResults = document.querySelector("#palette-results")!;
+
+
 
   // Bind Trim Modal elements
   trimModal = document.querySelector("#trim-modal")!;
@@ -453,8 +504,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     const selected = selectTheme.value;
     document.body.className = `theme-${selected}`;
     localStorage.setItem("clip-maker-theme", selected);
-    showToast(`Switched theme to ${selectTheme.options[selectTheme.selectedIndex].text}`, "success");
+    showToast(`Switched theme to ${selectTheme.options[selectTheme.selectedIndex]?.text || selected}`, "success");
   });
+
+  // Initialize custom glassmorphism theme dropdown UI
+  setupCustomThemeDropdown();
+
 
   // User Manual Setup
   const userManualModal = document.getElementById("user-manual-modal")!;
@@ -678,7 +733,16 @@ function syncConfigToUi() {
   propFontSize.value = proj.text_settings.font_size.toString();
   propFontColor.value = proj.text_settings.font_color;
   propTextOutline.checked = proj.text_settings.outline ?? true;
+  if (propLetterSpacing) {
+    propLetterSpacing.value = (proj.text_settings.letter_spacing || 0).toString();
+    if (letterSpacingValue) letterSpacingValue.innerText = (proj.text_settings.letter_spacing || 0).toString();
+  }
+  if (propFontWeight) {
+    propFontWeight.value = (proj.text_settings.font_weight || 400).toString();
+    if (fontWeightValue) fontWeightValue.innerText = (proj.text_settings.font_weight || 400).toString();
+  }
   propFontFamily.value = proj.text_settings.font_family;
+
   propFontFamily.style.fontFamily = proj.text_settings.font_family;
   // Sync font picker display (without dispatching change to avoid infinite loop)
   const primaryPickerValue = document.querySelector("#font-picker-primary .font-picker-value") as HTMLSpanElement;
@@ -1006,6 +1070,104 @@ function bindInputFields() {
     refreshViewport();
   });
 
+  propLetterSpacing.addEventListener("input", () => {
+    const val = parseInt(propLetterSpacing.value) || 0;
+    if (letterSpacingValue) letterSpacingValue.innerText = val.toString();
+    const textSettings = { ...stateManager.project.text_settings, letter_spacing: val };
+    stateManager.updateProjectField("text_settings", textSettings);
+    refreshViewport();
+  });
+
+  propFontWeight.addEventListener("input", () => {
+    const val = parseInt(propFontWeight.value) || 400;
+    if (fontWeightValue) fontWeightValue.innerText = val.toString();
+    const textSettings = { ...stateManager.project.text_settings, font_weight: val };
+    stateManager.updateProjectField("text_settings", textSettings);
+    refreshViewport();
+  });
+
+  // Panel Toggle & Command Palette listeners
+  if (btnToggleLeft) {
+    btnToggleLeft.addEventListener("click", () => toggleLeftPanel());
+  }
+  if (btnToggleBottom) {
+    btnToggleBottom.addEventListener("click", () => toggleBottomPanel());
+  }
+  if (btnCommandPalette) {
+    btnCommandPalette.addEventListener("click", () => toggleCommandPalette());
+  }
+
+
+  // Live Preview Modal listeners
+  btnLivePreview.addEventListener("click", async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    previewModal.style.display = "flex";
+    await generateAndShowPreview();
+  });
+
+
+
+
+  btnPreviewClose.addEventListener("click", () => {
+    previewModal.style.display = "none";
+    if (previewVideo) {
+      previewVideo.pause();
+      previewVideo.src = "";
+    }
+  });
+
+  const btnPreviewImport = document.getElementById("btn-preview-import");
+  if (btnPreviewImport) {
+    btnPreviewImport.addEventListener("click", () => {
+      previewModal.style.display = "none";
+      triggerImport();
+    });
+  }
+
+  if (btnPreviewRefresh) {
+    btnPreviewRefresh.addEventListener("click", async () => {
+      if (previewStatus) previewStatus.innerText = "Refreshing...";
+      await TauriService.clearCache();
+      await generateAndShowPreview();
+    });
+  }
+
+
+
+
+  // Export ZIP button listener
+  btnExportZip.addEventListener("click", async () => {
+    try {
+      const completedJobs = stateManager.renderQueue.filter(j => j.status === "Completed");
+      if (completedJobs.length === 0) {
+        showToast("No completed clips to zip", "warning");
+        return;
+      }
+      const clipPaths = completedJobs.map(j => j.output_file);
+      const defaultName = currentSelectedAsset
+        ? `${currentSelectedAsset.name.replace(/\.[^/.]+$/, "")}_clips.zip`
+        : "clips_bundle.zip";
+
+      const zipPath = await invoke<string>("select_zip_file", { defaultName });
+      if (!zipPath) return; // User cancelled dialog
+
+      showToast("Creating ZIP package...", "warning");
+      await TauriService.exportClipsAsZip(clipPaths, zipPath);
+      const fileName = zipPath.split(/[/\\]/).pop();
+      showToast(`ZIP created successfully: ${fileName}`, "success");
+    } catch (err: any) {
+      const errMsg = typeof err === "object"
+        ? (err.Config || err.message || JSON.stringify(err))
+        : String(err);
+      showToast(`ZIP export failed: ${errMsg}`, "error");
+    }
+  });
+
+
+
   propFontFamily.addEventListener("change", () => {
     const textSettings = { ...stateManager.project.text_settings, font_family: propFontFamily.value };
     stateManager.updateProjectField("text_settings", textSettings);
@@ -1061,6 +1223,14 @@ function bindInputFields() {
       propFontSize.value = preset.font_size.toString();
       propFontColor.value = preset.font_color;
       propFontFamily.value = preset.font_family;
+      if (propLetterSpacing) {
+        propLetterSpacing.value = (preset.letter_spacing || 0).toString();
+        if (letterSpacingValue) letterSpacingValue.innerText = (preset.letter_spacing || 0).toString();
+      }
+      if (propFontWeight) {
+        propFontWeight.value = (preset.font_weight || 400).toString();
+        if (fontWeightValue) fontWeightValue.innerText = (preset.font_weight || 400).toString();
+      }
       // Sync font picker display
       const pv = document.querySelector("#font-picker-primary .font-picker-value") as HTMLSpanElement;
       if (pv) { pv.textContent = preset.font_family; pv.style.fontFamily = preset.font_family; }
@@ -1070,7 +1240,9 @@ function bindInputFields() {
         font_size: preset.font_size,
         font_color: preset.font_color,
         font_family: preset.font_family,
-        outline: preset.outline
+        outline: preset.outline,
+        letter_spacing: preset.letter_spacing || 0,
+        font_weight: preset.font_weight || 400
       };
       stateManager.updateProjectField("text_settings", settings);
       refreshViewport();
@@ -1087,12 +1259,15 @@ function bindInputFields() {
       outline: currentSettings.outline,
       placement: currentSettings.placement || "Custom",
       x_position: currentSettings.x_position,
-      y_position: currentSettings.y_position
+      y_position: currentSettings.y_position,
+      letter_spacing: currentSettings.letter_spacing || 0,
+      font_weight: currentSettings.font_weight || 400
     });
     stateManager.updateProjectField("text_presets", presets);
     syncPresetsList();
     showToast("Added new text preset!", "success");
   });
+
   btnRemovePreset.addEventListener("click", () => {
     const idx = parseInt(listTextPresets.value);
     if (isNaN(idx)) return;
@@ -1114,6 +1289,14 @@ function bindInputFields() {
       propExtraFontColor.value = overlay.font_color;
       propExtraFontFamily.value = overlay.font_family;
       propExtraFontFamily.style.fontFamily = overlay.font_family;
+      if (propExtraLetterSpacing) {
+        propExtraLetterSpacing.value = (overlay.letter_spacing || 0).toString();
+        if (extraLetterSpacingValue) extraLetterSpacingValue.innerText = `${overlay.letter_spacing || 0}px`;
+      }
+      if (propExtraFontWeight) {
+        propExtraFontWeight.value = (overlay.font_weight || 400).toString();
+        if (extraFontWeightValue) extraFontWeightValue.innerText = (overlay.font_weight || 400).toString();
+      }
       // Sync extra font picker display
       const extraPickerValue = document.querySelector("#font-picker-extra .font-picker-value") as HTMLSpanElement;
       if (extraPickerValue) {
@@ -1125,6 +1308,35 @@ function bindInputFields() {
       syncColorPreviewButtons();
     }
   });
+
+  propExtraLetterSpacing.addEventListener("input", () => {
+    const val = parseInt(propExtraLetterSpacing.value) || 0;
+    if (extraLetterSpacingValue) extraLetterSpacingValue.innerText = `${val}px`;
+    const idx = parseInt(listExtraOverlays.value);
+    if (!isNaN(idx)) {
+      const overlays = [...(stateManager.project.extra_overlays || [])];
+      if (overlays[idx]) {
+        overlays[idx].letter_spacing = val;
+        stateManager.updateProjectField("extra_overlays", overlays);
+        refreshViewport();
+      }
+    }
+  });
+
+  propExtraFontWeight.addEventListener("input", () => {
+    const val = parseInt(propExtraFontWeight.value) || 400;
+    if (extraFontWeightValue) extraFontWeightValue.innerText = val.toString();
+    const idx = parseInt(listExtraOverlays.value);
+    if (!isNaN(idx)) {
+      const overlays = [...(stateManager.project.extra_overlays || [])];
+      if (overlays[idx]) {
+        overlays[idx].font_weight = val;
+        stateManager.updateProjectField("extra_overlays", overlays);
+        refreshViewport();
+      }
+    }
+  });
+
   btnAddExtra.addEventListener("click", () => {
     const overlays = [...(stateManager.project.extra_overlays || [])];
     overlays.push({
@@ -1136,7 +1348,9 @@ function bindInputFields() {
       font_size: parseInt(propExtraFontSize.value) || 80,
       font_color: propExtraFontColor.value || "#ffffff",
       font_family: propExtraFontFamily.value || "Arial",
-      outline: propExtraOutline.checked
+      outline: propExtraOutline.checked,
+      letter_spacing: parseInt(propExtraLetterSpacing?.value || "0"),
+      font_weight: parseInt(propExtraFontWeight?.value || "400")
     });
     
     const order = [...stateManager.getNormalizedOverlayOrder(), `extra-${overlays.length - 1}`];
@@ -1147,6 +1361,7 @@ function bindInputFields() {
     refreshViewport();
     showToast("Added extra text overlay!", "success");
   });
+
 
   btnRemoveExtra.addEventListener("click", () => {
     const idx = parseInt(listExtraOverlays.value);
@@ -1612,9 +1827,12 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
     console.error("Direct video source loading failed:", e);
   }
   
+  refreshViewport();
   toggleDashboard(false);
   rebuildClipTimeline();
 }
+
+
 
 function rebuildClipTimeline() {
   clipsGridContainer.innerHTML = "";
@@ -1695,33 +1913,7 @@ function rebuildClipTimeline() {
   }
 }
 
-async function generatePreview() {
-  if (!currentSelectedAsset) {
-    showToast("Import a video asset first", "warning");
-    return;
-  }
-  showToast("Generating first-frame draft clip...", "success");
-  
-  try {
-    // Sync AppStateManager project config schema fields
-    const config: AppConfig = {
-      ...stateManager.project,
-      input_path: currentSelectedAsset.path,
-      input_paths: [currentSelectedAsset.path],
-    };
 
-    const path = await TauriService.generatePreviewClip(config);
-    
-    // Convert resolved path to web-safe Tauri asset URL
-    const webSrc = convertFileSrc(path);
-    canvasRenderer.setVideoSource(webSrc);
-    canvasRenderer.play();
-    
-    showToast("Preview loaded successfully!", "success");
-  } catch (e) {
-    showToast(`Preview failed: ${e}`, "error");
-  }
-}
 
 async function startBatchExport() {
   if (stateManager.assets.length === 0) {
@@ -1823,6 +2015,129 @@ async function startBatchExport() {
   }
 }
 
+function formatEtaHuman(seconds: number | null): string {
+  if (seconds === null || seconds === undefined || seconds <= 0) return "";
+  if (seconds < 60) return `About ${Math.ceil(seconds)} sec left`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.ceil(seconds % 60);
+  if (mins < 60) {
+    return secs > 0 ? `About ${mins} min ${secs} sec left` : `About ${mins} min left`;
+  }
+  const hours = Math.floor(mins / 60);
+  const remainMins = mins % 60;
+  return `About ${hours}h ${remainMins}m left`;
+}
+
+async function generateAndShowPreview() {
+  const loaderEl = document.getElementById("preview-loader");
+  const emptyStateEl = document.getElementById("preview-empty-state");
+  
+  // ALWAYS display preview modal popup on top of all UI layers
+  if (previewModal) {
+    previewModal.style.display = "flex";
+    previewModal.style.zIndex = "10000";
+  }
+
+  // Auto fallback to first imported asset if available
+  if (!currentSelectedAsset && stateManager.assets.length > 0) {
+    currentSelectedAsset = stateManager.assets[0];
+    if (currentSelectedAsset) {
+      highlightActiveAssetCard();
+    }
+  }
+
+  if (!currentSelectedAsset) {
+    if (loaderEl) loaderEl.style.display = "none";
+    if (emptyStateEl) emptyStateEl.style.display = "flex";
+    if (previewStatus) previewStatus.innerText = "Please import or select a video clip first.";
+    return;
+  }
+
+  // Hide empty state if asset is selected & show loader overlay
+  if (emptyStateEl) emptyStateEl.style.display = "none";
+  if (loaderEl) loaderEl.style.display = "flex";
+  if (previewStatus) previewStatus.innerText = "Rendering draft preview clip...";
+
+
+  const spinnerEl = btnLivePreview?.querySelector(".btn-spinner") as HTMLElement | null;
+  const iconEl = btnLivePreview?.querySelector(".btn-icon") as HTMLElement | null;
+  const labelEl = btnLivePreview?.querySelector(".btn-label") as HTMLElement | null;
+
+  // Set processing state on button
+  if (btnLivePreview) {
+    btnLivePreview.classList.add("btn-loading");
+    if (spinnerEl) spinnerEl.style.display = "inline-block";
+    if (iconEl) iconEl.style.display = "none";
+    if (labelEl) labelEl.textContent = "Rendering...";
+  }
+
+  const startTime = Date.now();
+
+  try {
+    const config: AppConfig = {
+      ...stateManager.project,
+      input_path: currentSelectedAsset.path,
+      input_paths: [currentSelectedAsset.path],
+      imported_assets: stateManager.assets,
+    };
+
+    const path = await TauriService.generatePreviewClip(config);
+    const webSrc = convertFileSrc(path);
+    
+    if (previewVideo) {
+      previewVideo.src = webSrc;
+      previewVideo.load();
+      await previewVideo.play().catch((err) => {
+        console.warn("Autoplay was prevented by browser policy:", err);
+      });
+    }
+
+    if (loaderEl) loaderEl.style.display = "none";
+    if (previewStatus) previewStatus.innerText = "Preview loaded successfully!";
+  } catch (e: any) {
+    console.error("[Live Preview Error]", e);
+    const errMsg = typeof e === "object" ? (e.message || JSON.stringify(e)) : String(e);
+    if (loaderEl) loaderEl.style.display = "none";
+    if (previewStatus) previewStatus.innerText = `Preview failed: ${errMsg}`;
+    
+    // Render error card overlay inside the modal player
+    if (emptyStateEl) {
+      emptyStateEl.style.display = "flex";
+      emptyStateEl.innerHTML = `
+        <div style="font-size: 38px;">⚠️</div>
+        <div style="font-size: 15px; font-weight: 600; color: var(--danger);">Preview Generation Failed</div>
+        <div style="font-size: 12px; color: var(--text-secondary); max-width: 380px; word-break: break-word; line-height: 1.4;">${errMsg}</div>
+        <button id="btn-preview-retry" class="toolbar-btn" style="background: var(--accent); color: white; padding: 6px 16px; margin-top: 6px;">
+          ⟳ Retry Preview
+        </button>
+      `;
+      const retryBtn = document.getElementById("btn-preview-retry");
+      if (retryBtn) {
+        retryBtn.addEventListener("click", () => generateAndShowPreview());
+      }
+    }
+    showToast(`Preview failed: ${errMsg}`, "error");
+  } finally {
+
+    // Ensure smooth minimum loading transition time (350ms) to prevent 1ms harsh button flickering on cache hits
+    const elapsed = Date.now() - startTime;
+    if (elapsed < 350) {
+      await new Promise((resolve) => setTimeout(resolve, 350 - elapsed));
+    }
+
+    // Restore button state safely without destroying DOM listeners
+    if (btnLivePreview) {
+      btnLivePreview.classList.remove("btn-loading");
+      if (spinnerEl) spinnerEl.style.display = "none";
+      if (iconEl) iconEl.style.display = "inline-block";
+      if (labelEl) labelEl.textContent = "Live Preview";
+    }
+  }
+}
+
+
+
+
 function updateRenderStats() {
   const totalClips = stateManager.renderQueue.length;
   const completed = stateManager.renderQueue.filter(j => j.status === "Completed").length;
@@ -1838,6 +2153,33 @@ function updateRenderStats() {
   if (completedEl) completedEl.innerText = completed.toString();
   if (workingEl) workingEl.innerText = working.toString();
   if (queuedEl) queuedEl.innerText = queued.toString();
+
+  // Show/hide ZIP export button if completed jobs exist
+  if (btnExportZip) {
+    btnExportZip.style.display = completed > 0 ? "inline-flex" : "none";
+  }
+
+  // Calculate overall queue remaining ETA
+  let totalEtaSeconds = 0;
+  let hasEta = false;
+  const activeJobs = stateManager.renderQueue.filter(j => j.status === "Encoding" || j.status === "Preparing" || j.status === "Finalizing");
+  activeJobs.forEach(j => {
+    if (j.eta_seconds !== null && j.eta_seconds !== undefined && j.eta_seconds > 0) {
+      totalEtaSeconds += j.eta_seconds;
+      hasEta = true;
+    }
+  });
+
+  const completedJobsWithTime = stateManager.renderQueue.filter(j => j.status === "Completed" && j.elapsed_seconds > 0);
+  if (completedJobsWithTime.length > 0 && queued > 0) {
+    const avgSeconds = completedJobsWithTime.reduce((acc, curr) => acc + curr.elapsed_seconds, 0) / completedJobsWithTime.length;
+    totalEtaSeconds += avgSeconds * queued;
+    hasEta = true;
+  }
+
+  if (queueEtaBanner) {
+    queueEtaBanner.innerText = hasEta ? `⏳ Queue: ${formatEtaHuman(totalEtaSeconds)}` : "";
+  }
 }
 
 function appendJobUi(job: RenderJob) {
@@ -1902,8 +2244,8 @@ function appendJobUi(job: RenderJob) {
   } else if (job.status === "Cancelled") {
     speed.innerText = "Cancelled by user";
   } else if (job.speed) {
-    const etaStr = job.eta_seconds !== null ? formatDuration(job.eta_seconds) : "--:--";
-    speed.innerText = `Speed: ${job.speed} | ETA: ${etaStr}`;
+    const etaStr = job.eta_seconds !== null ? formatEtaHuman(job.eta_seconds) : "";
+    speed.innerText = `Speed: ${job.speed}${etaStr ? ` | ${etaStr}` : ""}`;
   } else {
     speed.innerText = "Speed: -- | ETA: --";
   }
@@ -1971,17 +2313,19 @@ function setupTauriEventListeners() {
       if (txt) txt.innerText = `${progress.toFixed(1)}%`;
 
       const stats = row.querySelector(".queue-meta") as HTMLDivElement;
-      const etaStr = eta !== null ? formatDuration(eta) : "--:--";
-      stats.innerText = `Speed: ${speed} | ETA: ${etaStr}`;
+      const etaStr = eta !== null ? formatEtaHuman(eta) : "";
+      stats.innerText = `Speed: ${speed}${etaStr ? ` | ${etaStr}` : ""}`;
     }
     const job = stateManager.renderQueue.find(j => j.id === id);
     if (job) {
       job.progress = progress;
       job.speed = speed;
+      job.eta_seconds = eta;
       job.status = "Encoding";
     }
     updateRenderStats();
   });
+
 
   TauriService.onJobCompleted((id) => {
     const row = activeJobUis.get(id);
@@ -2109,21 +2453,136 @@ function switchBottomTab(tab: "clips" | "render") {
 }
 
 
+export function toggleLeftPanel(show?: boolean) {
+  isLeftPanelVisible = show !== undefined ? show : !isLeftPanelVisible;
+  const leftPanel = document.querySelector("#left-panel") as HTMLDivElement | null;
+  const leftResizer = document.querySelector("#left-resizer") as HTMLDivElement | null;
+  if (leftPanel) leftPanel.style.display = isLeftPanelVisible ? "flex" : "none";
+  if (leftResizer) leftResizer.style.display = isLeftPanelVisible ? "block" : "none";
+  if (btnToggleLeft) {
+    btnToggleLeft.classList.toggle("active", isLeftPanelVisible);
+  }
+  showToast(isLeftPanelVisible ? "Left Sidebar shown" : "Left Sidebar hidden", "success");
+  refreshViewport();
+}
+
+export function toggleBottomPanel(show?: boolean) {
+  isBottomPanelVisible = show !== undefined ? show : !isBottomPanelVisible;
+  const bottomPanel = document.querySelector("#bottom-panel") as HTMLDivElement | null;
+  const bottomResizer = document.querySelector("#bottom-resizer") as HTMLDivElement | null;
+  if (bottomPanel) bottomPanel.style.display = isBottomPanelVisible ? "flex" : "none";
+  if (bottomResizer) bottomResizer.style.display = isBottomPanelVisible ? "block" : "none";
+  if (btnToggleBottom) {
+    btnToggleBottom.classList.toggle("active", isBottomPanelVisible);
+  }
+  showToast(isBottomPanelVisible ? "Bottom Timeline shown" : "Bottom Timeline hidden", "success");
+  refreshViewport();
+}
+
+(window as any).toggleLeftPanel = toggleLeftPanel;
+(window as any).toggleBottomPanel = toggleBottomPanel;
+
+function setupCustomThemeDropdown() {
+  const trigger = document.getElementById("theme-dropdown-trigger");
+  const menu = document.getElementById("theme-dropdown-menu");
+  const label = document.getElementById("theme-dropdown-label");
+  const items = document.querySelectorAll("#theme-dropdown-menu .dropdown-item");
+
+  if (!trigger || !menu || !label) return;
+
+  let activeConfirmedTheme = selectTheme.value || "dark-obsidian";
+
+  const syncDropdownUI = (val: string) => {
+    activeConfirmedTheme = val;
+    items.forEach((item) => {
+      const itemVal = item.getAttribute("data-value");
+      const itemName = item.getAttribute("data-name");
+      if (itemVal === val) {
+        item.classList.add("active");
+        label.textContent = itemName || "Obsidian";
+      } else {
+        item.classList.remove("active");
+      }
+    });
+  };
+
+  syncDropdownUI(selectTheme.value);
+
+  // Toggle menu on trigger click
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isVisible = menu.style.display === "flex";
+    menu.style.display = isVisible ? "none" : "flex";
+  });
+
+  // Live Theme Preview on Hover
+  items.forEach((item) => {
+    item.addEventListener("mouseenter", () => {
+      const hoveredVal = item.getAttribute("data-value");
+      if (hoveredVal) {
+        document.body.className = `theme-${hoveredVal}`;
+      }
+    });
+
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const val = item.getAttribute("data-value");
+      if (val) {
+        selectTheme.value = val;
+        selectTheme.dispatchEvent(new Event("change"));
+        syncDropdownUI(val);
+      }
+      menu.style.display = "none";
+    });
+  });
+
+  // Revert preview on mouse leave if not selected
+  menu.addEventListener("mouseleave", () => {
+    document.body.className = `theme-${activeConfirmedTheme}`;
+  });
+
+  selectTheme.addEventListener("change", () => {
+    syncDropdownUI(selectTheme.value);
+  });
+
+  window.addEventListener("click", () => {
+    if (menu.style.display === "flex") {
+      document.body.className = `theme-${activeConfirmedTheme}`;
+      menu.style.display = "none";
+    }
+  });
+}
+
+
+
 function setupCommandPalette() {
   paletteSearch.addEventListener("input", () => {
     const q = paletteSearch.value.toLowerCase();
     paletteResults.innerHTML = "";
 
     const commands = [
+      { name: "View: Toggle Left Sidebar / Panel (Ctrl+B)", action: toggleLeftPanel },
+      { name: "View: Toggle Bottom Timeline / Queue (Ctrl+J)", action: toggleBottomPanel },
       { name: "Command: New Project File", action: triggerNewProject },
       { name: "Command: Open Project File (Import)", action: triggerOpenProject },
       { name: "Command: Save Project File (Export)", action: triggerSaveProject },
+      { name: "Command: Undo Last Change (Ctrl+Z)", action: () => stateManager.history.undo() },
+      { name: "Command: Redo Undone Change (Ctrl+Y)", action: () => stateManager.history.redo() },
       { name: "Command: Import Video File", action: triggerImport },
       { name: "Command: Clear Cache Directory", action: clearCacheDir },
-      { name: "Command: Preview Draft Clip", action: generatePreview },
+      { name: "Command: Preview Draft Clip (▶)", action: generateAndShowPreview },
       { name: "Command: Batch Export Queue", action: startBatchExport },
+      { name: "Command: Export All Clips as ZIP Package (📦)", action: () => {
+          if (btnExportZip) btnExportZip.click();
+      }},
       { name: "Command: Switch to Clips Timeline", action: () => switchBottomTab("clips") },
       { name: "Command: Switch to Render Queue", action: () => switchBottomTab("render") },
+      { name: "Command: Add Extra Text Overlay", action: () => {
+          if (btnAddExtra) btnAddExtra.click();
+      }},
+      { name: "Command: Add Media Overlay (Watermark / Sticker)", action: () => {
+          if (btnAddMedia) btnAddMedia.click();
+      }},
       { name: "Command: Open User Manual", action: () => {
           const userManualModal = document.getElementById("user-manual-modal");
           if (userManualModal) userManualModal.style.display = "flex";
@@ -2136,30 +2595,87 @@ function setupCommandPalette() {
           selectTheme.value = "cyberpunk-neon";
           selectTheme.dispatchEvent(new Event("change"));
       }},
-      { name: "Theme: Apply Forest Slate", action: () => {
-          selectTheme.value = "forest-slate";
+      { name: "Theme: Apply Midnight Tokyo 🌆", action: () => {
+          selectTheme.value = "midnight-tokyo";
           selectTheme.dispatchEvent(new Event("change"));
       }},
-      { name: "Theme: Apply Royal Amethyst", action: () => {
+      { name: "Theme: Apply Sunset Crimson 🌅", action: () => {
+          selectTheme.value = "sunset-crimson";
+          selectTheme.dispatchEvent(new Event("change"));
+      }},
+      { name: "Theme: Apply Emerald Mint 🍃", action: () => {
+          selectTheme.value = "emerald-mint";
+          selectTheme.dispatchEvent(new Event("change"));
+      }},
+      { name: "Theme: Apply Nordic Frost ❄️", action: () => {
+          selectTheme.value = "nordic-frost";
+          selectTheme.dispatchEvent(new Event("change"));
+      }},
+      { name: "Theme: Apply Royal Amethyst 🔮", action: () => {
           selectTheme.value = "royal-amethyst";
           selectTheme.dispatchEvent(new Event("change"));
       }},
-      { name: "Theme: Apply Light Glassmorphism", action: () => {
+      { name: "Theme: Apply Forest Slate 🌲", action: () => {
+          selectTheme.value = "forest-slate";
+          selectTheme.dispatchEvent(new Event("change"));
+      }},
+      { name: "Theme: Apply Monochrome Minimalist ♠️", action: () => {
+          selectTheme.value = "monochrome-pure";
+          selectTheme.dispatchEvent(new Event("change"));
+      }},
+      { name: "Theme: Apply Light Glassmorphism ☀️", action: () => {
           selectTheme.value = "light-glassmorphism";
           selectTheme.dispatchEvent(new Event("change"));
       }},
-      { name: "Command: Show Keyboard Shortcuts Help", action: () => showToast("Hotkeys: Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+K (Palette), Esc (Close)", "warning") },
+
+      { name: "Layout: Fit Vertical Crop (9:16 Shorts / TikTok)", action: () => {
+          propAspectRatio.value = "9:16";
+          propAspectRatio.dispatchEvent(new Event("change"));
+          showToast("Layout set to 9:16 Vertical Shorts", "success");
+      }},
+      { name: "Layout: Fit Horizontal Crop (16:9 Youtube Landscape)", action: () => {
+          propAspectRatio.value = "16:9";
+          propAspectRatio.dispatchEvent(new Event("change"));
+          showToast("Layout set to 16:9 Landscape", "success");
+      }},
+      { name: "Layout: Fit Square Crop (1:1 Post)", action: () => {
+          propAspectRatio.value = "1:1";
+          propAspectRatio.dispatchEvent(new Event("change"));
+          showToast("Layout set to 1:1 Square", "success");
+      }},
+      { name: "Layout: Fit Portrait Crop (4:5 Post)", action: () => {
+          propAspectRatio.value = "4:5";
+          propAspectRatio.dispatchEvent(new Event("change"));
+          showToast("Layout set to 4:5 Portrait", "success");
+      }},
       { name: "Layout: Fit Original Aspect Ratio", action: () => {
           propAspectRatio.value = "original";
           propAspectRatio.dispatchEvent(new Event("change"));
           showToast("Layout set to original aspect ratio", "success");
       }},
-      { name: "Layout: Fit Vertical Crop (9:16 Shorts)", action: () => {
-          propAspectRatio.value = "9:16";
-          propAspectRatio.dispatchEvent(new Event("change"));
-          showToast("Layout set to 9:16 Vertical Shorts", "success");
-      }}
+      { name: "Crop Anchor: Center", action: () => {
+          propCropAnchor.value = "Center";
+          propCropAnchor.dispatchEvent(new Event("change"));
+      }},
+      { name: "Crop Anchor: Top", action: () => {
+          propCropAnchor.value = "Top";
+          propCropAnchor.dispatchEvent(new Event("change"));
+      }},
+      { name: "Crop Anchor: Bottom", action: () => {
+          propCropAnchor.value = "Bottom";
+          propCropAnchor.dispatchEvent(new Event("change"));
+      }},
+      { name: "Background: Solid Color", action: () => {
+          propBgMode.value = "solid";
+          propBgMode.dispatchEvent(new Event("change"));
+      }},
+      { name: "Background: Blurred Video Background", action: () => {
+          propBgMode.value = "blur";
+          propBgMode.dispatchEvent(new Event("change"));
+      }},
+      { name: "Command: Show Keyboard Shortcuts Help", action: () => showToast("Hotkeys: Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+B (Sidebar), Ctrl+J (Timeline), Ctrl+K (Palette), Esc (Close)", "warning") }
     ];
+
 
     // Dynamically insert loaded fonts into search space
     stateManager.fonts.forEach((font) => {

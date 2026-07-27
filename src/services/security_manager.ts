@@ -92,6 +92,23 @@ export class SecurityManager {
     });
 
     this.register({
+      key: "b",
+      ctrl: true,
+      action: () => {
+        if ((window as any).toggleLeftPanel) (window as any).toggleLeftPanel();
+      }
+    });
+
+    this.register({
+      key: "j",
+      ctrl: true,
+      action: () => {
+        if ((window as any).toggleBottomPanel) (window as any).toggleBottomPanel();
+      }
+    });
+
+
+    this.register({
       key: "escape",
       action: () => {
         const commandPalette = document.querySelector("#command-palette") as HTMLDivElement | null;

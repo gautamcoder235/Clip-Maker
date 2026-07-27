@@ -25,6 +25,8 @@ export interface TextSettings {
   y_position: string;
   outline: boolean;
   placement: string;
+  letter_spacing?: number;
+  font_weight?: number;
 }
 
 export interface TextPreset {
@@ -36,6 +38,8 @@ export interface TextPreset {
   x_position: string;
   y_position: string;
   outline: boolean;
+  letter_spacing?: number;
+  font_weight?: number;
 }
 
 export interface ExtraOverlay {
@@ -48,7 +52,10 @@ export interface ExtraOverlay {
   font_color: string;
   font_family: string;
   outline: boolean;
+  letter_spacing?: number;
+  font_weight?: number;
 }
+
 
 export interface MediaOverlay {
   name: string;

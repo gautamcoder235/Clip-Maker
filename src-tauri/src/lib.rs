@@ -53,8 +53,12 @@ pub fn run() {
             commands::get_fonts_list,
             commands::clear_cache,
             commands::save_autosave,
-            commands::load_autosave
+            commands::load_autosave,
+            commands::select_zip_file,
+            commands::export_clips_as_zip
         ])
+
+
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
