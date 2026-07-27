@@ -276,6 +276,17 @@
                 </svg>
               </button>
               <span id="txt-playback-time">00:00 / 00:00</span>
+              <div class="main-volume-container">
+                <div class="main-volume-popover">
+                  <span class="main-volume-text">100%</span>
+                  <div class="main-volume-slider-wrapper">
+                    <input type="range" id="main-volume-slider" min="0" max="100" value="100" step="1" />
+                  </div>
+                </div>
+                <button id="main-video-volume-btn" class="playback-btn" title="Volume/Mute">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="main-volume-icon" style="pointer-events: none;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -320,6 +331,28 @@
                 <div class="control-group">
                   <label>Height</label>
                   <input type="number" id="prop-placement-h" value="1920" />
+                </div>
+              </div>
+              <div class="control-row">
+                <div class="control-group">
+                  <label>Rotation (°)</label>
+                  <input type="number" id="prop-placement-rot" value="0" step="1" />
+                </div>
+              </div>
+              <div class="control-row">
+                <div class="control-group">
+                  <label>Crop T/B</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="number" id="prop-crop-t" value="0" placeholder="Top" />
+                    <input type="number" id="prop-crop-b" value="0" placeholder="Bot" />
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label>Crop L/R</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="number" id="prop-crop-l" value="0" placeholder="Left" />
+                    <input type="number" id="prop-crop-r" value="0" placeholder="Right" />
+                  </div>
                 </div>
               </div>
             </div>

@@ -39,6 +39,11 @@ let propPlacementY: HTMLInputElement;
 let propPlacementW: HTMLInputElement;
 let propPlacementH: HTMLInputElement;
 let btnRatioLock: HTMLButtonElement;
+let propPlacementRot: HTMLInputElement;
+let propCropT: HTMLInputElement;
+let propCropB: HTMLInputElement;
+let propCropL: HTMLInputElement;
+let propCropR: HTMLInputElement;
 let propAspectRatio: HTMLSelectElement;
 let propCropAnchor: HTMLSelectElement;
 let propResolution: HTMLSelectElement;
@@ -333,6 +338,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   propPlacementW = document.querySelector("#prop-placement-w")!;
   propPlacementH = document.querySelector("#prop-placement-h")!;
   btnRatioLock = document.querySelector("#btn-ratio-lock")!;
+  propPlacementRot = document.querySelector("#prop-placement-rot")!;
+  propCropT = document.querySelector("#prop-crop-t")!;
+  propCropB = document.querySelector("#prop-crop-b")!;
+  propCropL = document.querySelector("#prop-crop-l")!;
+  propCropR = document.querySelector("#prop-crop-r")!;
   propAspectRatio = document.querySelector("#prop-aspect-ratio")!;
   propCropAnchor = document.querySelector("#prop-crop-anchor")!;
   propResolution = document.querySelector("#prop-resolution")!;
@@ -632,13 +642,26 @@ window.addEventListener("DOMContentLoaded", async () => {
       propPlacementY.value = bounds.y.toString();
       propPlacementW.value = bounds.width.toString();
       propPlacementH.value = bounds.height.toString();
+      propPlacementRot.value = (bounds.rotation || 0).toString();
+      propCropT.value = (bounds.crop_top || 0).toString();
+      propCropB.value = (bounds.crop_bottom || 0).toString();
+      propCropL.value = (bounds.crop_left || 0).toString();
+      propCropR.value = (bounds.crop_right || 0).toString();
     } else {
       propPlacementX.value = stateManager.project.video_placement.x.toString();
       propPlacementY.value = stateManager.project.video_placement.y.toString();
       propPlacementW.value = stateManager.project.video_placement.width.toString();
       propPlacementH.value = stateManager.project.video_placement.height.toString();
+      propPlacementRot.value = (stateManager.project.video_placement.rotation || 0).toString();
+      propCropT.value = (stateManager.project.video_placement.crop_top || 0).toString();
+      propCropB.value = (stateManager.project.video_placement.crop_bottom || 0).toString();
+      propCropL.value = (stateManager.project.video_placement.crop_left || 0).toString();
+      propCropR.value = (stateManager.project.video_placement.crop_right || 0).toString();
     }
     propFontSize.value = stateManager.project.text_settings.font_size.toString();
+    
+    // Crucial: Update the actual video preview to match the new bounds
+    refreshViewport();
   });
 
   // Hotkeys & Webview Security Filter
@@ -750,6 +773,11 @@ function syncConfigToUi() {
   propPlacementY.value = proj.video_placement.y.toString();
   propPlacementW.value = proj.video_placement.width.toString();
   propPlacementH.value = proj.video_placement.height.toString();
+  propPlacementRot.value = (proj.video_placement.rotation || 0).toString();
+  propCropT.value = (proj.video_placement.crop_top || 0).toString();
+  propCropB.value = (proj.video_placement.crop_bottom || 0).toString();
+  propCropL.value = (proj.video_placement.crop_left || 0).toString();
+  propCropR.value = (proj.video_placement.crop_right || 0).toString();
 
   syncRatioLockUI();
 
@@ -961,7 +989,7 @@ function updateResolutionAndAspectRatio(trigger: "ratio" | "res") {
 }
 
 function bindInputFields() {
-  propPlacementX.addEventListener("change", () => {
+  propPlacementX.addEventListener("input", () => {
     const val = parseInt(propPlacementX.value) || 0;
     if (domOverlay.getFocusedElement()) {
       domOverlay.updateFocusedElementBounds({ x: val });
@@ -970,7 +998,7 @@ function bindInputFields() {
       stateManager.updateProjectField("video_placement", placement);
     }
   });
-  propPlacementY.addEventListener("change", () => {
+  propPlacementY.addEventListener("input", () => {
     const val = parseInt(propPlacementY.value) || 0;
     if (domOverlay.getFocusedElement()) {
       domOverlay.updateFocusedElementBounds({ y: val });
@@ -1009,7 +1037,34 @@ function bindInputFields() {
     }
   });
 
-  propPlacementW.addEventListener("change", () => {
+  propPlacementRot.addEventListener("input", () => {
+    const val = parseFloat(propPlacementRot.value) || 0;
+    if (domOverlay.getFocusedElement()) {
+      domOverlay.updateFocusedElementBounds({ rotation: val });
+    } else {
+      const placement = { ...stateManager.project.video_placement, rotation: val };
+      stateManager.updateProjectField("video_placement", placement);
+    }
+  });
+
+  const bindCropInput = (input: HTMLInputElement, field: 'crop_top' | 'crop_bottom' | 'crop_left' | 'crop_right') => {
+    input.addEventListener("input", () => {
+      const val = parseFloat(input.value) || 0;
+      if (domOverlay.getFocusedElement()) {
+        domOverlay.updateFocusedElementBounds({ [field]: val });
+      } else {
+        const placement = { ...stateManager.project.video_placement, [field]: val };
+        stateManager.updateProjectField("video_placement", placement);
+      }
+    });
+  };
+
+  bindCropInput(propCropT, 'crop_top');
+  bindCropInput(propCropB, 'crop_bottom');
+  bindCropInput(propCropL, 'crop_left');
+  bindCropInput(propCropR, 'crop_right');
+
+  propPlacementW.addEventListener("input", () => {
     const val = parseInt(propPlacementW.value) || 1080;
     const focused = domOverlay.getFocusedElement() || "video";
     const isLocked = domOverlay.getElementRatioLocked(focused);
@@ -1037,7 +1092,7 @@ function bindInputFields() {
       }
     }
   });
-  propPlacementH.addEventListener("change", () => {
+  propPlacementH.addEventListener("input", () => {
     const val = parseInt(propPlacementH.value) || 1920;
     const focused = domOverlay.getFocusedElement() || "video";
     const isLocked = domOverlay.getElementRatioLocked(focused);
@@ -1087,7 +1142,7 @@ function bindInputFields() {
     stateManager.updateProjectField("text_template", propTextTemplate.value);
   });
 
-  propFontSize.addEventListener("change", () => {
+  propFontSize.addEventListener("input", () => {
     const val = parseInt(propFontSize.value) || 24;
     const textSettings = { ...stateManager.project.text_settings, font_size: val };
     stateManager.updateProjectField("text_settings", textSettings);
@@ -2332,9 +2387,24 @@ function updateRenderStats() {
     }
   });
 
+  let avgSeconds = 0;
   const completedJobsWithTime = stateManager.renderQueue.filter(j => j.status === "Completed" && j.elapsed_seconds > 0);
-  if (completedJobsWithTime.length > 0 && queued > 0) {
-    const avgSeconds = completedJobsWithTime.reduce((acc, curr) => acc + curr.elapsed_seconds, 0) / completedJobsWithTime.length;
+  
+  if (completedJobsWithTime.length > 0) {
+    avgSeconds = completedJobsWithTime.reduce((acc, curr) => acc + curr.elapsed_seconds, 0) / completedJobsWithTime.length;
+  } else if (activeJobs.length > 0) {
+    let activeTotal = 0;
+    let validActive = 0;
+    activeJobs.forEach(j => {
+      if (j.eta_seconds !== null && j.eta_seconds !== undefined && j.eta_seconds > 0) {
+        activeTotal += (j.elapsed_seconds || 0) + j.eta_seconds;
+        validActive++;
+      }
+    });
+    if (validActive > 0) avgSeconds = activeTotal / validActive;
+  }
+
+  if (avgSeconds > 0 && queued > 0) {
     totalEtaSeconds += avgSeconds * queued;
     hasEta = true;
   }
@@ -3143,6 +3213,61 @@ function setupPlaybackControls() {
       video.pause();
     }
   });
+
+  // Volume Setting exactly as project video trim panel has
+  const mainVideoVolumeBtn = document.getElementById("main-video-volume-btn") as HTMLButtonElement | null;
+  const mainVolumeIcon = document.getElementById("main-volume-icon") as SVGElement | null;
+  const mainVolumeSlider = document.getElementById("main-volume-slider") as HTMLInputElement | null;
+  const mainVolumeText = document.querySelector(".main-volume-text") as HTMLSpanElement | null;
+
+  let savedMainVolume = 100;
+
+  const updateMainVolumeUI = (volPct: number, isMuted: boolean) => {
+    if (mainVolumeText) mainVolumeText.textContent = `${volPct}%`;
+    if (mainVolumeSlider) mainVolumeSlider.value = volPct.toString();
+    
+    if (mainVolumeIcon) {
+      if (isMuted || volPct === 0) {
+        mainVolumeIcon.innerHTML = '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>'; // Mute icon
+      } else if (volPct <= 50) {
+        mainVolumeIcon.innerHTML = '<path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>'; // Low volume icon (1 wave)
+      } else {
+        mainVolumeIcon.innerHTML = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>'; // High volume icon (2 waves)
+      }
+    }
+  };
+
+  if (mainVolumeSlider) {
+    mainVolumeSlider.addEventListener("input", () => {
+      const volPct = parseInt(mainVolumeSlider.value) || 0;
+      video.volume = volPct / 100;
+      
+      if (volPct > 0) {
+        video.muted = false;
+        savedMainVolume = volPct;
+      } else {
+        video.muted = true;
+      }
+      
+      updateMainVolumeUI(volPct, video.muted);
+    });
+  }
+
+  if (mainVideoVolumeBtn) {
+    mainVideoVolumeBtn.addEventListener("click", () => {
+      video.muted = !video.muted;
+      if (video.muted) {
+        updateMainVolumeUI(0, true);
+      } else {
+        if (savedMainVolume === 0) savedMainVolume = 100;
+        video.volume = savedMainVolume / 100;
+        updateMainVolumeUI(savedMainVolume, false);
+      }
+    });
+  }
+
+  // Initialize main volume UI
+  updateMainVolumeUI(savedMainVolume, video.muted);
 }
 
 function toggleDashboard(show: boolean) {

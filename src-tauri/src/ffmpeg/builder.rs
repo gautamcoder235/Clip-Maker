@@ -116,11 +116,13 @@ impl FFmpegBuilder {
         bg_image_y: i32,
         bg_image_w: u32,
         bg_image_h: u32,
+        crop_left: f64,
+        crop_top: f64,
     ) -> &mut Self {
         let filter = CanvasPlacementFilter::new(canvas_width, canvas_height, video_width, video_height, x, y);
         self.video_filters.push(filter.to_scale_filter());
         self.background_canvas = Some((canvas_width, canvas_height));
-        self.overlay_position = Some((x, y));
+        self.overlay_position = Some((x + crop_left.round() as i32, y + crop_top.round() as i32));
         self.overlay_size = Some((video_width, video_height));
         self.background_color = Some(background_color.to_string());
         
@@ -133,6 +135,11 @@ impl FFmpegBuilder {
                 self.background_image_position = Some((bg_image_x, bg_image_y));
             }
         }
+        self
+    }
+
+    pub fn add_video_filter(&mut self, filter: &str) -> &mut Self {
+        self.video_filters.push(filter.to_string());
         self
     }
 
@@ -373,9 +380,10 @@ impl FFmpegBuilder {
                 chains.push(bg_chain);
             }
 
+            let (overlay_w, overlay_h) = self.overlay_size.unwrap();
             let overlay_chain = format!(
-                "[bg][fg]overlay={}:{}:format=auto:eof_action=pass:shortest=1[base]",
-                x_pos, y_pos
+                "[bg][fg]overlay={}+({}/2.0)-w/2:{}+({}/2.0)-h/2:format=auto:eof_action=pass:shortest=1[base]",
+                x_pos, overlay_w, y_pos, overlay_h
             );
             chains.push(overlay_chain);
             base_label = "base".to_string();
@@ -428,6 +436,19 @@ impl FFmpegBuilder {
                         filters.push("scale=iw:ih".to_string());
                     }
 
+                    if overlay.crop_top > 0.0 || overlay.crop_bottom > 0.0 || overlay.crop_left > 0.0 || overlay.crop_right > 0.0 {
+                        filters.push(format!(
+                            "crop=iw-{}-{}:ih-{}-{}:{}:{}",
+                            overlay.crop_left, overlay.crop_right,
+                            overlay.crop_top, overlay.crop_bottom,
+                            overlay.crop_left, overlay.crop_top
+                        ));
+                    }
+
+                    if overlay.rotation != 0.0 {
+                        filters.push(format!("rotate={}*PI/180:c=black@0:ow=rotw(a):oh=roth(a)", overlay.rotation));
+                    }
+
                     let scale_filter = filters.join(",");
                     let overlay_label = format!("ov{}", overlay_count);
                     
@@ -450,8 +471,8 @@ impl FFmpegBuilder {
                     };
 
                     chains.push(format!(
-                        "[{}][{}]overlay={}:{}:format=auto:eof_action={}{}[{}]",
-                        base_label, overlay_label, overlay.x, overlay.y, eof_action, shortest_opt, next_label
+                        "[{}][{}]overlay={}+({}/2.0)-w/2:{}+({}/2.0)-h/2:format=auto:eof_action={}{}[{}]",
+                        base_label, overlay_label, overlay.x, overlay.width, overlay.y, overlay.height, eof_action, shortest_opt, next_label
                     ));
                 }
                 OverlayStep::Text { text, font_size, font_color, font_file, x, y, outline, letter_spacing, font_weight } => {

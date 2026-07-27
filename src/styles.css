@@ -1505,6 +1505,93 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   text-align: center;
 }
 
+.main-volume-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.main-volume-popover {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  background: rgba(10, 10, 12, 0.95);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  gap: 4px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  width: 32px;
+  height: 100px;
+}
+
+/* Invisible bridge to prevent hover loss between button and popover */
+.main-volume-popover::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  background: transparent;
+}
+
+.main-volume-container:hover .main-volume-popover {
+  display: flex;
+}
+
+.main-volume-text {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: monospace;
+  user-select: none;
+}
+
+.main-volume-slider-wrapper {
+  position: relative;
+  width: 100%;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#main-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 60px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  cursor: pointer;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  position: absolute;
+}
+
+#main-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  transition: transform 0.1s;
+}
+
+#main-volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
 .setting-desc {
   font-size: 10px;
   color: var(--text-secondary);
@@ -1527,6 +1614,10 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
   display: none !important;
 }
 
+.editor-interactive-box.focused {
+  z-index: 100 !important;
+}
+
 .editor-interactive-box.focused.selection-video {
   border: 2px solid #3b82f6 !important;
 }
@@ -1543,6 +1634,10 @@ body.theme-light-glassmorphism #canvas-viewport:empty {
 .editor-interactive-box.focused .resize-handle,
 .editor-interactive-box.focused .box-label {
   display: block !important;
+}
+
+.editor-interactive-box.focused .rot-handle {
+  display: flex !important;
 }
 
 /* User Manual Modal CSS */
