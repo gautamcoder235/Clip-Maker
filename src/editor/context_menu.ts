@@ -596,7 +596,7 @@ export class CanvasContextMenu {
       if (overlays[idx]) {
         const field = direction === "horizontal" ? "x_position" : "y_position";
         const formula = direction === "horizontal" ? "(w-text_w)/2" : "(h-text_h)/2";
-        overlays[idx][field] = formula;
+        overlays[idx] = { ...overlays[idx], [field]: formula };
         this.stateManager.updateProjectField("extra_overlays", overlays);
         this.actions.refreshViewport();
       }
@@ -615,6 +615,7 @@ export class CanvasContextMenu {
       const idx = parseInt(type.split("-")[1]);
       const overlays = [...(this.stateManager.project.media_overlays || [])];
       if (overlays[idx]) {
+        overlays[idx] = { ...overlays[idx] };
         if (direction === "horizontal") {
           const canvasW = this.stateManager.project.output_width || 1080;
           overlays[idx].x = Math.round((canvasW - overlays[idx].width) / 2);
@@ -659,8 +660,7 @@ export class CanvasContextMenu {
           order.push(duplicateId);
         }
         
-        this.stateManager.updateProjectField("extra_overlays", overlays);
-        this.stateManager.updateProjectField("overlay_order", order);
+        this.stateManager.updateProjectBatch({ extra_overlays: overlays, overlay_order: order });
         this.actions.syncExtraOverlaysList();
         this.actions.refreshViewport();
         this.actions.showToast("Duplicated extra overlay!", "success");
@@ -688,8 +688,7 @@ export class CanvasContextMenu {
           return id;
         });
       
-      this.stateManager.updateProjectField("extra_overlays", overlays);
-      this.stateManager.updateProjectField("overlay_order", newOrder);
+      this.stateManager.updateProjectBatch({ extra_overlays: overlays, overlay_order: newOrder });
       this.domOverlay.setFocusedElement(null);
       this.actions.syncExtraOverlaysList();
       this.actions.refreshViewport();

@@ -163,23 +163,63 @@ export class AppStateManager {
     return [...result, ...missing];
   }
 
+  private deepClone<T>(obj: T): T {
+    if (obj === undefined || obj === null) return obj;
+    try {
+      return JSON.parse(JSON.stringify(obj));
+    } catch {
+      return obj;
+    }
+  }
+
   updateProjectField<K extends keyof ProjectData>(key: K, value: ProjectData[K]) {
-    const oldValue = this.project[key];
+    const oldValue = this.deepClone(this.project[key]);
+    const newValue = this.deepClone(value);
     const self = this;
 
     class UpdateFieldCommand implements Command {
       name = `Update field: ${String(key)}`;
       execute() {
-        self.project[key] = value;
+        self.project[key] = self.deepClone(newValue);
         self.notifyListeners();
       }
       undo() {
-        self.project[key] = oldValue;
+        self.project[key] = self.deepClone(oldValue);
         self.notifyListeners();
       }
     }
 
     this.history.push(new UpdateFieldCommand());
+  }
+
+  updateProjectBatch(fields: Partial<ProjectData>) {
+    const oldFields: Partial<ProjectData> = {};
+    const newFields: Partial<ProjectData> = {};
+    const keys = Object.keys(fields) as (keyof ProjectData)[];
+
+    keys.forEach(k => {
+      (oldFields as any)[k] = this.deepClone(this.project[k]);
+      (newFields as any)[k] = this.deepClone(fields[k]);
+    });
+
+    const self = this;
+    class BatchUpdateCommand implements Command {
+      name = `Batch update: ${keys.join(", ")}`;
+      execute() {
+        keys.forEach(k => {
+          (self.project as any)[k] = self.deepClone(newFields[k]);
+        });
+        self.notifyListeners();
+      }
+      undo() {
+        keys.forEach(k => {
+          (self.project as any)[k] = self.deepClone(oldFields[k]);
+        });
+        self.notifyListeners();
+      }
+    }
+
+    this.history.push(new BatchUpdateCommand());
   }
 
   updateProjectDirectly(newData: Partial<ProjectData>) {

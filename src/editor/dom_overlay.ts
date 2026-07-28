@@ -1425,6 +1425,7 @@ export class DOMOverlay {
       const idx = parseInt(target.split("-")[1]);
       const overlays = [...(this.stateManager.project.extra_overlays || [])];
       if (overlays[idx]) {
+        overlays[idx] = { ...overlays[idx] };
         if (bounds.x !== undefined) overlays[idx].x_position = bounds.x.toString();
         if (bounds.y !== undefined) overlays[idx].y_position = bounds.y.toString();
         if (bounds.width !== undefined) {
@@ -1440,6 +1441,7 @@ export class DOMOverlay {
       const idx = parseInt(target.split("-")[1]);
       const overlays = [...(this.stateManager.project.media_overlays || [])];
       if (overlays[idx]) {
+        overlays[idx] = { ...overlays[idx] };
         if (bounds.x !== undefined) overlays[idx].x = bounds.x;
         if (bounds.y !== undefined) overlays[idx].y = bounds.y;
         if (bounds.width !== undefined) overlays[idx].width = bounds.width;

@@ -956,6 +956,31 @@ function syncExtraOverlaysList() {
   if (currentVal && listExtraOverlays.querySelector(`option[value="${currentVal}"]`)) {
     listExtraOverlays.value = currentVal;
   }
+
+  // Sync UI fields for the selected item to restore state visually on undo
+  const selectedIdx = parseInt(listExtraOverlays.value);
+  if (!isNaN(selectedIdx) && overlays[selectedIdx]) {
+    const overlay = overlays[selectedIdx];
+    propExtraText.value = overlay.text;
+    propExtraFontSize.value = overlay.font_size.toString();
+    propExtraFontColor.value = overlay.font_color;
+    propExtraFontFamily.value = overlay.font_family;
+    propExtraFontFamily.style.fontFamily = overlay.font_family;
+    if (propExtraLetterSpacing) {
+      propExtraLetterSpacing.value = (overlay.letter_spacing || 0).toString();
+      if (extraLetterSpacingValue) extraLetterSpacingValue.value = (overlay.letter_spacing || 0).toString();
+    }
+    if (propExtraFontWeight) {
+      propExtraFontWeight.value = (overlay.font_weight || 400).toString();
+      if (extraFontWeightValue) extraFontWeightValue.value = (overlay.font_weight || 400).toString();
+    }
+    const extraPickerValue = document.querySelector("#font-picker-extra .font-picker-value") as HTMLSpanElement;
+    if (extraPickerValue) {
+      extraPickerValue.textContent = overlay.font_family;
+      extraPickerValue.style.fontFamily = overlay.font_family;
+    }
+    propExtraOutline.checked = overlay.outline;
+  }
 }
 
 function syncMediaOverlaysList() {
@@ -1698,8 +1723,10 @@ function bindInputFields() {
     
     const order = [...stateManager.getNormalizedOverlayOrder(), `extra-${overlays.length - 1}`];
     
-    stateManager.updateProjectField("extra_overlays", overlays);
-    stateManager.updateProjectField("overlay_order", order);
+    stateManager.updateProjectBatch({
+      extra_overlays: overlays,
+      overlay_order: order
+    });
     syncExtraOverlaysList();
     refreshViewport();
     showToast("Added extra text overlay!", "success");
@@ -1724,8 +1751,10 @@ function bindInputFields() {
         return id;
       });
 
-    stateManager.updateProjectField("extra_overlays", overlays);
-    stateManager.updateProjectField("overlay_order", newOrder);
+    stateManager.updateProjectBatch({
+      extra_overlays: overlays,
+      overlay_order: newOrder
+    });
     syncExtraOverlaysList();
     refreshViewport();
     showToast("Removed extra text overlay", "warning");
@@ -1737,6 +1766,7 @@ function bindInputFields() {
     if (isNaN(idx)) return;
     const overlays = [...(stateManager.project.extra_overlays || [])];
     if (overlays[idx]) {
+      overlays[idx] = { ...overlays[idx] };
       overlays[idx].text = propExtraText.value || overlays[idx].text;
       overlays[idx].font_size = parseInt(propExtraFontSize.value) || 80;
       overlays[idx].font_color = propExtraFontColor.value;
