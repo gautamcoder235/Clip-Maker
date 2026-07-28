@@ -2120,13 +2120,10 @@ function highlightActiveAssetCard() {
   if (!currentSelectedAsset) return;
   document.querySelectorAll(".asset-card").forEach((c) => {
     const div = c as HTMLDivElement;
-    if (div.dataset.hash === currentSelectedAsset!.hash) {
-      div.style.borderColor = "var(--accent)";
-      div.style.background = "rgba(255, 255, 255, 0.06)";
-    } else {
-      div.style.borderColor = "var(--panel-border)";
-      div.style.background = "rgba(255, 255, 255, 0.02)";
-    }
+    const isActive = div.dataset.hash === currentSelectedAsset!.hash;
+    div.classList.toggle("active", isActive);
+    div.style.borderColor = "";
+    div.style.background = "";
   });
 }
 

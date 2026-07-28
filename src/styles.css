@@ -694,13 +694,34 @@ body {
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   position: relative;
+  outline: none !important;
 }
 
 .asset-card:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--accent);
+}
+
+.asset-card.active {
+  border-color: var(--accent) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.25) !important;
+  outline: none !important;
+}
+
+/* Single High-Visibility Focus Glow (Fixes double outline artifact) */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.dash-action-card:focus-visible,
+.toolbar-btn:focus-visible,
+.inspector-section-header:focus-visible,
+.asset-card:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 0px !important;
+  box-shadow: none !important;
 }
 
 .asset-remove-btn {
@@ -898,18 +919,6 @@ body {
   background: rgba(59, 130, 246, 0.2) !important;
   color: var(--accent) !important;
   font-weight: 600;
-}
-
-/* High Visibility Keyboard Focus Indicators (WCAG 2.1 AA) */
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-.dash-action-card:focus-visible,
-.toolbar-btn:focus-visible,
-.inspector-section-header:focus-visible {
-  outline: 2px solid var(--accent) !important;
-  outline-offset: 1px !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
 }
 
 .control-group {
