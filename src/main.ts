@@ -1282,7 +1282,7 @@ function bindInputFields() {
     const val = parseInt(propLetterSpacing.value) || 0;
     if (letterSpacingValue) letterSpacingValue.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, letter_spacing: val };
-    stateManager.updateProjectField("text_settings", textSettings);
+    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
     refreshViewport();
   });
 
@@ -1290,7 +1290,7 @@ function bindInputFields() {
     const val = parseInt(letterSpacingValue.value) || 0;
     propLetterSpacing.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, letter_spacing: val };
-    stateManager.updateProjectField("text_settings", textSettings);
+    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
     refreshViewport();
   });
 
@@ -1298,7 +1298,7 @@ function bindInputFields() {
     const val = parseInt(propFontWeight.value) || 400;
     if (fontWeightValue) fontWeightValue.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, font_weight: val };
-    stateManager.updateProjectField("text_settings", textSettings);
+    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
     refreshViewport();
   });
 
@@ -1306,7 +1306,7 @@ function bindInputFields() {
     const val = parseInt(fontWeightValue.value) || 400;
     propFontWeight.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, font_weight: val };
-    stateManager.updateProjectField("text_settings", textSettings);
+    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
     refreshViewport();
   });
 
@@ -1688,7 +1688,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], letter_spacing: val };
-      stateManager.updateProjectField("extra_overlays", overlays);
+      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
       refreshViewport();
     }
   });
@@ -1700,7 +1700,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], letter_spacing: val };
-      stateManager.updateProjectField("extra_overlays", overlays);
+      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
       refreshViewport();
     }
   });
@@ -1712,7 +1712,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], font_weight: val };
-      stateManager.updateProjectField("extra_overlays", overlays);
+      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
       refreshViewport();
     }
   });
@@ -1724,7 +1724,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], font_weight: val };
-      stateManager.updateProjectField("extra_overlays", overlays);
+      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
       refreshViewport();
     }
   });
