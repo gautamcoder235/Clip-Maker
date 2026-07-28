@@ -723,6 +723,53 @@ export class DOMOverlay {
     return null;
   }
 
+  private syncLiveMedia(activeBox: HTMLDivElement) {
+    if (!this.activeElement) return;
+
+    const newX = parseFloat(activeBox.style.left) || 0;
+    const newY = parseFloat(activeBox.style.top) || 0;
+    const newW = parseFloat(activeBox.style.width) || 0;
+    const newH = parseFloat(activeBox.style.height) || 0;
+    const cropT = parseFloat(activeBox.dataset.cropT || "0");
+    const cropR = parseFloat(activeBox.dataset.cropR || "0");
+    const cropB = parseFloat(activeBox.dataset.cropB || "0");
+    const cropL = parseFloat(activeBox.dataset.cropL || "0");
+
+    const rotStr = activeBox.style.transform || "";
+    const rotMatch = rotStr.match(/rotate\(([-\d.]+)deg\)/);
+    const rot = rotMatch ? parseFloat(rotMatch[1]) : 0;
+
+    if (this.activeElement === "video") {
+      const videoElement = document.querySelector(".preview-video-element") as HTMLVideoElement | null;
+      if (videoElement) {
+        videoElement.style.left = `${newX - cropL}px`;
+        videoElement.style.top = `${newY - cropT}px`;
+        videoElement.style.width = `${newW + cropL + cropR}px`;
+        videoElement.style.height = `${newH + cropT + cropB}px`;
+        videoElement.style.transform = `rotate(${rot}deg)`;
+        if (cropT > 0 || cropR > 0 || cropB > 0 || cropL > 0) {
+          videoElement.style.clipPath = `inset(${cropT}px ${cropR}px ${cropB}px ${cropL}px)`;
+        } else {
+          videoElement.style.clipPath = "none";
+        }
+      }
+    } else if (this.activeElement.startsWith("media-")) {
+      const idx = parseInt(this.activeElement.split("-")[1]);
+      const canvas = this.activeOverlayCanvases[idx];
+      if (canvas) {
+        canvas.style.left = `${-cropL}px`;
+        canvas.style.top = `${-cropT}px`;
+        canvas.style.width = `${newW + cropL + cropR}px`;
+        canvas.style.height = `${newH + cropT + cropB}px`;
+        if (cropT > 0 || cropR > 0 || cropB > 0 || cropL > 0) {
+          canvas.style.clipPath = `inset(${cropT}px ${cropR}px ${cropB}px ${cropL}px)`;
+        } else {
+          canvas.style.clipPath = "none";
+        }
+      }
+    }
+  }
+
   private setupGlobalEvents() {
     window.addEventListener("mousemove", (e) => {
       if (!this.isDragging && !this.isResizing && !this.isCropping && !this.isRotating) return;
@@ -764,6 +811,7 @@ export class DOMOverlay {
 
         activeBox.style.left = `${newX}px`;
         activeBox.style.top = `${newY}px`;
+        this.syncLiveMedia(activeBox);
 
       } else if (this.isRotating) {
         const rect = activeBox.getBoundingClientRect();
@@ -784,6 +832,7 @@ export class DOMOverlay {
         }
 
         activeBox.style.transform = `rotate(${rotation}deg)`;
+        this.syncLiveMedia(activeBox);
         
       } else if (this.isCropping && this.resizeHandle) {
         let cropT = this.elementStartCropT;
@@ -820,6 +869,7 @@ export class DOMOverlay {
         activeBox.style.top = `${this.elementStartY + deltaT}px`;
         activeBox.style.width = `${this.elementStartW - deltaL - deltaR}px`;
         activeBox.style.height = `${this.elementStartH - deltaT - deltaB}px`;
+        this.syncLiveMedia(activeBox);
         
       } else if (this.isResizing && this.resizeHandle) {
         let newW = this.elementStartW;
@@ -1003,41 +1053,8 @@ export class DOMOverlay {
         activeBox.style.width = `${newW}px`;
         activeBox.style.height = `${newH}px`;
 
-        // Live update the actual video element beneath the overlay
-        if (this.activeElement === "video") {
-          const videoElement = document.getElementById("preview-video");
-          if (videoElement) {
-            const bounds = this.getFocusedElementBounds();
-            if (bounds) {
-              const scale = Math.min(
-                this.overlayContainer.clientWidth / (this.stateManager.project.output_width || 1080),
-                this.overlayContainer.clientHeight / (this.stateManager.project.output_height || 1920)
-              );
-              
-              const vidX = bounds.x * scale;
-              const vidY = bounds.y * scale;
-              const vidW = bounds.width * scale;
-              const vidH = bounds.height * scale;
-              
-              videoElement.style.left = `${vidX}px`;
-              videoElement.style.top = `${vidY}px`;
-              videoElement.style.width = `${vidW}px`;
-              videoElement.style.height = `${vidH}px`;
-              videoElement.style.transform = `rotate(${bounds.rotation || 0}deg)`;
-              
-              const cropT = (bounds.crop_top || 0) * scale;
-              const cropR = (bounds.crop_right || 0) * scale;
-              const cropB = (bounds.crop_bottom || 0) * scale;
-              const cropL = (bounds.crop_left || 0) * scale;
-              
-              if (cropT > 0 || cropR > 0 || cropB > 0 || cropL > 0) {
-                videoElement.style.clipPath = `inset(${cropT}px ${cropR}px ${cropB}px ${cropL}px)`;
-              } else {
-                videoElement.style.clipPath = "none";
-              }
-            }
-          }
-        }
+        // Live sync video and media overlays
+        this.syncLiveMedia(activeBox);
 
         // Live update text font size inside the overlay box during resize
         if (this.activeElement === "text" || (this.activeElement && this.activeElement.startsWith("extra-"))) {
