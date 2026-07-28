@@ -1411,6 +1411,16 @@ function bindInputFields() {
     });
   }
 
+  function updatePreviewSeekTrack(pct: number) {
+    const clamped = Math.min(100, Math.max(0, pct));
+    const fill = document.querySelector("#preview-progress-fill") as HTMLDivElement | null;
+    const slider = document.querySelector("#preview-seek-slider") as HTMLInputElement | null;
+    if (fill) fill.style.width = `${clamped}%`;
+    if (slider) {
+      slider.style.background = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${clamped}%, rgba(255, 255, 255, 0.15) ${clamped}%, rgba(255, 255, 255, 0.15) 100%)`;
+    }
+  }
+
   let rafId: number;
   const smoothUpdate = () => {
     if (!previewVideo) return;
@@ -1419,6 +1429,7 @@ function bindInputFields() {
     if (duration > 0 && previewSeekSlider) {
       const pct = (current / duration) * 100;
       previewSeekSlider.value = pct.toString();
+      updatePreviewSeekTrack(pct);
     }
     if (!previewVideo.paused) {
       rafId = requestAnimationFrame(smoothUpdate);
@@ -1442,6 +1453,9 @@ function bindInputFields() {
     previewVideo.addEventListener("timeupdate", () => {
       const current = previewVideo.currentTime || 0;
       const duration = previewVideo.duration || 0;
+      if (duration > 0) {
+        updatePreviewSeekTrack((current / duration) * 100);
+      }
       if (previewTimeDisplay) {
         previewTimeDisplay.textContent = `${formatDuration(current)} / ${formatDuration(duration)}`;
       }
@@ -1452,6 +1466,7 @@ function bindInputFields() {
     previewSeekSlider.addEventListener("input", () => {
       if (!previewVideo) return;
       const pct = parseFloat(previewSeekSlider.value) || 0;
+      updatePreviewSeekTrack(pct);
       const duration = previewVideo.duration || 0;
       if (duration > 0) {
         previewVideo.currentTime = (pct / 100) * duration;
