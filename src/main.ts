@@ -1113,14 +1113,12 @@ function bindInputFields() {
   propPlacementX.addEventListener("input", () => {
     const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
     const val = (target === "text" || target.startsWith("extra-")) ? propPlacementX.value : (parseInt(propPlacementX.value) || 0);
-    const record = !ScrubbableInputManager.isScrubbing;
-    domOverlay.updateFocusedElementBounds({ x: val as any }, target, record);
+    domOverlay.updateFocusedElementBounds({ x: val as any }, target, true);
   });
   propPlacementY.addEventListener("input", () => {
     const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
     const val = (target === "text" || target.startsWith("extra-")) ? propPlacementY.value : (parseInt(propPlacementY.value) || 0);
-    const record = !ScrubbableInputManager.isScrubbing;
-    domOverlay.updateFocusedElementBounds({ y: val as any }, target, record);
+    domOverlay.updateFocusedElementBounds({ y: val as any }, target, true);
   });
   // Ratio lock toggle
   btnRatioLock.addEventListener("click", () => {
@@ -1154,24 +1152,22 @@ function bindInputFields() {
 
   propPlacementRot.addEventListener("input", () => {
     const val = parseFloat(propPlacementRot.value) || 0;
-    const record = !ScrubbableInputManager.isScrubbing;
     if (domOverlay.getFocusedElement()) {
-      domOverlay.updateFocusedElementBounds({ rotation: val }, undefined, record);
+      domOverlay.updateFocusedElementBounds({ rotation: val }, undefined, true);
     } else {
       const placement = { ...stateManager.project.video_placement, rotation: val };
-      stateManager.updateProjectField("video_placement", placement, record);
+      stateManager.updateProjectField("video_placement", placement, true);
     }
   });
 
   const bindCropInput = (input: HTMLInputElement, field: 'crop_top' | 'crop_bottom' | 'crop_left' | 'crop_right') => {
     input.addEventListener("input", () => {
       const val = parseFloat(input.value) || 0;
-      const record = !ScrubbableInputManager.isScrubbing;
       if (domOverlay.getFocusedElement()) {
-        domOverlay.updateFocusedElementBounds({ [field]: val }, undefined, record);
+        domOverlay.updateFocusedElementBounds({ [field]: val }, undefined, true);
       } else {
         const placement = { ...stateManager.project.video_placement, [field]: val };
-        stateManager.updateProjectField("video_placement", placement, record);
+        stateManager.updateProjectField("video_placement", placement, true);
       }
     });
   };
@@ -1185,16 +1181,15 @@ function bindInputFields() {
     const val = parseInt(propPlacementW.value) || 1080;
     const focused = domOverlay.getFocusedElement() || "video";
     const isLocked = domOverlay.getElementRatioLocked(focused);
-    const record = !ScrubbableInputManager.isScrubbing;
     if (focused !== "video") {
       const bounds = domOverlay.getFocusedElementBounds();
       if (isLocked && bounds && bounds.width > 0) {
         const ratio = domOverlay.getNaturalRatio(focused) || (bounds.width / bounds.height);
         const newH = Math.round(val / ratio);
         propPlacementH.value = newH.toString();
-        domOverlay.updateFocusedElementBounds({ width: val, height: newH }, focused, record);
+        domOverlay.updateFocusedElementBounds({ width: val, height: newH }, focused, true);
       } else {
-        domOverlay.updateFocusedElementBounds({ width: val }, focused, record);
+        domOverlay.updateFocusedElementBounds({ width: val }, focused, true);
       }
     } else {
       const p = stateManager.project.video_placement;
@@ -1203,10 +1198,10 @@ function bindInputFields() {
         const newH = Math.round(val / ratio);
         propPlacementH.value = newH.toString();
         const placement = { ...p, width: val, height: newH };
-        stateManager.updateProjectField("video_placement", placement, record);
+        stateManager.updateProjectField("video_placement", placement, true);
       } else {
         const placement = { ...p, width: val };
-        stateManager.updateProjectField("video_placement", placement, record);
+        stateManager.updateProjectField("video_placement", placement, true);
       }
     }
   });
@@ -1214,16 +1209,15 @@ function bindInputFields() {
     const val = parseInt(propPlacementH.value) || 1920;
     const focused = domOverlay.getFocusedElement() || "video";
     const isLocked = domOverlay.getElementRatioLocked(focused);
-    const record = !ScrubbableInputManager.isScrubbing;
     if (focused !== "video") {
       const bounds = domOverlay.getFocusedElementBounds();
       if (isLocked && bounds && bounds.height > 0) {
         const ratio = domOverlay.getNaturalRatio(focused) || (bounds.width / bounds.height);
         const newW = Math.round(val * ratio);
         propPlacementW.value = newW.toString();
-        domOverlay.updateFocusedElementBounds({ width: newW, height: val }, focused, record);
+        domOverlay.updateFocusedElementBounds({ width: newW, height: val }, focused, true);
       } else {
-        domOverlay.updateFocusedElementBounds({ height: val }, focused, record);
+        domOverlay.updateFocusedElementBounds({ height: val }, focused, true);
       }
     } else {
       const p = stateManager.project.video_placement;
@@ -1232,10 +1226,10 @@ function bindInputFields() {
         const newW = Math.round(val * ratio);
         propPlacementW.value = newW.toString();
         const placement = { ...p, width: newW, height: val };
-        stateManager.updateProjectField("video_placement", placement, record);
+        stateManager.updateProjectField("video_placement", placement, true);
       } else {
         const placement = { ...p, height: val };
-        stateManager.updateProjectField("video_placement", placement, record);
+        stateManager.updateProjectField("video_placement", placement, true);
       }
     }
   });
@@ -1264,7 +1258,7 @@ function bindInputFields() {
   propFontSize.addEventListener("input", () => {
     const val = parseInt(propFontSize.value) || 24;
     const textSettings = { ...stateManager.project.text_settings, font_size: val };
-    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
+    stateManager.updateProjectField("text_settings", textSettings, true);
   });
 
   propFontColor.addEventListener("change", () => {
@@ -1282,7 +1276,7 @@ function bindInputFields() {
     const val = parseInt(propLetterSpacing.value) || 0;
     if (letterSpacingValue) letterSpacingValue.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, letter_spacing: val };
-    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
+    stateManager.updateProjectField("text_settings", textSettings, true);
     refreshViewport();
   });
 
@@ -1290,7 +1284,7 @@ function bindInputFields() {
     const val = parseInt(letterSpacingValue.value) || 0;
     propLetterSpacing.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, letter_spacing: val };
-    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
+    stateManager.updateProjectField("text_settings", textSettings, true);
     refreshViewport();
   });
 
@@ -1298,7 +1292,7 @@ function bindInputFields() {
     const val = parseInt(propFontWeight.value) || 400;
     if (fontWeightValue) fontWeightValue.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, font_weight: val };
-    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
+    stateManager.updateProjectField("text_settings", textSettings, true);
     refreshViewport();
   });
 
@@ -1306,7 +1300,7 @@ function bindInputFields() {
     const val = parseInt(fontWeightValue.value) || 400;
     propFontWeight.value = val.toString();
     const textSettings = { ...stateManager.project.text_settings, font_weight: val };
-    stateManager.updateProjectField("text_settings", textSettings, !ScrubbableInputManager.isScrubbing);
+    stateManager.updateProjectField("text_settings", textSettings, true);
     refreshViewport();
   });
 
@@ -1688,7 +1682,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], letter_spacing: val };
-      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
+      stateManager.updateProjectField("extra_overlays", overlays, true);
       refreshViewport();
     }
   });
@@ -1700,7 +1694,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], letter_spacing: val };
-      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
+      stateManager.updateProjectField("extra_overlays", overlays, true);
       refreshViewport();
     }
   });
@@ -1712,7 +1706,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], font_weight: val };
-      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
+      stateManager.updateProjectField("extra_overlays", overlays, true);
       refreshViewport();
     }
   });
@@ -1724,7 +1718,7 @@ function bindInputFields() {
     if (!isNaN(idx)) {
       const overlays = [...(stateManager.project.extra_overlays || [])];
       overlays[idx] = { ...overlays[idx], font_weight: val };
-      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
+      stateManager.updateProjectField("extra_overlays", overlays, true);
       refreshViewport();
     }
   });
@@ -1796,7 +1790,7 @@ function bindInputFields() {
       overlays[idx].font_color = propExtraFontColor.value;
       overlays[idx].font_family = propExtraFontFamily.value;
       overlays[idx].outline = propExtraOutline.checked;
-      stateManager.updateProjectField("extra_overlays", overlays, !ScrubbableInputManager.isScrubbing);
+      stateManager.updateProjectField("extra_overlays", overlays, true);
       
       // Update select option text
       const opt = listExtraOverlays.options[idx];
