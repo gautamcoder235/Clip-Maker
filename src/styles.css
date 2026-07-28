@@ -217,6 +217,16 @@ input, textarea, [contenteditable], [contenteditable] * {
   -webkit-user-select: text;
 }
 
+/* Scrubbable Number Inputs & Drag-to-Adjust */
+input[type="number"] {
+  cursor: ns-resize;
+}
+
+.control-group label {
+  cursor: ns-resize;
+  user-select: none;
+}
+
 body {
   overflow: hidden;
   height: 100vh;

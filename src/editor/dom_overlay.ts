@@ -110,10 +110,9 @@ export class DOMOverlay {
     this.onLayoutChangeCallback = callback;
   }
 
-  update(project: ProjectData, containerWidth: number, containerHeight: number) {
-    // Don't rebuild overlays while user is actively dragging/resizing — the active
-    // box references would be destroyed and interaction breaks
-    if (this.isDragging || this.isResizing) return;
+  update(project: ProjectData, containerWidth: number, containerHeight: number, forceRebuild = false) {
+    // Don't rebuild overlays while user is actively dragging/resizing unless forced
+    if (!forceRebuild && (this.isDragging || this.isResizing)) return;
 
     // Clear dynamic overlay DOM elements except guidelines
     if (this.videoBox) {
@@ -254,18 +253,22 @@ export class DOMOverlay {
     // Render Media Overlays
     if (project.media_overlays) {
       project.media_overlays.forEach((overlay, idx) => {
-        if (!overlay.enabled) return;
-        const x = (overlay.x || 0) * scale;
-        const y = (overlay.y || 0) * scale;
-        const w = (overlay.width || 200) * scale;
-        const h = (overlay.height || 120) * scale;
-        const rot = overlay.rotation || 0;
+        if (overlay.enabled === false) return;
+
         const cropT = (overlay.crop_top || 0) * scale;
         const cropR = (overlay.crop_right || 0) * scale;
         const cropB = (overlay.crop_bottom || 0) * scale;
         const cropL = (overlay.crop_left || 0) * scale;
 
-        const box = this.createInteractiveBox(`media-${idx}`, x, y, w, h, scale, overlay.name, rot, cropT, cropR, cropB, cropL);
+        const boxX = overlay.x * scale + cropL;
+        const boxY = overlay.y * scale + cropT;
+        const boxW = overlay.width * scale - cropL - cropR;
+        const boxH = overlay.height * scale - cropT - cropB;
+        const rot = overlay.rotation || 0;
+
+        const box = this.createInteractiveBox(`media-${idx}`, boxX, boxY, boxW, boxH, scale, overlay.name, rot, cropT, cropR, cropB, cropL);
+        this.overlayContainer.appendChild(box);
+        this.mediaBoxes.push(box);
 
         // Append canvas inside box for video/image rendering
         const canvas = document.createElement("canvas");
@@ -1394,13 +1397,13 @@ export class DOMOverlay {
     };
   }
 
-  updateFocusedElementBounds(bounds: { x?: number; y?: number; width?: number; height?: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; }, targetOverride?: string) {
+  updateFocusedElementBounds(bounds: { x?: number | string; y?: number | string; width?: number; height?: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; }, targetOverride?: string) {
     const target = targetOverride || this.focusedElement || this.lastFocusedElement || "video";
 
     if (target === "video") {
       const placement = { ...this.stateManager.project.video_placement };
-      if (bounds.x !== undefined) placement.x = bounds.x;
-      if (bounds.y !== undefined) placement.y = bounds.y;
+      if (bounds.x !== undefined) placement.x = typeof bounds.x === 'number' ? bounds.x : parseInt(bounds.x) || 0;
+      if (bounds.y !== undefined) placement.y = typeof bounds.y === 'number' ? bounds.y : parseInt(bounds.y) || 0;
       if (bounds.width !== undefined) placement.width = bounds.width;
       if (bounds.height !== undefined) placement.height = bounds.height;
       if (bounds.rotation !== undefined) placement.rotation = bounds.rotation;
@@ -1442,8 +1445,8 @@ export class DOMOverlay {
       const overlays = [...(this.stateManager.project.media_overlays || [])];
       if (overlays[idx]) {
         overlays[idx] = { ...overlays[idx] };
-        if (bounds.x !== undefined) overlays[idx].x = bounds.x;
-        if (bounds.y !== undefined) overlays[idx].y = bounds.y;
+        if (bounds.x !== undefined) overlays[idx].x = typeof bounds.x === 'number' ? bounds.x : parseInt(bounds.x) || 0;
+        if (bounds.y !== undefined) overlays[idx].y = typeof bounds.y === 'number' ? bounds.y : parseInt(bounds.y) || 0;
         if (bounds.width !== undefined) overlays[idx].width = bounds.width;
         if (bounds.height !== undefined) overlays[idx].height = bounds.height;
         if (bounds.rotation !== undefined) overlays[idx].rotation = bounds.rotation;

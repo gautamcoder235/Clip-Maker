@@ -6,6 +6,7 @@ import { CanvasContextMenu } from "./editor/context_menu";
 import { TauriService } from "./services/tauri";
 import { AppConfig, ImportedAsset, RenderJob, ProjectData, SystemFont } from "./types";
 import { SecurityManager } from "./services/security_manager";
+import { ScrubbableInputManager } from "./utils/scrubbable_inputs";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -691,55 +692,16 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Overlay movements updater
   domOverlay.onLayoutChange(() => {
-    const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
-    const bounds = domOverlay.getFocusedElementBounds(target);
-    if (bounds) {
-      propPlacementX.value = bounds.x.toString();
-      propPlacementY.value = bounds.y.toString();
-      propPlacementW.value = bounds.width.toString();
-      propPlacementH.value = bounds.height.toString();
-      propPlacementRot.value = (bounds.rotation || 0).toString();
-      propCropT.value = (bounds.crop_top || 0).toString();
-      propCropB.value = (bounds.crop_bottom || 0).toString();
-      propCropL.value = (bounds.crop_left || 0).toString();
-      propCropR.value = (bounds.crop_right || 0).toString();
-    } else {
-      propPlacementX.value = stateManager.project.video_placement.x.toString();
-      propPlacementY.value = stateManager.project.video_placement.y.toString();
-      propPlacementW.value = stateManager.project.video_placement.width.toString();
-      propPlacementH.value = stateManager.project.video_placement.height.toString();
-      propPlacementRot.value = (stateManager.project.video_placement.rotation || 0).toString();
-      propCropT.value = (stateManager.project.video_placement.crop_top || 0).toString();
-      propCropB.value = (stateManager.project.video_placement.crop_bottom || 0).toString();
-      propCropL.value = (stateManager.project.video_placement.crop_left || 0).toString();
-      propCropR.value = (stateManager.project.video_placement.crop_right || 0).toString();
-    }
-
-    const headerSpan = document.querySelector("#inspector-position-header-text");
-    if (headerSpan) {
-      if (target === "text") {
-        headerSpan.textContent = "Position & Scale — Primary Text";
-      } else if (target && target.startsWith("extra-")) {
-        const idx = parseInt(target.split("-")[1]);
-        const overlay = (stateManager.project.extra_overlays || [])[idx];
-        headerSpan.textContent = `Position & Scale — ${overlay?.name || "Extra Text"}`;
-      } else if (target && target.startsWith("media-")) {
-        const idx = parseInt(target.split("-")[1]);
-        const overlay = (stateManager.project.media_overlays || [])[idx];
-        headerSpan.textContent = `Position & Scale — ${overlay?.name || "Media Overlay"}`;
-      } else {
-        headerSpan.textContent = "Position & Scale — Video Placement";
-      }
-    }
-
+    syncPlacementUI();
     propFontSize.value = stateManager.project.text_settings.font_size.toString();
-    
-    // Crucial: Update the actual video preview to match the new bounds
     refreshViewport();
   });
 
   // Hotkeys & Webview Security Filter
   SecurityManager.init(stateManager, toggleCommandPalette);
+
+  // Initialize drag-to-adjust Scrubbable Number Inputs
+  ScrubbableInputManager.init();
 
   // Setup Command Palette options
   setupCommandPalette();
@@ -837,21 +799,77 @@ window.addEventListener("DOMContentLoaded", async () => {
   customizeNumberInputs();
 });
 
+function syncPlacementUI() {
+  const target = domOverlay ? (domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video") : "video";
+  const bounds = domOverlay ? domOverlay.getFocusedElementBounds(target) : null;
+  const proj = stateManager.project;
+
+  if (target === "text") {
+    propPlacementX.value = proj.text_settings.x_position || "10";
+    propPlacementY.value = proj.text_settings.y_position || "10";
+    propPlacementW.value = bounds ? bounds.width.toString() : "";
+    propPlacementH.value = bounds ? bounds.height.toString() : "";
+    propPlacementRot.value = "0";
+    propCropT.value = "0"; propCropB.value = "0"; propCropL.value = "0"; propCropR.value = "0";
+  } else if (target.startsWith("extra-")) {
+    const idx = parseInt(target.split("-")[1]);
+    const overlay = (proj.extra_overlays || [])[idx];
+    if (overlay) {
+      propPlacementX.value = overlay.x_position || "20";
+      propPlacementY.value = overlay.y_position || "20";
+      propPlacementW.value = bounds ? bounds.width.toString() : "";
+      propPlacementH.value = bounds ? bounds.height.toString() : "";
+      propPlacementRot.value = "0";
+      propCropT.value = "0"; propCropB.value = "0"; propCropL.value = "0"; propCropR.value = "0";
+    }
+  } else if (target.startsWith("media-") && bounds) {
+    propPlacementX.value = bounds.x.toString();
+    propPlacementY.value = bounds.y.toString();
+    propPlacementW.value = bounds.width.toString();
+    propPlacementH.value = bounds.height.toString();
+    propPlacementRot.value = (bounds.rotation || 0).toString();
+    propCropT.value = (bounds.crop_top || 0).toString();
+    propCropB.value = (bounds.crop_bottom || 0).toString();
+    propCropL.value = (bounds.crop_left || 0).toString();
+    propCropR.value = (bounds.crop_right || 0).toString();
+  } else {
+    // Default video
+    propPlacementX.value = proj.video_placement.x.toString();
+    propPlacementY.value = proj.video_placement.y.toString();
+    propPlacementW.value = proj.video_placement.width.toString();
+    propPlacementH.value = proj.video_placement.height.toString();
+    propPlacementRot.value = (proj.video_placement.rotation || 0).toString();
+    propCropT.value = (proj.video_placement.crop_top || 0).toString();
+    propCropB.value = (proj.video_placement.crop_bottom || 0).toString();
+    propCropL.value = (proj.video_placement.crop_left || 0).toString();
+    propCropR.value = (proj.video_placement.crop_right || 0).toString();
+  }
+
+  const headerSpan = document.querySelector("#inspector-position-header-text");
+  if (headerSpan) {
+    if (target === "text") {
+      headerSpan.textContent = "Position & Scale — Primary Text";
+    } else if (target.startsWith("extra-")) {
+      const idx = parseInt(target.split("-")[1]);
+      const overlay = (proj.extra_overlays || [])[idx];
+      headerSpan.textContent = `Position & Scale — ${overlay?.name || "Extra Text"}`;
+    } else if (target.startsWith("media-")) {
+      const idx = parseInt(target.split("-")[1]);
+      const overlay = (proj.media_overlays || [])[idx];
+      headerSpan.textContent = `Position & Scale — ${overlay?.name || "Media Overlay"}`;
+    } else {
+      headerSpan.textContent = "Position & Scale — Video Placement";
+    }
+  }
+}
+
 function syncConfigToUi() {
   const proj = stateManager.project;
   
   btnUndo.disabled = !stateManager.history.canUndo();
   btnRedo.disabled = !stateManager.history.canRedo();
 
-  propPlacementX.value = proj.video_placement.x.toString();
-  propPlacementY.value = proj.video_placement.y.toString();
-  propPlacementW.value = proj.video_placement.width.toString();
-  propPlacementH.value = proj.video_placement.height.toString();
-  propPlacementRot.value = (proj.video_placement.rotation || 0).toString();
-  propCropT.value = (proj.video_placement.crop_top || 0).toString();
-  propCropB.value = (proj.video_placement.crop_bottom || 0).toString();
-  propCropL.value = (proj.video_placement.crop_left || 0).toString();
-  propCropR.value = (proj.video_placement.crop_right || 0).toString();
+  syncPlacementUI();
 
   syncRatioLockUI();
 
@@ -1036,7 +1054,7 @@ function refreshViewport() {
   overlayContainer.style.top = `${finalTop}px`;
   overlayContainer.style.position = "absolute";
 
-  domOverlay.update(stateManager.project, finalW, finalH);
+  domOverlay.update(stateManager.project, finalW, finalH, false);
 }
 
 function updateResolutionAndAspectRatio(trigger: "ratio" | "res") {
@@ -1093,14 +1111,14 @@ function updateResolutionAndAspectRatio(trigger: "ratio" | "res") {
 
 function bindInputFields() {
   propPlacementX.addEventListener("input", () => {
-    const val = parseInt(propPlacementX.value) || 0;
     const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
-    domOverlay.updateFocusedElementBounds({ x: val }, target);
+    const val = (target === "text" || target.startsWith("extra-")) ? propPlacementX.value : (parseInt(propPlacementX.value) || 0);
+    domOverlay.updateFocusedElementBounds({ x: val as any }, target);
   });
   propPlacementY.addEventListener("input", () => {
-    const val = parseInt(propPlacementY.value) || 0;
     const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
-    domOverlay.updateFocusedElementBounds({ y: val }, target);
+    const val = (target === "text" || target.startsWith("extra-")) ? propPlacementY.value : (parseInt(propPlacementY.value) || 0);
+    domOverlay.updateFocusedElementBounds({ y: val as any }, target);
   });
   // Ratio lock toggle
   btnRatioLock.addEventListener("click", () => {
