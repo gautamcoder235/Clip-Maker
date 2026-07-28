@@ -1226,8 +1226,7 @@ select:focus {
   z-index: 1000;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding-top: 15vh;
+  align-items: center;
 }
 
 .palette-box {
@@ -3296,6 +3295,7 @@ body.theme-cyberpunk-neon .context-menu-item:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
 }
 
 .preview-video-wrapper video {

@@ -116,7 +116,7 @@ impl ExportService {
             .input(input_path)
             .split(start_time, duration, true, 0.5);
 
-        if config.aspect_ratio == "9:16" {
+        if config.aspect_ratio == "9:16" && !config.video_placement.enabled {
             builder.crop("9:16", &config.crop_anchor);
         }
 
@@ -453,14 +453,8 @@ impl ExportService {
     }
 
     fn resolve_resolution(&self, selection: &str, width: u32, height: u32) -> Option<(u32, u32)> {
-        if selection == "Source" || selection.is_empty() {
-            return None;
-        }
-        if selection == "Custom" {
-            if width > 0 && height > 0 {
-                return Some((width, height));
-            }
-            return None;
+        if width > 0 && height > 0 {
+            return Some((width, height));
         }
         match selection {
             "1080x1920 (Shorts)" => Some((1080, 1920)),

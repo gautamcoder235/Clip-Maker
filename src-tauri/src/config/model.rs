@@ -193,7 +193,7 @@ impl Default for AppConfig {
             input_paths: Vec::new(),
             output_path: String::new(),
             clip_duration: 60,
-            preview_clip_seconds: 12,
+            preview_clip_seconds: 10,
             preview_fps: 12,
 
             aspect_ratio: "original".to_string(),

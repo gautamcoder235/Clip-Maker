@@ -37,7 +37,7 @@ impl TextOverlayFilter {
         let mut font_arg = String::new();
         if let Some(ff) = font_file {
             let normalized_ff = ff.replace("\\", "/");
-            font_arg = format!(":fontfile='{}'", Self::escape_drawtext(&normalized_ff));
+            font_arg = format!(":fontfile='{}'", Self::escape_drawtext_path(&normalized_ff));
         }
 
         let norm_x = match x.trim() {
@@ -101,6 +101,12 @@ impl TextOverlayFilter {
             .replace(":", "\\:")
             .replace("'", "\\'")
             .replace("%", "\\%")
+    }
+
+    pub fn escape_drawtext_path(path: &str) -> String {
+        path.replace("\\", "/")
+            .replace(":", "\\:")
+            .replace("'", "\\'")
     }
 }
 

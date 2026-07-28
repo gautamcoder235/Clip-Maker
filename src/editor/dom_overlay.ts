@@ -27,6 +27,7 @@ export class DOMOverlay {
   private activeElement: string | null = null; // "video" | "text" | "extra-${idx}" | "media-${idx}"
   private resizeHandle: string | null = null; // "tl", "tr", "bl", "br"
   private focusedElement: string | null = null; // track active selection focus
+  private lastFocusedElement: string = "video";
 
   public ratioLocked = true;
 
@@ -194,14 +195,16 @@ export class DOMOverlay {
       if (posX === "(w-text_w)/2" || posX === "(main_w-text_w)/2" || posX === "center") {
         textX = (canvasW - boxW) / 2;
       } else {
-        textX = parseFloat(posX) * scale || 10;
+        const pX = parseFloat(posX);
+        textX = !isNaN(pX) ? pX * scale : 10;
       }
 
       const posY = (project.text_settings.y_position || "").trim();
       if (posY === "(h-text_h)/2" || posY === "(main_h-text_h)/2" || posY === "center" || posY === "middle") {
         textY = (canvasH - boxH) / 2;
       } else {
-        textY = parseFloat(posY) * scale || 10;
+        const pY = parseFloat(posY);
+        textY = !isNaN(pY) ? pY * scale : 10;
       }
 
       this.textBox = this.createInteractiveBox("text", textX, textY, boxW, boxH, scale, txtVal);
@@ -229,14 +232,16 @@ export class DOMOverlay {
         if (exPosX === "(w-text_w)/2" || exPosX === "(main_w-text_w)/2" || exPosX === "center") {
           x = (canvasW - extraBoxW) / 2;
         } else {
-          x = parseFloat(exPosX) * scale || 20;
+          const pExX = parseFloat(exPosX);
+          x = !isNaN(pExX) ? pExX * scale : 20;
         }
 
         const exPosY = (overlay.y_position || "").trim();
         if (exPosY === "(h-text_h)/2" || exPosY === "(main_h-text_h)/2" || exPosY === "center" || exPosY === "middle") {
           y = (canvasH - extraBoxH) / 2;
         } else {
-          y = parseFloat(exPosY) * scale || 20;
+          const pExY = parseFloat(exPosY);
+          y = !isNaN(pExY) ? pExY * scale : 20;
         }
 
         const box = this.createInteractiveBox(`extra-${idx}`, x, y, extraBoxW, extraBoxH, scale, extraTxt);
@@ -395,7 +400,7 @@ export class DOMOverlay {
       textContent.textContent = labelText || "Text";
       textContent.style.fontSize = `${scaledFontSize}px`;
       textContent.style.color = fontColor;
-      textContent.style.fontFamily = fontFamily;
+      textContent.style.fontFamily = `"${fontFamily}", sans-serif`;
       textContent.style.lineHeight = "1";
       textContent.style.whiteSpace = "pre";
       textContent.style.pointerEvents = "none";
@@ -416,7 +421,7 @@ export class DOMOverlay {
 
       if (fontWeight > 600) {
         // Synthesize boldness visually to match user expectations (FFmpeg backend fakes bold too)
-        const boldThickness = Math.max(1, ((fontWeight - 400) / 200) * (fontSize / 100) * scale);
+        const boldThickness = Math.max(0.5, ((fontWeight - 400) / 300) * (fontSize / 100) * scale);
         textContent.style.setProperty('-webkit-text-stroke', `${boldThickness}px ${fontColor}`);
       }
 
@@ -1240,7 +1245,12 @@ export class DOMOverlay {
     return this.focusedElement;
   }
 
+  getLastFocusedElement(): string {
+    return this.lastFocusedElement || "video";
+  }
+
   setFocusedElement(type: string | null) {
+    if (type) this.lastFocusedElement = type;
     this.focusedElement = type;
     this.refreshFocus();
   }
@@ -1346,15 +1356,15 @@ export class DOMOverlay {
     return null;
   }
 
-  getFocusedElementBounds(): { x: number; y: number; width: number; height: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; } | null {
-    if (!this.focusedElement) return null;
+  getFocusedElementBounds(targetOverride?: string): { x: number; y: number; width: number; height: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; } | null {
+    const target = targetOverride || this.focusedElement || this.lastFocusedElement || "video";
     
     const scale = Math.min(
       this.overlayContainer.clientWidth / (this.stateManager.project.output_width || 1080),
       this.overlayContainer.clientHeight / (this.stateManager.project.output_height || 1920)
     );
 
-    const box = this.overlayContainer.querySelector(`.editor-interactive-box.selection-${this.focusedElement}`) as HTMLDivElement | null;
+    const box = this.overlayContainer.querySelector(`.editor-interactive-box.selection-${target}`) as HTMLDivElement | null;
     if (!box) return null;
 
     let rotation = 0;
@@ -1384,10 +1394,10 @@ export class DOMOverlay {
     };
   }
 
-  updateFocusedElementBounds(bounds: { x?: number; y?: number; width?: number; height?: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; }) {
-    if (!this.focusedElement) return;
+  updateFocusedElementBounds(bounds: { x?: number; y?: number; width?: number; height?: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; }, targetOverride?: string) {
+    const target = targetOverride || this.focusedElement || this.lastFocusedElement || "video";
 
-    if (this.focusedElement === "video") {
+    if (target === "video") {
       const placement = { ...this.stateManager.project.video_placement };
       if (bounds.x !== undefined) placement.x = bounds.x;
       if (bounds.y !== undefined) placement.y = bounds.y;
@@ -1399,26 +1409,26 @@ export class DOMOverlay {
       if (bounds.crop_bottom !== undefined) placement.crop_bottom = bounds.crop_bottom;
       if (bounds.crop_left !== undefined) placement.crop_left = bounds.crop_left;
       this.stateManager.updateProjectField("video_placement", placement);
-    } else if (this.focusedElement === "text") {
+    } else if (target === "text") {
       const settings = { ...this.stateManager.project.text_settings };
       if (bounds.x !== undefined) settings.x_position = bounds.x.toString();
       if (bounds.y !== undefined) settings.y_position = bounds.y.toString();
       if (bounds.width !== undefined) {
-        const currentBounds = this.getFocusedElementBounds();
+        const currentBounds = this.getFocusedElementBounds("text");
         if (currentBounds && currentBounds.width > 0) {
           const ratio = bounds.width / currentBounds.width;
           settings.font_size = Math.max(8, Math.round(settings.font_size * ratio));
         }
       }
       this.stateManager.updateProjectField("text_settings", settings);
-    } else if (this.focusedElement.startsWith("extra-")) {
-      const idx = parseInt(this.focusedElement.split("-")[1]);
+    } else if (target.startsWith("extra-")) {
+      const idx = parseInt(target.split("-")[1]);
       const overlays = [...(this.stateManager.project.extra_overlays || [])];
       if (overlays[idx]) {
         if (bounds.x !== undefined) overlays[idx].x_position = bounds.x.toString();
         if (bounds.y !== undefined) overlays[idx].y_position = bounds.y.toString();
         if (bounds.width !== undefined) {
-          const currentBounds = this.getFocusedElementBounds();
+          const currentBounds = this.getFocusedElementBounds(target);
           if (currentBounds && currentBounds.width > 0) {
             const ratio = bounds.width / currentBounds.width;
             overlays[idx].font_size = Math.max(8, Math.round(overlays[idx].font_size * ratio));
@@ -1426,8 +1436,8 @@ export class DOMOverlay {
         }
         this.stateManager.updateProjectField("extra_overlays", overlays);
       }
-    } else if (this.focusedElement.startsWith("media-")) {
-      const idx = parseInt(this.focusedElement.split("-")[1]);
+    } else if (target.startsWith("media-")) {
+      const idx = parseInt(target.split("-")[1]);
       const overlays = [...(this.stateManager.project.media_overlays || [])];
       if (overlays[idx]) {
         if (bounds.x !== undefined) overlays[idx].x = bounds.x;

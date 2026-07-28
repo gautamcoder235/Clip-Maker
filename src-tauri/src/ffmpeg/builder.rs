@@ -12,6 +12,7 @@ pub struct FFmpegBuilder {
     // Canvas placement background
     background_canvas: Option<(u32, u32)>,
     overlay_position: Option<(i32, i32)>,
+    crop_offset: (i32, i32),
     overlay_size: Option<(u32, u32)>,
     background_color: Option<String>,
     background_image_path: Option<String>,
@@ -47,6 +48,7 @@ impl FFmpegBuilder {
             output_path: String::new(),
             background_canvas: None,
             overlay_position: None,
+            crop_offset: (0, 0),
             overlay_size: None,
             background_color: None,
             background_image_path: None,
@@ -122,7 +124,8 @@ impl FFmpegBuilder {
         let filter = CanvasPlacementFilter::new(canvas_width, canvas_height, video_width, video_height, x, y);
         self.video_filters.push(filter.to_scale_filter());
         self.background_canvas = Some((canvas_width, canvas_height));
-        self.overlay_position = Some((x + crop_left.round() as i32, y + crop_top.round() as i32));
+        self.overlay_position = Some((x, y));
+        self.crop_offset = (crop_left.round() as i32, crop_top.round() as i32);
         self.overlay_size = Some((video_width, video_height));
         self.background_color = Some(background_color.to_string());
         
@@ -380,10 +383,10 @@ impl FFmpegBuilder {
                 chains.push(bg_chain);
             }
 
-            let (overlay_w, overlay_h) = self.overlay_size.unwrap();
+            let (crop_l_off, crop_t_off) = self.crop_offset;
             let overlay_chain = format!(
-                "[bg][fg]overlay={}+({}/2.0)-w/2:{}+({}/2.0)-h/2:format=auto:eof_action=pass:shortest=1[base]",
-                x_pos, overlay_w, y_pos, overlay_h
+                "[bg][fg]overlay={}+{}:{}+{}:format=auto:eof_action=pass:shortest=1[base]",
+                x_pos, crop_l_off, y_pos, crop_t_off
             );
             chains.push(overlay_chain);
             base_label = "base".to_string();

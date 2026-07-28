@@ -86,6 +86,37 @@ export class SecurityManager {
     });
 
     this.register({
+      key: "z",
+      ctrl: true,
+      shift: true,
+      action: () => stateManager.history.redo()
+    });
+
+    this.register({
+      key: "s",
+      ctrl: true,
+      action: () => {
+        if ((window as any).triggerSaveProject) (window as any).triggerSaveProject();
+      }
+    });
+
+    this.register({
+      key: "n",
+      ctrl: true,
+      action: () => {
+        if ((window as any).triggerNewProject) (window as any).triggerNewProject();
+      }
+    });
+
+    this.register({
+      key: "o",
+      ctrl: true,
+      action: () => {
+        if ((window as any).triggerOpenProject) (window as any).triggerOpenProject();
+      }
+    });
+
+    this.register({
       key: "k",
       ctrl: true,
       action: () => toggleCommandPalette()
@@ -107,6 +138,13 @@ export class SecurityManager {
       }
     });
 
+    this.register({
+      key: "f1",
+      action: () => {
+        const modal = document.getElementById("user-manual-modal");
+        if (modal) modal.style.display = "flex";
+      }
+    });
 
     this.register({
       key: "escape",
@@ -199,14 +237,14 @@ export class SecurityManager {
         return;
       }
 
-      // Browser History, Downloads, Bookmarks, Search, New Window/Open (Ctrl + H, J, D, E, N, O)
-      if (isCmdOrCtrl && (key === "h" || key === "j" || key === "d" || key === "e" || key === "n" || key === "o")) {
+      // Browser History, Downloads, Bookmarks (Ctrl + H, E)
+      if (isCmdOrCtrl && (key === "h" || key === "e")) {
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
       }
 
-      // Save Webpage (Ctrl+S) - allow if handled by custom shortcuts, otherwise prevent browser save dialog
+      // Save Webpage (Ctrl+S) - allow if handled by custom shortcuts
       if (isCmdOrCtrl && key === "s") {
         const hasCustomSave = this.shortcuts.some(s => s.key.toLowerCase() === "s" && s.ctrl);
         if (!hasCustomSave) {
@@ -223,6 +261,14 @@ export class SecurityManager {
         return;
       }
 
+      // --- Guard: Skip app-level hotkeys when typing in input fields ---
+      const target = e.target as HTMLElement | null;
+      const isInputTarget = target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+
       // --- Match Custom App Registered Shortcuts ---
       for (const shortcut of this.shortcuts) {
         const matchesKey = key === shortcut.key.toLowerCase();
@@ -231,6 +277,10 @@ export class SecurityManager {
         const matchesAlt = !!shortcut.alt === e.altKey;
 
         if (matchesKey && matchesCtrl && matchesShift && matchesAlt) {
+          // If typing inside an input field, only allow global overlays (Ctrl+K, Esc, F1) to execute
+          if (isInputTarget && shortcut.key.toLowerCase() !== "escape" && shortcut.key.toLowerCase() !== "k" && shortcut.key.toLowerCase() !== "f1") {
+            continue;
+          }
           e.preventDefault();
           shortcut.action(e);
           return;

@@ -4,7 +4,7 @@ import { CanvasRenderer } from "./editor/canvas";
 import { DOMOverlay } from "./editor/dom_overlay";
 import { CanvasContextMenu } from "./editor/context_menu";
 import { TauriService } from "./services/tauri";
-import { AppConfig, ImportedAsset, RenderJob, ProjectData } from "./types";
+import { AppConfig, ImportedAsset, RenderJob, ProjectData, SystemFont } from "./types";
 import { SecurityManager } from "./services/security_manager";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -80,6 +80,7 @@ let propGpuAccel: HTMLInputElement;
 
 let propIncludeAudio: HTMLInputElement;
 let propClipDuration: HTMLInputElement;
+let propPreviewDuration: HTMLInputElement;
 let propExportScope: HTMLSelectElement;
 let exportRangeRow: HTMLDivElement;
 
@@ -196,6 +197,36 @@ let domOverlay: DOMOverlay;
 
 let currentSelectedAsset: ImportedAsset | null = null;
 let activeJobUis: Map<string, HTMLDivElement> = new Map();
+
+function registerSystemFontsCSS(fonts: SystemFont[]) {
+  let styleEl = document.getElementById("dynamic-system-fonts") as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = "dynamic-system-fonts";
+    document.head.appendChild(styleEl);
+  }
+
+  const cssRules: string[] = [];
+  fonts.forEach((font) => {
+    if (font.path && font.name) {
+      try {
+        const fontUrl = convertFileSrc(font.path);
+        const safeName = font.name.replace(/["'\\]/g, "");
+        cssRules.push(`
+          @font-face {
+            font-family: "${safeName}";
+            src: url("${fontUrl}");
+            font-display: swap;
+          }
+        `);
+      } catch (err) {
+        console.warn(`Failed to generate @font-face for font ${font.name}:`, err);
+      }
+    }
+  });
+
+  styleEl.textContent = cssRules.join("\n");
+}
 
 // ── Searchable Font Picker Helper ──
 function initFontPicker(pickerId: string, hiddenSelect: HTMLSelectElement, fontNames: string[]) {
@@ -379,6 +410,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   propIncludeAudio = document.querySelector("#prop-include-audio")!;
   propClipDuration = document.querySelector("#prop-clip-duration")!;
+  propPreviewDuration = document.querySelector("#prop-preview-duration")!;
   propExportScope = document.querySelector("#prop-export-scope")!;
   exportRangeRow = document.querySelector("#export-range-row")!;
 
@@ -510,6 +542,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Register @font-face CSS rules for all scanned system fonts
+  registerSystemFontsCSS(stateManager.fonts);
+
   // Load fonts into hidden selects (for compatibility)
   stateManager.fonts.forEach((font) => {
     const opt1 = document.createElement("option");
@@ -628,6 +663,26 @@ window.addEventListener("DOMContentLoaded", async () => {
   btnOpenProject.addEventListener("click", triggerOpenProject);
   btnSaveProject.addEventListener("click", triggerSaveProject);
 
+  (window as any).triggerNewProject = triggerNewProject;
+  (window as any).triggerOpenProject = triggerOpenProject;
+  (window as any).triggerSaveProject = triggerSaveProject;
+
+  (window as any).toggleLeftPanel = () => {
+    const leftPanel = document.getElementById("left-panel");
+    if (leftPanel) {
+      leftPanel.style.display = leftPanel.style.display === "none" ? "flex" : "none";
+      refreshViewport();
+    }
+  };
+
+  (window as any).toggleBottomPanel = () => {
+    const bottomPanel = document.getElementById("bottom-panel");
+    if (bottomPanel) {
+      bottomPanel.style.display = bottomPanel.style.display === "none" ? "flex" : "none";
+      refreshViewport();
+    }
+  };
+
   tabClipQueue.addEventListener("click", () => switchBottomTab("clips"));
   tabRenderQueue.addEventListener("click", () => switchBottomTab("render"));
 
@@ -636,7 +691,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Overlay movements updater
   domOverlay.onLayoutChange(() => {
-    const bounds = domOverlay.getFocusedElementBounds();
+    const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
+    const bounds = domOverlay.getFocusedElementBounds(target);
     if (bounds) {
       propPlacementX.value = bounds.x.toString();
       propPlacementY.value = bounds.y.toString();
@@ -658,6 +714,24 @@ window.addEventListener("DOMContentLoaded", async () => {
       propCropL.value = (stateManager.project.video_placement.crop_left || 0).toString();
       propCropR.value = (stateManager.project.video_placement.crop_right || 0).toString();
     }
+
+    const headerSpan = document.querySelector("#inspector-position-header-text");
+    if (headerSpan) {
+      if (target === "text") {
+        headerSpan.textContent = "Position & Scale — Primary Text";
+      } else if (target && target.startsWith("extra-")) {
+        const idx = parseInt(target.split("-")[1]);
+        const overlay = (stateManager.project.extra_overlays || [])[idx];
+        headerSpan.textContent = `Position & Scale — ${overlay?.name || "Extra Text"}`;
+      } else if (target && target.startsWith("media-")) {
+        const idx = parseInt(target.split("-")[1]);
+        const overlay = (stateManager.project.media_overlays || [])[idx];
+        headerSpan.textContent = `Position & Scale — ${overlay?.name || "Media Overlay"}`;
+      } else {
+        headerSpan.textContent = "Position & Scale — Video Placement";
+      }
+    }
+
     propFontSize.value = stateManager.project.text_settings.font_size.toString();
     
     // Crucial: Update the actual video preview to match the new bounds
@@ -814,6 +888,10 @@ function syncConfigToUi() {
   propGpuAccel.checked = proj.gpu_acceleration;
   propIncludeAudio.checked = proj.include_audio;
   propClipDuration.value = proj.clip_duration.toString();
+  if (propPreviewDuration) {
+    propPreviewDuration.max = (proj.clip_duration || 60).toString();
+    propPreviewDuration.value = Math.min(proj.preview_clip_seconds || 10, proj.clip_duration || 60).toString();
+  }
 
   // Background Settings Parity Sync
   if (proj.background) {
@@ -991,21 +1069,13 @@ function updateResolutionAndAspectRatio(trigger: "ratio" | "res") {
 function bindInputFields() {
   propPlacementX.addEventListener("input", () => {
     const val = parseInt(propPlacementX.value) || 0;
-    if (domOverlay.getFocusedElement()) {
-      domOverlay.updateFocusedElementBounds({ x: val });
-    } else {
-      const placement = { ...stateManager.project.video_placement, x: val };
-      stateManager.updateProjectField("video_placement", placement);
-    }
+    const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
+    domOverlay.updateFocusedElementBounds({ x: val }, target);
   });
   propPlacementY.addEventListener("input", () => {
     const val = parseInt(propPlacementY.value) || 0;
-    if (domOverlay.getFocusedElement()) {
-      domOverlay.updateFocusedElementBounds({ y: val });
-    } else {
-      const placement = { ...stateManager.project.video_placement, y: val };
-      stateManager.updateProjectField("video_placement", placement);
-    }
+    const target = domOverlay.getFocusedElement() || domOverlay.getLastFocusedElement() || "video";
+    domOverlay.updateFocusedElementBounds({ y: val }, target);
   });
   // Ratio lock toggle
   btnRatioLock.addEventListener("click", () => {
@@ -1418,8 +1488,26 @@ function bindInputFields() {
   propClipDuration.addEventListener("change", () => {
     const val = parseInt(propClipDuration.value) || 60;
     stateManager.updateProjectField("clip_duration", val);
+    if (propPreviewDuration) {
+      propPreviewDuration.max = val.toString();
+      if ((stateManager.project.preview_clip_seconds || 10) > val) {
+        stateManager.updateProjectField("preview_clip_seconds", val);
+        propPreviewDuration.value = val.toString();
+      }
+    }
     rebuildClipTimeline();
   });
+
+  if (propPreviewDuration) {
+    propPreviewDuration.addEventListener("change", () => {
+      const maxVal = parseInt(propClipDuration.value) || 60;
+      let val = parseInt(propPreviewDuration.value) || 10;
+      if (val > maxVal) val = maxVal;
+      if (val < 1) val = 1;
+      propPreviewDuration.value = val.toString();
+      stateManager.updateProjectField("preview_clip_seconds", val);
+    });
+  }
 
   // Background modes
   propBgMode.addEventListener("change", () => {
@@ -2991,6 +3079,12 @@ function setupCommandPalette() {
         });
         paletteResults.appendChild(item);
       });
+  });
+
+  commandPalette.addEventListener("click", (e) => {
+    if (e.target === commandPalette) {
+      commandPalette.style.display = "none";
+    }
   });
 }
 
