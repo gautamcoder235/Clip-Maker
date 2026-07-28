@@ -1397,7 +1397,7 @@ export class DOMOverlay {
     };
   }
 
-  updateFocusedElementBounds(bounds: { x?: number | string; y?: number | string; width?: number; height?: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; }, targetOverride?: string) {
+  updateFocusedElementBounds(bounds: { x?: number | string; y?: number | string; width?: number; height?: number; rotation?: number; crop_top?: number; crop_right?: number; crop_bottom?: number; crop_left?: number; }, targetOverride?: string, recordHistory = true) {
     const target = targetOverride || this.focusedElement || this.lastFocusedElement || "video";
 
     if (target === "video") {
@@ -1411,7 +1411,7 @@ export class DOMOverlay {
       if (bounds.crop_right !== undefined) placement.crop_right = bounds.crop_right;
       if (bounds.crop_bottom !== undefined) placement.crop_bottom = bounds.crop_bottom;
       if (bounds.crop_left !== undefined) placement.crop_left = bounds.crop_left;
-      this.stateManager.updateProjectField("video_placement", placement);
+      this.stateManager.updateProjectField("video_placement", placement, recordHistory);
     } else if (target === "text") {
       const settings = { ...this.stateManager.project.text_settings };
       if (bounds.x !== undefined) settings.x_position = bounds.x.toString();
@@ -1423,7 +1423,7 @@ export class DOMOverlay {
           settings.font_size = Math.max(8, Math.round(settings.font_size * ratio));
         }
       }
-      this.stateManager.updateProjectField("text_settings", settings);
+      this.stateManager.updateProjectField("text_settings", settings, recordHistory);
     } else if (target.startsWith("extra-")) {
       const idx = parseInt(target.split("-")[1]);
       const overlays = [...(this.stateManager.project.extra_overlays || [])];
@@ -1438,7 +1438,7 @@ export class DOMOverlay {
             overlays[idx].font_size = Math.max(8, Math.round(overlays[idx].font_size * ratio));
           }
         }
-        this.stateManager.updateProjectField("extra_overlays", overlays);
+        this.stateManager.updateProjectField("extra_overlays", overlays, recordHistory);
       }
     } else if (target.startsWith("media-")) {
       const idx = parseInt(target.split("-")[1]);
@@ -1454,7 +1454,7 @@ export class DOMOverlay {
         if (bounds.crop_right !== undefined) overlays[idx].crop_right = bounds.crop_right;
         if (bounds.crop_bottom !== undefined) overlays[idx].crop_bottom = bounds.crop_bottom;
         if (bounds.crop_left !== undefined) overlays[idx].crop_left = bounds.crop_left;
-        this.stateManager.updateProjectField("media_overlays", overlays);
+        this.stateManager.updateProjectField("media_overlays", overlays, recordHistory);
       }
     }
   }

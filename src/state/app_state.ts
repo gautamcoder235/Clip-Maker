@@ -172,9 +172,16 @@ export class AppStateManager {
     }
   }
 
-  updateProjectField<K extends keyof ProjectData>(key: K, value: ProjectData[K]) {
+  updateProjectField<K extends keyof ProjectData>(key: K, value: ProjectData[K], recordHistory = true) {
     const oldValue = this.deepClone(this.project[key]);
     const newValue = this.deepClone(value);
+
+    if (!recordHistory) {
+      this.project[key] = newValue;
+      this.notifyListeners();
+      return;
+    }
+
     const self = this;
 
     class UpdateFieldCommand implements Command {
@@ -192,7 +199,7 @@ export class AppStateManager {
     this.history.push(new UpdateFieldCommand());
   }
 
-  updateProjectBatch(fields: Partial<ProjectData>) {
+  updateProjectBatch(fields: Partial<ProjectData>, recordHistory = true) {
     const oldFields: Partial<ProjectData> = {};
     const newFields: Partial<ProjectData> = {};
     const keys = Object.keys(fields) as (keyof ProjectData)[];
@@ -201,6 +208,14 @@ export class AppStateManager {
       (oldFields as any)[k] = this.deepClone(this.project[k]);
       (newFields as any)[k] = this.deepClone(fields[k]);
     });
+
+    if (!recordHistory) {
+      keys.forEach(k => {
+        (this.project as any)[k] = this.deepClone(newFields[k]);
+      });
+      this.notifyListeners();
+      return;
+    }
 
     const self = this;
     class BatchUpdateCommand implements Command {

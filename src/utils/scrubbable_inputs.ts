@@ -4,6 +4,7 @@
  */
 
 export class ScrubbableInputManager {
+  public static isScrubbing = false;
   private static isDragging = false;
   private static activeInput: HTMLInputElement | null = null;
   private static startY = 0;
@@ -49,6 +50,7 @@ export class ScrubbableInputManager {
         if (!this.hasMoved && Math.abs(dy) > 3) {
           this.hasMoved = true;
           this.isDragging = true;
+          ScrubbableInputManager.isScrubbing = true;
           document.body.style.cursor = "ns-resize";
           document.body.style.userSelect = "none";
         }
@@ -89,12 +91,14 @@ export class ScrubbableInputManager {
           upEvt.preventDefault();
           upEvt.stopPropagation();
 
+          ScrubbableInputManager.isScrubbing = false;
           this.activeInput.dispatchEvent(new Event("change", { bubbles: true }));
           this.activeInput.blur();
         }
 
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
+        ScrubbableInputManager.isScrubbing = false;
         this.isDragging = false;
         this.activeInput = null;
         this.hasMoved = false;
