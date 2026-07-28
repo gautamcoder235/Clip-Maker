@@ -342,7 +342,49 @@ function syncRatioLockUI(target: string | null = domOverlay?.getFocusedElement()
   }
 }
 
+function setupInspectorAccordions() {
+  const headers = document.querySelectorAll<HTMLDivElement>(".inspector-section-header");
+  let savedStates: Record<string, boolean> = {};
+  try {
+    const raw = localStorage.getItem("clipmaker_inspector_accordions");
+    if (raw) savedStates = JSON.parse(raw);
+  } catch (e) {
+    // Ignore storage parse errors
+  }
+
+  headers.forEach((header) => {
+    const section = header.parentElement as HTMLDivElement;
+    if (!section || !section.id) return;
+
+    if (savedStates[section.id] === true) {
+      section.classList.add("collapsed");
+      header.setAttribute("aria-expanded", "false");
+    }
+
+    const toggleAccordion = (e: Event) => {
+      if ((e.target as HTMLElement).tagName === "INPUT") return;
+      const isCollapsed = section.classList.toggle("collapsed");
+      header.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+      savedStates[section.id] = isCollapsed;
+      try {
+        localStorage.setItem("clipmaker_inspector_accordions", JSON.stringify(savedStates));
+      } catch (err) {
+        // LocalStorage quota fallback
+      }
+    };
+
+    header.addEventListener("click", toggleAccordion);
+    header.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleAccordion(e);
+      }
+    });
+  });
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
+  setupInspectorAccordions();
   // Bind Cache Elements
   assetListContainer = document.querySelector("#asset-list")!;
   clipsGridContainer = document.querySelector("#timeline-clips-grid")!;

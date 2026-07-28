@@ -295,9 +295,10 @@
           <div class="panel-header">Properties</div>
           <div class="inspector-scroll-area">
             <!-- Position & Scale Section -->
-          <div class="inspector-section">
-            <div class="inspector-section-header">
+          <div class="inspector-section" id="inspector-section-position">
+            <div class="inspector-section-header" tabindex="0" role="button" aria-expanded="true">
               <span id="inspector-position-header-text">Position & Scale</span>
+              <svg class="inspector-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
             <div class="inspector-content">
               <div class="control-row">
@@ -357,9 +358,10 @@
           </div>
 
           <!-- Background & Canvas Settings -->
-          <div class="inspector-section">
-            <div class="inspector-section-header">
+          <div class="inspector-section" id="inspector-section-canvas">
+            <div class="inspector-section-header" tabindex="0" role="button" aria-expanded="true">
               <span>Canvas & Background</span>
+              <svg class="inspector-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
             <div class="inspector-content">
               <div class="control-group">
@@ -402,10 +404,11 @@
             </div>
           </div>
  
-          <div class="inspector-section">
-            <div class="inspector-section-header" style="display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;">
+          <div class="inspector-section" id="inspector-section-primary-text">
+            <div class="inspector-section-header" tabindex="0" role="button" aria-expanded="true">
               <span>Primary Text Settings</span>
-              <input type="checkbox" id="prop-text-enabled" checked style="margin-left: auto; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent);" />
+              <input type="checkbox" id="prop-text-enabled" checked style="margin-left: auto; margin-right: 8px; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent);" />
+              <svg class="inspector-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
             <div class="inspector-content" id="primary-text-controls">
               <div class="control-group">
@@ -466,9 +469,10 @@
           </div>
 
           <!-- Text Presets Section -->
-          <div class="inspector-section">
-            <div class="inspector-section-header">
+          <div class="inspector-section" id="inspector-section-text-presets">
+            <div class="inspector-section-header" tabindex="0" role="button" aria-expanded="true">
               <span>Text Presets Manager</span>
+              <svg class="inspector-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
             <div class="inspector-content">
               <div class="control-group">
@@ -481,7 +485,7 @@
               </div>
               <div class="control-group">
                 <label>Active Presets</label>
-                <select size="3" id="list-text-presets" style="height: 70px; background: rgba(0,0,0,0.2); border: 1px solid var(--panel-border); color: white; border-radius: 4px;"></select>
+                <select size="3" id="list-text-presets" class="pro-list-box"></select>
               </div>
               <div class="control-row">
                 <button id="btn-add-preset" class="toolbar-btn" style="background: var(--accent); color: white;">Add Preset +</button>
@@ -491,14 +495,15 @@
           </div>
 
           <!-- Additional Overlays Section -->
-          <div class="inspector-section">
-            <div class="inspector-section-header">
+          <div class="inspector-section" id="inspector-section-extra-overlays">
+            <div class="inspector-section-header" tabindex="0" role="button" aria-expanded="true">
               <span>Additional Text Overlays</span>
+              <svg class="inspector-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
             <div class="inspector-content">
               <div class="control-group">
                 <label>Active Overlays</label>
-                <select size="3" id="list-extra-overlays" style="height: 75px; background: rgba(0,0,0,0.2); border: 1px solid var(--panel-border); color: white; border-radius: 4px;"></select>
+                <select size="3" id="list-extra-overlays" class="pro-list-box"></select>
                 <div class="setting-desc">Additional text blocks with independent placement and styling options.</div>
               </div>
               <div class="control-group">
@@ -562,14 +567,15 @@
           </div>
 
           <!-- Media Overlays Section -->
-          <div class="inspector-section">
-            <div class="inspector-section-header">
+          <div class="inspector-section" id="inspector-section-media-overlays">
+            <div class="inspector-section-header" tabindex="0" role="button" aria-expanded="true">
               <span>Media Overlays</span>
+              <svg class="inspector-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
             <div class="inspector-content">
               <div class="control-group">
                 <label>Active Media Overlays</label>
-                <select size="3" id="list-media-overlays" style="height: 100px; background: rgba(0,0,0,0.2); border: 1px solid var(--panel-border); color: white; border-radius: 4px;"></select>
+                <select size="3" id="list-media-overlays" class="pro-list-box"></select>
                 <div class="setting-desc">Watermarks, stickers, or video assets overlaid on the layout viewport.</div>
               </div>
               <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -581,9 +587,10 @@
           </div>
 
           <!-- Encoding & Advanced Settings Section -->
-          <div class="inspector-section">
-            <div class="inspector-section-header">
+          <div class="inspector-section" id="inspector-section-encoding">
+            <div class="inspector-section-header" tabindex="0" role="button" aria-expanded="true">
               <span>Encoding & Advanced Settings</span>
+              <svg class="inspector-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
             <div class="inspector-content">
               <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
