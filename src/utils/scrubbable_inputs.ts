@@ -93,7 +93,6 @@ export class ScrubbableInputManager {
 
           ScrubbableInputManager.isScrubbing = false;
           this.activeInput.dispatchEvent(new Event("input", { bubbles: true }));
-          this.activeInput.dispatchEvent(new Event("change", { bubbles: true }));
           this.activeInput.blur();
         }
 

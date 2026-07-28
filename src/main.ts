@@ -1235,7 +1235,7 @@ function bindInputFields() {
         stateManager.updateProjectField("video_placement", placement, record);
       } else {
         const placement = { ...p, height: val };
-        stateManager.updateProjectField("video_placement", placement);
+        stateManager.updateProjectField("video_placement", placement, record);
       }
     }
   });
