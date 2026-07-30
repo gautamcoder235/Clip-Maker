@@ -614,7 +614,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   syncConfigToUi();
 
   // Load and apply saved theme
-  const savedTheme = localStorage.getItem("clip-maker-theme") || "dark-obsidian";
+  const savedTheme = localStorage.getItem("clip-maker-theme") || "pro-studio-intro";
   selectTheme.value = savedTheme;
   document.body.className = `theme-${savedTheme}`;
 
@@ -819,6 +819,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       splash.classList.add("fade-out");
       setTimeout(() => {
         splash.remove();
+        if (typeof (window as any).__stopSplashCanvas === "function") {
+          (window as any).__stopSplashCanvas();
+        }
         showToast("Clip Maker successfully initialized!", "success");
       }, 700);
     }
@@ -3054,6 +3057,10 @@ function setupCommandPalette() {
       { name: "Command: Open User Manual", action: () => {
           const userManualModal = document.getElementById("user-manual-modal");
           if (userManualModal) userManualModal.style.display = "flex";
+      }},
+      { name: "Theme: Apply Pro Studio ✨", action: () => {
+          selectTheme.value = "pro-studio-intro";
+          selectTheme.dispatchEvent(new Event("change"));
       }},
       { name: "Theme: Apply Dark Obsidian", action: () => {
           selectTheme.value = "dark-obsidian";

@@ -10,7 +10,27 @@
   <body>
     <!-- Fullscreen Premium Intro Splash Screen -->
     <div id="app-splash-screen">
+      <!-- Animated Mesh Gradient Orbs -->
+      <div class="splash-bg-glow-orb splash-orb-1"></div>
+      <div class="splash-bg-glow-orb splash-orb-2"></div>
+      <div class="splash-bg-glow-orb splash-orb-3"></div>
+      <div class="splash-bg-glow-orb splash-orb-4"></div>
+
+      <!-- Cyber Tech Studio Grid Overlay -->
+      <div class="splash-bg-grid"></div>
+
+      <!-- Particle Constellation Canvas -->
+      <canvas id="splash-bg-canvas"></canvas>
+
+      <!-- Central Spotlight Halo -->
+      <div class="splash-central-halo"></div>
+
+      <!-- Glassmorphic Intro Card -->
       <div class="splash-card">
+        <div class="splash-badge">
+          <span class="splash-badge-dot"></span>
+          <span>PRO CREATIVE STUDIO</span>
+        </div>
         <div class="splash-logo-container">
           <img src="/src/assets/logo.jpg" class="splash-logo-glow" alt="Logo" />
           <img src="/src/assets/logo.jpg" class="splash-logo" alt="Logo" />
@@ -21,6 +41,77 @@
         </div>
         <span class="splash-loading-text">Initializing creative engine...</span>
       </div>
+      <script>
+        (function() {
+          function setupParticleCanvas(canvasId) {
+            var canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            var ctx = canvas.getContext("2d");
+            if (!ctx) return;
+            var animId;
+            var width = (canvas.width = window.innerWidth);
+            var height = (canvas.height = window.innerHeight);
+            var handleResize = function() {
+              width = canvas.width = window.innerWidth;
+              height = canvas.height = window.innerHeight;
+            };
+            window.addEventListener("resize", handleResize);
+
+            var particleCount = 45;
+            var particles = [];
+            for (var p = 0; p < particleCount; p++) {
+              particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
+                radius: Math.random() * 2 + 0.8,
+                alpha: Math.random() * 0.6 + 0.2,
+                color: Math.random() > 0.5 ? "rgba(168, 85, 247," : "rgba(6, 182, 212,"
+              });
+            }
+
+            function render() {
+              ctx.clearRect(0, 0, width, height);
+              for (var i = 0; i < particleCount; i++) {
+                for (var j = i + 1; j < particleCount; j++) {
+                  var dx = particles[i].x - particles[j].x;
+                  var dy = particles[i].y - particles[j].y;
+                  var dist = Math.sqrt(dx * dx + dy * dy);
+                  if (dist < 120) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = "rgba(168, 85, 247, " + (0.15 * (1 - dist / 120)) + ")";
+                    ctx.lineWidth = 0.6;
+                    ctx.stroke();
+                  }
+                }
+              }
+              for (var k = 0; k < particles.length; k++) {
+                var part = particles[k];
+                part.x += part.vx;
+                part.y += part.vy;
+                if (part.x < 0) part.x = width;
+                if (part.x > width) part.x = 0;
+                if (part.y < 0) part.y = height;
+                if (part.y > height) part.y = 0;
+                ctx.beginPath();
+                ctx.arc(part.x, part.y, part.radius, 0, Math.PI * 2);
+                ctx.fillStyle = part.color + " " + part.alpha + ")";
+                ctx.shadowColor = part.color === "rgba(168, 85, 247," ? "#a855f7" : "#06b6d4";
+                ctx.shadowBlur = 8;
+                ctx.fill();
+              }
+              animId = requestAnimationFrame(render);
+            }
+            render();
+          }
+
+          setupParticleCanvas("splash-bg-canvas");
+          setupParticleCanvas("dash-bg-canvas");
+        })();
+      </script>
     </div>
 
     <div id="app-layout">
@@ -48,6 +139,21 @@
 
       <!-- Fullscreen Startup Dashboard / Launch Screen -->
       <div id="startup-dashboard" style="display: none;">
+        <!-- Animated Mesh Gradient Orbs -->
+        <div class="splash-bg-glow-orb splash-orb-1"></div>
+        <div class="splash-bg-glow-orb splash-orb-2"></div>
+        <div class="splash-bg-glow-orb splash-orb-3"></div>
+        <div class="splash-bg-glow-orb splash-orb-4"></div>
+
+        <!-- Cyber Tech Studio Grid Overlay -->
+        <div class="splash-bg-grid"></div>
+
+        <!-- Particle Constellation Canvas -->
+        <canvas id="dash-bg-canvas"></canvas>
+
+        <!-- Central Spotlight Halo -->
+        <div class="splash-central-halo"></div>
+
         <div class="dashboard-window">
           <!-- Left Navigation Pane -->
           <div class="dashboard-sidebar">
@@ -233,7 +339,8 @@
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
                 <div class="dropdown-menu" id="theme-dropdown-menu" style="display: none;">
-                  <div class="dropdown-item active" data-value="dark-obsidian" data-name="Obsidian"><span class="theme-color-dot" style="background-color: #3B82F6;"></span><span>Obsidian</span></div>
+                  <div class="dropdown-item active" data-value="pro-studio-intro" data-name="Pro Studio"><span class="theme-color-dot" style="background: linear-gradient(135deg, #a855f7, #06b6d4);"></span><span>Pro Studio ✨</span></div>
+                  <div class="dropdown-item" data-value="dark-obsidian" data-name="Obsidian"><span class="theme-color-dot" style="background-color: #3B82F6;"></span><span>Obsidian</span></div>
                   <div class="dropdown-item" data-value="cyberpunk-neon" data-name="Cyberpunk"><span class="theme-color-dot" style="background-color: #FF007F;"></span><span>Cyberpunk</span></div>
                   <div class="dropdown-item" data-value="midnight-tokyo" data-name="Tokyo"><span class="theme-color-dot" style="background-color: #06B6D4;"></span><span>Midnight Tokyo</span></div>
                   <div class="dropdown-item" data-value="sunset-crimson" data-name="Crimson"><span class="theme-color-dot" style="background-color: #F43F5E;"></span><span>Sunset Crimson</span></div>
@@ -246,6 +353,7 @@
                 </div>
               </div>
               <select id="select-theme" style="display: none;">
+                <option value="pro-studio-intro">Pro Studio ✨</option>
                 <option value="dark-obsidian">Obsidian</option>
                 <option value="cyberpunk-neon">Cyberpunk</option>
                 <option value="midnight-tokyo">Tokyo</option>

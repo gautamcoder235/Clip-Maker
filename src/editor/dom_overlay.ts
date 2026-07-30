@@ -1236,15 +1236,19 @@ export class DOMOverlay {
         if (g.axis === "v") {
           el.style.left = `${g.position}px`;
           el.style.top = "0";
-          el.style.width = "1px";
+          el.style.width = "2px";
           el.style.height = "100%";
-          el.style.background = "linear-gradient(180deg, transparent 0%, #f43f5e 15%, #f43f5e 85%, transparent 100%)";
+          el.style.border = "none";
+          el.style.backgroundImage = "repeating-linear-gradient(180deg, #34d399 0px, #34d399 12px, transparent 12px, transparent 22px)";
+          el.style.filter = "drop-shadow(0 0 5px rgba(52, 211, 153, 0.85))";
         } else {
           el.style.left = "0";
           el.style.top = `${g.position}px`;
           el.style.width = "100%";
-          el.style.height = "1px";
-          el.style.background = "linear-gradient(90deg, transparent 0%, #f43f5e 15%, #f43f5e 85%, transparent 100%)";
+          el.style.height = "2px";
+          el.style.border = "none";
+          el.style.backgroundImage = "repeating-linear-gradient(90deg, #34d399 0px, #34d399 12px, transparent 12px, transparent 22px)";
+          el.style.filter = "drop-shadow(0 0 5px rgba(52, 211, 153, 0.85))";
         }
       } else {
         el.style.display = "none";
