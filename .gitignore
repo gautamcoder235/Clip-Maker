@@ -25,7 +25,8 @@ dist-ssr
 
 # Tauri and Rust build targets and large binaries
 src-tauri/target/
-src-tauri/binaries/
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
 src-tauri/.cache/
 src-tauri/src-tauri.lock
 

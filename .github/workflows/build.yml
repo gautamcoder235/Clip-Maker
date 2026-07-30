@@ -37,6 +37,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Ensure binaries directory
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "src-tauri/binaries"
+          New-Item -ItemType File -Force -Path "src-tauri/binaries/.gitkeep"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
