@@ -42,8 +42,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
-          releaseName: 'Clip Maker ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}'
-          releaseBody: 'Clip Maker release build.'
+          tagName: v__VERSION__
+          releaseName: "Clip Maker v__VERSION__"
+          releaseBody: "Clip Maker release build."
           releaseDraft: false
           prerelease: false
