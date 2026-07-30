@@ -5,7 +5,12 @@ on:
     branches:
       - main
       - master
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -37,8 +42,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'Clip Maker v__VERSION__'
-          releaseBody: 'See assets below to download.'
-          releaseDraft: true
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          releaseName: 'Clip Maker ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}'
+          releaseBody: 'Clip Maker release build.'
+          releaseDraft: false
           prerelease: false
