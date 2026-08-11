@@ -1206,15 +1206,29 @@ select:focus-visible,
   border-bottom: none;
 }
 
-.inspector-section.collapsed .inspector-content {
-  display: none !important;
-}
-
 .inspector-content {
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden;
+  max-height: 2000px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: max-height, opacity, transform;
+}
+
+.inspector-section.collapsed .inspector-content {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
 }
 
 /* Custom Pro Desktop List Box & Cards */
