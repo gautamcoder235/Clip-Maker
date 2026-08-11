@@ -103,6 +103,15 @@ export interface TrimSettings {
   enabled: boolean;
 }
 
+export interface AudioStreamInfo {
+  index: number;
+  stream_index: number;
+  codec_name: string;
+  channels: number;
+  language: string;
+  title: string;
+}
+
 export interface AssetSettings {
   trim?: TrimSettings;
   video_placement?: VideoPlacementConfig;
@@ -112,6 +121,7 @@ export interface AssetSettings {
   media_overlays?: MediaOverlay[];
   overlay_order?: string[];
   audio_codec?: string;
+  audio_stream_index?: number;
 }
 
 export interface AppConfig {
@@ -142,6 +152,7 @@ export interface AppConfig {
   overlay_order?: string[];
   include_audio: boolean;
   audio_codec?: string;
+  audio_stream_index?: number;
   parallel_processing: boolean;
   parallel_workers: number;
   text_settings: TextSettings;
@@ -194,6 +205,7 @@ export interface ImportedAsset {
     aspect_ratio: string;
     fps: number;
     has_audio: boolean;
+    audio_streams?: AudioStreamInfo[];
     format_name: string;
     size_bytes: number;
   } | null;

@@ -82,6 +82,7 @@ export class AppStateManager {
       overlay_order: ["text"],
       include_audio: true,
       audio_codec: "copy",
+      audio_stream_index: 0,
       parallel_processing: true,
       parallel_workers: 2,
       text_settings: {

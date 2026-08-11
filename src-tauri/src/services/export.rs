@@ -328,6 +328,7 @@ impl ExportService {
         }
 
         builder.set_audio_codec(&config.audio_codec);
+        builder.set_audio_stream_index(config.audio_stream_index);
         builder.encode(
             &temp_filepath_str,
             active_gpu,
@@ -446,6 +447,7 @@ impl ExportService {
                 }
 
                 retry_builder.set_audio_codec(&config.audio_codec);
+                retry_builder.set_audio_stream_index(config.audio_stream_index);
                 retry_builder.encode(
                     &temp_filepath_str,
                     false, // force CPU fallback

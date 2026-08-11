@@ -36,6 +36,7 @@ pub struct FFmpegBuilder {
     gpu_encoder: Option<String>,
     include_audio: bool,
     audio_codec: String,
+    audio_stream_index: usize,
     preset: String,
     crf: u32,
 }
@@ -67,6 +68,7 @@ impl FFmpegBuilder {
             gpu_encoder: None,
             include_audio: true,
             audio_codec: "copy".to_string(),
+            audio_stream_index: 0,
             preset: "fast".to_string(),
             crf: 22,
         }
@@ -202,6 +204,11 @@ impl FFmpegBuilder {
         if !codec.is_empty() {
             self.audio_codec = codec.to_string();
         }
+        self
+    }
+
+    pub fn set_audio_stream_index(&mut self, index: usize) -> &mut Self {
+        self.audio_stream_index = index;
         self
     }
 
@@ -575,7 +582,7 @@ impl FFmpegBuilder {
 
         if self.include_audio {
             filter_args.push("-map".to_string());
-            filter_args.push("0:a?".to_string());
+            filter_args.push(format!("0:a:{}?", self.audio_stream_index));
         }
 
         filter_args

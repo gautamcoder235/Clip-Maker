@@ -7,6 +7,16 @@ use crate::errors::{AppResult, AppError};
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioStreamInfo {
+    pub index: usize,
+    pub stream_index: u32,
+    pub codec_name: String,
+    pub channels: u32,
+    pub language: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VideoMetadata {
     pub duration: f64,
     pub width: u32,
@@ -14,6 +24,8 @@ pub struct VideoMetadata {
     pub aspect_ratio: String,
     pub fps: f64,
     pub has_audio: bool,
+    #[serde(default)]
+    pub audio_streams: Vec<AudioStreamInfo>,
     pub format_name: String,
     pub size_bytes: u64,
 }
@@ -38,7 +50,7 @@ impl VideoProbe {
 
         cmd.args([
             "-v", "error",
-            "-show_entries", "format=duration,size,format_name:stream=width,height,codec_type,r_frame_rate",
+            "-show_entries", "format=duration,size,format_name:stream=index,width,height,codec_type,codec_name,r_frame_rate,channels:stream_tags=language,title",
             "-of", "json",
             video_path,
         ]);
@@ -71,6 +83,8 @@ impl VideoProbe {
         let mut height = 0;
         let mut fps = 24.0;
         let mut has_audio = false;
+        let mut audio_streams = Vec::new();
+        let mut audio_idx = 0;
 
         if let Some(streams) = parsed["streams"].as_array() {
             for stream in streams {
@@ -91,6 +105,27 @@ impl VideoProbe {
                     }
                 } else if codec_type == "audio" {
                     has_audio = true;
+                    let abs_index = stream["index"].as_u64().unwrap_or(0) as u32;
+                    let codec_name = stream["codec_name"].as_str().unwrap_or("audio").to_string();
+                    let channels = stream["channels"].as_u64().unwrap_or(2) as u32;
+                    let language = stream["tags"]["language"]
+                        .as_str()
+                        .unwrap_or("und")
+                        .to_string();
+                    let title = stream["tags"]["title"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_string();
+
+                    audio_streams.push(AudioStreamInfo {
+                        index: audio_idx,
+                        stream_index: abs_index,
+                        codec_name,
+                        channels,
+                        language,
+                        title,
+                    });
+                    audio_idx += 1;
                 }
             }
         }
@@ -108,6 +143,7 @@ impl VideoProbe {
             aspect_ratio,
             fps,
             has_audio,
+            audio_streams,
             format_name,
             size_bytes,
         })

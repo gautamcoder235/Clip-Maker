@@ -33,6 +33,8 @@ pub struct ProjectData {
     pub include_audio: bool,
     #[serde(default = "default_audio_codec")]
     pub audio_codec: String,
+    #[serde(default)]
+    pub audio_stream_index: usize,
     pub parallel_processing: bool,
     pub parallel_workers: u32,
     pub text_settings: TextSettings,
@@ -78,6 +80,7 @@ impl Default for ProjectData {
             media_overlays: default_config.media_overlays,
             include_audio: default_config.include_audio,
             audio_codec: default_config.audio_codec,
+            audio_stream_index: default_config.audio_stream_index,
             parallel_processing: default_config.parallel_processing,
             parallel_workers: default_config.parallel_workers,
             text_settings: default_config.text_settings,

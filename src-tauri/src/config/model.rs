@@ -157,6 +157,8 @@ pub struct AssetSettings {
     pub overlay_order: Option<Vec<String>>,
     #[serde(default)]
     pub audio_codec: Option<String>,
+    #[serde(default)]
+    pub audio_stream_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +196,8 @@ pub struct AppConfig {
     pub include_audio: bool,
     #[serde(default = "default_audio_codec")]
     pub audio_codec: String,
+    #[serde(default)]
+    pub audio_stream_index: usize,
     pub parallel_processing: bool,
     pub parallel_workers: u32,
     pub text_settings: TextSettings,
@@ -269,6 +273,7 @@ impl Default for AppConfig {
             overlay_order: Some(vec!["text".to_string()]),
             include_audio: true,
             audio_codec: "copy".to_string(),
+            audio_stream_index: 0,
             parallel_processing: false,
             parallel_workers: 2,
             text_settings: TextSettings {
