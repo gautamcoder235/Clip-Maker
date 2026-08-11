@@ -1570,6 +1570,14 @@ select:focus {
   transition: transform 0.15s ease, box-shadow 0.1s ease;
 }
 
+/* Force GPU-composited layer for video to prevent quality flickering on hover/repaint */
+.preview-video-element {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  image-rendering: auto;
+}
+
 #canvas-viewport:empty {
   display: flex;
   flex-direction: column;
