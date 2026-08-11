@@ -51,7 +51,11 @@ pub struct TextSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextPreset {
+    #[serde(default)]
+    pub id: Option<String>,
     pub name: String,
+    #[serde(default)]
+    pub template_text: Option<String>,
     pub font_size: u32,
     pub font_color: String,
     pub font_family: String,

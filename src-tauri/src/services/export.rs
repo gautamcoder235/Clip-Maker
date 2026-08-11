@@ -244,18 +244,46 @@ impl ExportService {
         for id in &normalized_order {
             if id == "text" {
                 if config.text_settings.enabled {
-                    let font_path = resolve_font_path(&config.text_settings.font_family, config.text_settings.font_weight);
-                    builder.overlay_text(
-                        &template_text,
-                        config.text_settings.font_size,
-                        &config.text_settings.font_color,
-                        font_path.as_deref(),
-                        &config.text_settings.x_position,
-                        &config.text_settings.y_position,
-                        config.text_settings.outline,
-                        config.text_settings.letter_spacing,
-                        config.text_settings.font_weight,
-                    );
+                    let is_cycle = config.text_preset_mode.eq_ignore_ascii_case("Cycle") && !config.text_presets.is_empty();
+                    
+                    if is_cycle {
+                        let clip_idx_usize = (clip_index.saturating_sub(1)) as usize;
+                        let preset_idx = clip_idx_usize % config.text_presets.len();
+                        let active_preset = &config.text_presets[preset_idx];
+                        
+                        let active_text = match active_preset.template_text {
+                            Some(ref tpl) if !tpl.trim().is_empty() => {
+                                tpl.replace("{part}", &clip_index.to_string()).trim().to_string()
+                            }
+                            _ => template_text.clone(),
+                        };
+                        
+                        let font_path = resolve_font_path(&active_preset.font_family, active_preset.font_weight);
+                        builder.overlay_text(
+                            &active_text,
+                            active_preset.font_size,
+                            &active_preset.font_color,
+                            font_path.as_deref(),
+                            &active_preset.x_position,
+                            &active_preset.y_position,
+                            active_preset.outline,
+                            active_preset.letter_spacing,
+                            active_preset.font_weight,
+                        );
+                    } else {
+                        let font_path = resolve_font_path(&config.text_settings.font_family, config.text_settings.font_weight);
+                        builder.overlay_text(
+                            &template_text,
+                            config.text_settings.font_size,
+                            &config.text_settings.font_color,
+                            font_path.as_deref(),
+                            &config.text_settings.x_position,
+                            &config.text_settings.y_position,
+                            config.text_settings.outline,
+                            config.text_settings.letter_spacing,
+                            config.text_settings.font_weight,
+                        );
+                    }
                 }
             } else if id.starts_with("extra-") {
                 if let Ok(idx) = id.replace("extra-", "").parse::<usize>() {

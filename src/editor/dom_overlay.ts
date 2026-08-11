@@ -177,12 +177,40 @@ export class DOMOverlay {
       let textX = 10;
       let textY = 10;
       const partNum = project.selected_clip_index || 1;
-      const rawTemplate = project.text_template || "PART {part}";
+
+      let rawTemplate = project.text_template || "PART {part}";
+      let txtFS = project.text_settings.font_size || 120;
+      let txtFontColor = project.text_settings.font_color || "#ffffff";
+      let txtFontFamily = project.text_settings.font_family || "Arial";
+      let txtFontWeight = project.text_settings.font_weight || 400;
+      let txtLetterSpacing = project.text_settings.letter_spacing || 0;
+      let txtOutline = project.text_settings.outline ?? true;
+      let posX = (project.text_settings.x_position || "").trim();
+      let posY = (project.text_settings.y_position || "").trim();
+
+      const isCycle = (project.text_preset_mode === "Cycle") && (project.text_presets && project.text_presets.length > 0);
+      if (isCycle) {
+        const clipIdx = (project.selected_clip_index || 1) - 1;
+        const presetIdx = clipIdx % project.text_presets.length;
+        const preset = project.text_presets[presetIdx];
+        if (preset) {
+          txtFS = preset.font_size;
+          txtFontColor = preset.font_color;
+          txtFontFamily = preset.font_family;
+          txtFontWeight = preset.font_weight || 400;
+          txtLetterSpacing = preset.letter_spacing || 0;
+          txtOutline = preset.outline;
+          if (preset.template_text && preset.template_text.trim()) {
+            rawTemplate = preset.template_text;
+          }
+          if (preset.x_position) posX = preset.x_position.trim();
+          if (preset.y_position) posY = preset.y_position.trim();
+        }
+      }
+
       let txtVal = rawTemplate.replace(/{part}/g, partNum.toString()).trim();
-      txtVal = this.applyLetterSpacing(txtVal, project.text_settings.letter_spacing || 0);
-      const txtFS = project.text_settings.font_size || 120;
-      const txtFontFamily = project.text_settings.font_family || "Arial";
-      const txtFontWeight = project.text_settings.font_weight || 400;
+      txtVal = this.applyLetterSpacing(txtVal, txtLetterSpacing);
+
       // Measure at the actual rendered pixel size to avoid font hinting discrepancies
       const scaledFS = txtFS * scale;
       const txtMetrics = this.measureText(txtVal, scaledFS, txtFontFamily, txtFontWeight);
@@ -190,23 +218,32 @@ export class DOMOverlay {
       const boxW = txtMetrics.width;
       const boxH = txtMetrics.height;
 
-      const posX = (project.text_settings.x_position || "").trim();
-      if (posX === "(w-text_w)/2" || posX === "(main_w-text_w)/2" || posX === "center") {
-        textX = (canvasW - boxW) / 2;
-      } else {
-        const pX = parseFloat(posX);
-        textX = !isNaN(pX) ? pX * scale : 10;
-      }
+      textX = this.evaluatePosFormula(posX, canvasW, boxW, scale, (canvasW - boxW) / 2);
+      textY = this.evaluatePosFormula(posY, canvasH, boxH, scale, (canvasH - boxH) / 2);
 
-      const posY = (project.text_settings.y_position || "").trim();
-      if (posY === "(h-text_h)/2" || posY === "(main_h-text_h)/2" || posY === "center" || posY === "middle") {
-        textY = (canvasH - boxH) / 2;
-      } else {
-        const pY = parseFloat(posY);
-        textY = !isNaN(pY) ? pY * scale : 10;
-      }
+      const origFS = project.text_settings.font_size;
+      const origFC = project.text_settings.font_color;
+      const origFF = project.text_settings.font_family;
+      const origFW = project.text_settings.font_weight;
+      const origLS = project.text_settings.letter_spacing;
+      const origOL = project.text_settings.outline;
+
+      project.text_settings.font_size = txtFS;
+      project.text_settings.font_color = txtFontColor;
+      project.text_settings.font_family = txtFontFamily;
+      project.text_settings.font_weight = txtFontWeight;
+      project.text_settings.letter_spacing = txtLetterSpacing;
+      project.text_settings.outline = txtOutline;
 
       this.textBox = this.createInteractiveBox("text", textX, textY, boxW, boxH, scale, txtVal);
+
+      project.text_settings.font_size = origFS;
+      project.text_settings.font_color = origFC;
+      project.text_settings.font_family = origFF;
+      project.text_settings.font_weight = origFW;
+      project.text_settings.letter_spacing = origLS;
+      project.text_settings.outline = origOL;
+
       this.overlayContainer.appendChild(this.textBox);
     }
 
@@ -225,23 +262,10 @@ export class DOMOverlay {
         const extraBoxW = extraMetrics.width;
         const extraBoxH = extraMetrics.height;
 
-        let x = 20;
-        let y = 20;
         const exPosX = (overlay.x_position || "").trim();
-        if (exPosX === "(w-text_w)/2" || exPosX === "(main_w-text_w)/2" || exPosX === "center") {
-          x = (canvasW - extraBoxW) / 2;
-        } else {
-          const pExX = parseFloat(exPosX);
-          x = !isNaN(pExX) ? pExX * scale : 20;
-        }
-
         const exPosY = (overlay.y_position || "").trim();
-        if (exPosY === "(h-text_h)/2" || exPosY === "(main_h-text_h)/2" || exPosY === "center" || exPosY === "middle") {
-          y = (canvasH - extraBoxH) / 2;
-        } else {
-          const pExY = parseFloat(exPosY);
-          y = !isNaN(pExY) ? pExY * scale : 20;
-        }
+        const x = this.evaluatePosFormula(exPosX, canvasW, extraBoxW, scale, 20);
+        const y = this.evaluatePosFormula(exPosY, canvasH, extraBoxH, scale, 20);
 
         const box = this.createInteractiveBox(`extra-${idx}`, x, y, extraBoxW, extraBoxH, scale, extraTxt);
         this.overlayContainer.appendChild(box);
@@ -1358,6 +1382,40 @@ export class DOMOverlay {
       this.onFocusChangeCallback(this.focusedElement);
     }
     this.onLayoutChangeCallback();
+  }
+
+  private evaluatePosFormula(posStr: string, canvasDim: number, boxDim: number, scale: number, defaultPos: number): number {
+    const str = (posStr || "").trim().toLowerCase();
+    if (!str) return defaultPos;
+
+    // Center / Middle
+    if (str === "(w-text_w)/2" || str === "(main_w-text_w)/2" || str === "(h-text_h)/2" || str === "(main_h-text_h)/2" || str === "center" || str === "middle") {
+      return (canvasDim - boxDim) / 2;
+    }
+
+    // Top keyword
+    if (str === "top") {
+      return 100 * scale;
+    }
+
+    // Bottom keyword or FFmpeg bottom formula (main_h-text_h-100), (h-text_h-150), etc.
+    if (str === "bottom") {
+      return Math.max(0, canvasDim - boxDim - 100 * scale);
+    }
+
+    if (str.includes("h-text_h") || str.includes("main_h-text_h") || str.includes("w-text_w") || str.includes("main_w-text_w")) {
+      const match = str.match(/[-+]\s*(\d+)/);
+      const offset = match ? parseInt(match[1]) : 100;
+      return Math.max(0, canvasDim - boxDim - offset * scale);
+    }
+
+    // Direct numeric value e.g. "150" or "450"
+    const p = parseFloat(str);
+    if (!isNaN(p)) {
+      return p * scale;
+    }
+
+    return defaultPos;
   }
 
   getNaturalRatio(type: string): number | null {

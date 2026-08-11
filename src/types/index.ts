@@ -36,7 +36,9 @@ export interface TextSettings {
 }
 
 export interface TextPreset {
+  id?: string;
   name: string;
+  template_text?: string;
   font_size: number;
   font_color: string;
   font_family: string;

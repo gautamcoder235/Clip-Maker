@@ -4,7 +4,7 @@ import { CanvasRenderer } from "./editor/canvas";
 import { DOMOverlay } from "./editor/dom_overlay";
 import { CanvasContextMenu } from "./editor/context_menu";
 import { TauriService } from "./services/tauri";
-import { AppConfig, ImportedAsset, RenderJob, ProjectData, SystemFont } from "./types";
+import { AppConfig, ImportedAsset, RenderJob, ProjectData, SystemFont, TextPreset } from "./types";
 import { SecurityManager } from "./services/security_manager";
 import { ScrubbableInputManager } from "./utils/scrubbable_inputs";
 import { initAllCustomSelects } from "./utils/custom_select";
@@ -20,8 +20,8 @@ let domOverlayContainer: HTMLDivElement;
 
 // Toolbar buttons
 let btnNewProject: HTMLButtonElement;
-let btnOpenProject: HTMLButtonElement;
-let btnSaveProject: HTMLButtonElement;
+let btnOpenProject: HTMLButtonElement | null;
+let btnSaveProject: HTMLButtonElement | null;
 let btnUndo: HTMLButtonElement;
 let btnRedo: HTMLButtonElement;
 let btnClearCache: HTMLButtonElement;
@@ -108,6 +108,30 @@ let btnAddExtra: HTMLButtonElement;
 
 
 let btnRemoveExtra: HTMLButtonElement;
+
+// Left Panel Presets Library
+let leftTabAssets: HTMLButtonElement;
+let leftTabPresets: HTMLButtonElement;
+let leftPaneAssets: HTMLDivElement;
+let leftPanePresets: HTMLDivElement;
+let btnExportPresetAppData: HTMLButtonElement;
+let btnImportPresetFile: HTMLButtonElement;
+let presetLibraryList: HTMLDivElement;
+let savePresetModal: HTMLDivElement;
+let inputPresetName: HTMLInputElement;
+let btnCloseSavePresetModal: HTMLButtonElement;
+let btnCancelSavePreset: HTMLButtonElement;
+let btnConfirmSavePreset: HTMLButtonElement;
+
+// Relink Media Modal Elements
+let relinkMediaModal: HTMLDivElement;
+let relinkMissingPath: HTMLSpanElement;
+let relinkNewPathInput: HTMLInputElement;
+let btnBrowseRelocateFile: HTMLButtonElement;
+let btnCloseRelinkModal: HTMLButtonElement;
+let btnCancelRelinkModal: HTMLButtonElement;
+let btnConfirmRelinkModal: HTMLButtonElement;
+let activeRelinkPreset: TextPreset | null = null;
 
 // Media Overlays
 let listMediaOverlays: HTMLSelectElement;
@@ -390,8 +414,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   domOverlayContainer = document.querySelector("#dom-overlay-container")!;
 
   btnNewProject = document.querySelector("#btn-new-project")!;
-  btnOpenProject = document.querySelector("#btn-open-project")!;
-  btnSaveProject = document.querySelector("#btn-save-project")!;
+  btnOpenProject = document.querySelector("#btn-open-project");
+  btnSaveProject = document.querySelector("#btn-save-project");
   btnUndo = document.querySelector("#btn-undo")!;
   btnRedo = document.querySelector("#btn-redo")!;
   btnClearCache = document.querySelector("#btn-clear-cache")!;
@@ -502,6 +526,27 @@ window.addEventListener("DOMContentLoaded", async () => {
   propParallel = document.querySelector("#prop-parallel")!;
   propWorkers = document.querySelector("#prop-workers")!;
 
+
+  leftTabAssets = document.querySelector("#left-tab-assets")!;
+  leftTabPresets = document.querySelector("#left-tab-presets")!;
+  leftPaneAssets = document.querySelector("#left-pane-assets")!;
+  leftPanePresets = document.querySelector("#left-pane-presets")!;
+  btnExportPresetAppData = document.querySelector("#btn-export-preset-appdata")!;
+  btnImportPresetFile = document.querySelector("#btn-import-preset-file")!;
+  presetLibraryList = document.querySelector("#preset-library-list")!;
+  savePresetModal = document.querySelector("#save-preset-modal")!;
+  inputPresetName = document.querySelector("#input-preset-name")!;
+  btnCloseSavePresetModal = document.querySelector("#btn-close-save-preset-modal")!;
+  btnCancelSavePreset = document.querySelector("#btn-cancel-save-preset")!;
+  btnConfirmSavePreset = document.querySelector("#btn-confirm-save-preset")!;
+
+  relinkMediaModal = document.querySelector("#relink-media-modal")!;
+  relinkMissingPath = document.querySelector("#relink-missing-path")!;
+  relinkNewPathInput = document.querySelector("#relink-new-path-input")!;
+  btnBrowseRelocateFile = document.querySelector("#btn-browse-relocate-file")!;
+  btnCloseRelinkModal = document.querySelector("#btn-close-relink-modal")!;
+  btnCancelRelinkModal = document.querySelector("#btn-cancel-relink-modal")!;
+  btnConfirmRelinkModal = document.querySelector("#btn-confirm-relink-modal")!;
 
   txtQueueStatus = document.querySelector("#txt-queue-status")!;
   selectTheme = document.querySelector("#select-theme")!;
@@ -624,6 +669,192 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Transform all default HTML <select> dropdowns into custom dark-themed controls
   initAllCustomSelects();
 
+  // Initialize universal dark glassmorphism tooltip engine
+  initCustomTooltipEngine();
+
+  // Left Panel Tab Switching with Elastic Spring Pill & Directional Carousel Blur Animation
+  if (leftTabAssets && leftTabPresets && leftPaneAssets && leftPanePresets) {
+    const leftTabIndicator = document.querySelector("#left-tab-indicator") as HTMLElement | null;
+
+    const switchTab = (toPresets: boolean) => {
+      if (toPresets) {
+        leftTabAssets.classList.remove("active");
+        leftTabPresets.classList.add("active");
+        if (leftTabIndicator) leftTabIndicator.style.transform = "translateX(100%)";
+
+        leftPaneAssets.classList.remove("active");
+        leftPaneAssets.classList.add("pane-exit-left");
+        leftPaneAssets.classList.remove("pane-exit-right");
+
+        leftPanePresets.classList.add("active");
+        leftPanePresets.classList.remove("pane-exit-left");
+        leftPanePresets.classList.remove("pane-exit-right");
+
+        loadGlobalPresetsFromAppData();
+      } else {
+        leftTabPresets.classList.remove("active");
+        leftTabAssets.classList.add("active");
+        if (leftTabIndicator) leftTabIndicator.style.transform = "translateX(0%)";
+
+        leftPanePresets.classList.remove("active");
+        leftPanePresets.classList.add("pane-exit-right");
+        leftPanePresets.classList.remove("pane-exit-left");
+
+        leftPaneAssets.classList.add("active");
+        leftPaneAssets.classList.remove("pane-exit-left");
+        leftPaneAssets.classList.remove("pane-exit-right");
+      }
+    };
+
+    leftTabAssets.addEventListener("click", () => switchTab(false));
+    leftTabPresets.addEventListener("click", () => switchTab(true));
+  }
+
+  // Custom Modal for Saving Global Presets
+  const openSavePresetModal = () => {
+    if (savePresetModal && inputPresetName) {
+      inputPresetName.value = `Preset ${Date.now().toString().slice(-4)}`;
+      savePresetModal.style.display = "flex";
+      setTimeout(() => inputPresetName.focus(), 50);
+    }
+  };
+
+  const closeSavePresetModal = () => {
+    if (savePresetModal) savePresetModal.style.display = "none";
+  };
+
+  if (btnExportPresetAppData) {
+    btnExportPresetAppData.addEventListener("click", openSavePresetModal);
+  }
+
+  if (btnCloseSavePresetModal) btnCloseSavePresetModal.addEventListener("click", closeSavePresetModal);
+  if (btnCancelSavePreset) btnCancelSavePreset.addEventListener("click", closeSavePresetModal);
+
+  if (savePresetModal) {
+    savePresetModal.addEventListener("click", (e) => {
+      if (e.target === savePresetModal) closeSavePresetModal();
+    });
+  }
+
+  const executeSavePreset = async () => {
+    const presetName = inputPresetName?.value.trim();
+    if (!presetName) {
+      showToast("Please enter a valid preset name!", "warning");
+      return;
+    }
+
+    const textSettings = stateManager.project.text_settings;
+    const newPreset: TextPreset = {
+      name: presetName,
+      template_text: propTextTemplate?.value || "PART {part}",
+      font_size: parseInt(propFontSize.value) || 120,
+      font_color: propFontColor.value || "#ffffff",
+      font_family: propFontFamily.value || "Segoe UI",
+      placement: textSettings?.placement || "Custom",
+      x_position: textSettings?.x_position || "100",
+      y_position: textSettings?.y_position || "100",
+      outline: propTextOutline.checked,
+      letter_spacing: parseInt(propLetterSpacing?.value || "0"),
+      font_weight: parseInt(propFontWeight?.value || "400"),
+    };
+
+    try {
+      const saved = await invoke<TextPreset>("save_app_data_preset", { preset: newPreset });
+      showToast(`Exported preset "${saved.name}" to App Data`, "success");
+      closeSavePresetModal();
+      loadGlobalPresetsFromAppData();
+    } catch (err) {
+      showToast(`Failed to export preset: ${err}`, "error");
+    }
+  };
+
+  if (btnConfirmSavePreset) btnConfirmSavePreset.addEventListener("click", executeSavePreset);
+
+  if (inputPresetName) {
+    inputPresetName.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        executeSavePreset();
+      } else if (e.key === "Escape") {
+        closeSavePresetModal();
+      }
+    });
+  }
+
+  // Open/Import Preset File from System Disk
+  if (btnImportPresetFile) {
+    btnImportPresetFile.addEventListener("click", async () => {
+      try {
+        const filePath = await invoke<string>("select_preset_file");
+        if (!filePath || filePath.trim() === "") return;
+
+        const response = await fetch(convertFileSrc(filePath));
+        const content = await response.text();
+        const presetObj = JSON.parse(content) as TextPreset;
+
+        if (!presetObj.name || !presetObj.font_size || !presetObj.font_color) {
+          throw new Error("Invalid preset file format!");
+        }
+
+        const saved = await invoke<TextPreset>("save_app_data_preset", { preset: presetObj });
+        showToast(`Imported preset "${saved.name}" into App Data library`, "success");
+        loadGlobalPresetsFromAppData();
+      } catch (err) {
+        showToast(`Failed to import preset file: ${err}`, "error");
+      }
+    });
+  }
+
+  // Relink Media Modal Handlers (Premiere Pro Style)
+  if (btnCloseRelinkModal) btnCloseRelinkModal.addEventListener("click", closeRelinkModal);
+  if (btnCancelRelinkModal) btnCancelRelinkModal.addEventListener("click", closeRelinkModal);
+
+  if (btnBrowseRelocateFile) {
+    btnBrowseRelocateFile.addEventListener("click", async () => {
+      try {
+        const path = await invoke<string>("select_relocate_file");
+        if (path && path.trim() !== "" && relinkNewPathInput) {
+          relinkNewPathInput.value = path;
+        }
+      } catch (err) {
+        showToast(`Locate file error: ${err}`, "error");
+      }
+    });
+  }
+
+  if (btnConfirmRelinkModal) {
+    btnConfirmRelinkModal.addEventListener("click", async () => {
+      if (!activeRelinkPreset) return;
+      const newPath = relinkNewPathInput?.value.trim();
+      if (!newPath) {
+        showToast("Please enter or select a valid relocated file path!", "warning");
+        return;
+      }
+
+      try {
+        const exists = await invoke<boolean>("check_file_exists", { filePath: newPath });
+        if (!exists) {
+          showToast("Specified file does not exist on disk!", "error");
+          return;
+        }
+
+        const updatedPreset: TextPreset = {
+          ...activeRelinkPreset,
+        };
+
+        await invoke("save_app_data_preset", { preset: updatedPreset });
+        showToast(`Relinked file for "${updatedPreset.name}" successfully!`, "success");
+        closeRelinkModal();
+        loadGlobalPresetsFromAppData();
+      } catch (err) {
+        showToast(`Relink failed: ${err}`, "error");
+      }
+    });
+  }
+
+  // Load App Data global presets at startup
+  loadGlobalPresetsFromAppData();
+
 
   // User Manual Setup
   const userManualModal = document.getElementById("user-manual-modal")!;
@@ -699,8 +930,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   btnRedo.addEventListener("click", () => stateManager.history.redo());
 
   btnNewProject.addEventListener("click", triggerNewProject);
-  btnOpenProject.addEventListener("click", triggerOpenProject);
-  btnSaveProject.addEventListener("click", triggerSaveProject);
+  if (btnOpenProject) btnOpenProject.addEventListener("click", triggerOpenProject);
+  if (btnSaveProject) btnSaveProject.addEventListener("click", triggerSaveProject);
 
   (window as any).triggerNewProject = triggerNewProject;
   (window as any).triggerOpenProject = triggerOpenProject;
@@ -904,6 +1135,21 @@ function syncPlacementUI() {
   }
 }
 
+function updateBgControlsVisibility() {
+  const mode = propBgMode?.value || "color";
+  const groupBgColor = document.getElementById("group-bg-color");
+  const groupBgImage = document.getElementById("group-bg-image");
+
+  if (mode === "image") {
+    if (groupBgColor) groupBgColor.style.display = "none";
+    if (groupBgImage) groupBgImage.style.display = "flex";
+  } else {
+    // "color" or default
+    if (groupBgColor) groupBgColor.style.display = "flex";
+    if (groupBgImage) groupBgImage.style.display = "none";
+  }
+}
+
 function syncConfigToUi() {
   const proj = stateManager.project;
   
@@ -957,6 +1203,7 @@ function syncConfigToUi() {
     propBgMode.value = proj.background.mode || "color";
     propBgColor.value = proj.background.color || "#000000";
   }
+  updateBgControlsVisibility();
 
   // Sync Lists
   syncExtraOverlaysList();
@@ -1592,6 +1839,7 @@ function bindInputFields() {
   propBgMode.addEventListener("change", () => {
     const bg = { ...stateManager.project.background, mode: propBgMode.value };
     stateManager.updateProjectField("background", bg);
+    updateBgControlsVisibility();
     refreshViewport();
   });
   propBgColor.addEventListener("change", () => {
@@ -1606,6 +1854,7 @@ function bindInputFields() {
       const bg = { ...stateManager.project.background, mode: "image", image_path: path };
       stateManager.updateProjectField("background", bg);
       if (propBgMode) propBgMode.value = "image";
+      updateBgControlsVisibility();
       showToast(`Background image set to: ${path.split(/[/\\]/).pop()}`, "success");
       refreshViewport();
     } catch (err) {
@@ -2821,16 +3070,32 @@ async function clearCacheDir() {
 }
 
 function switchBottomTab(tab: "clips" | "render") {
+  const bottomTabIndicator = document.querySelector("#bottom-tab-indicator") as HTMLElement | null;
+
   if (tab === "clips") {
-    tabClipQueue.className = "tab-btn active";
-    tabRenderQueue.className = "tab-btn";
-    paneClipQueue.style.display = "block";
-    paneRenderQueue.style.display = "none";
+    tabClipQueue.classList.add("active");
+    tabRenderQueue.classList.remove("active");
+    if (bottomTabIndicator) bottomTabIndicator.style.transform = "translateX(0%)";
+
+    paneRenderQueue.classList.remove("active");
+    paneRenderQueue.classList.add("pane-exit-right");
+    paneRenderQueue.classList.remove("pane-exit-left");
+
+    paneClipQueue.classList.add("active");
+    paneClipQueue.classList.remove("pane-exit-left");
+    paneClipQueue.classList.remove("pane-exit-right");
   } else {
-    tabClipQueue.className = "tab-btn";
-    tabRenderQueue.className = "tab-btn active";
-    paneClipQueue.style.display = "none";
-    paneRenderQueue.style.display = "block";
+    tabRenderQueue.classList.add("active");
+    tabClipQueue.classList.remove("active");
+    if (bottomTabIndicator) bottomTabIndicator.style.transform = "translateX(100%)";
+
+    paneClipQueue.classList.remove("active");
+    paneClipQueue.classList.add("pane-exit-left");
+    paneClipQueue.classList.remove("pane-exit-right");
+
+    paneRenderQueue.classList.add("active");
+    paneRenderQueue.classList.remove("pane-exit-left");
+    paneRenderQueue.classList.remove("pane-exit-right");
   }
 }
 
@@ -2952,9 +3217,9 @@ function setupCommandPalette() {
       { name: "Command: Redo Undone Change (Ctrl+Y)", action: () => stateManager.history.redo() },
       { name: "Command: Import Video File", action: triggerImport },
       { name: "Command: Clear Cache Directory", action: clearCacheDir },
-      { name: "Command: Preview Draft Clip (▶)", action: generateAndShowPreview },
+      { name: "Command: Preview Draft Clip", action: generateAndShowPreview },
       { name: "Command: Batch Export Queue", action: startBatchExport },
-      { name: "Command: Export All Clips as ZIP Package (📦)", action: () => {
+      { name: "Command: Export All Clips as ZIP Package", action: () => {
           if (btnExportZip) btnExportZip.click();
       }},
       { name: "Command: Switch to Clips Timeline", action: () => switchBottomTab("clips") },
@@ -3132,7 +3397,8 @@ function formatDuration(seconds: number): string {
 }
 
 function showToast(message: string, type: "success" | "warning" | "error" = "success") {
-  const tray = document.querySelector("#notification-tray")!;
+  const tray = document.querySelector("#notification-tray");
+  if (!tray) return;
   
   // Enforce a maximum of 4 messages by removing the oldest toast first
   while (tray.children.length >= 4) {
@@ -3141,12 +3407,137 @@ function showToast(message: string, type: "success" | "warning" | "error" = "suc
 
   const toast = document.createElement("div");
   toast.className = `notification-toast ${type}`;
-  toast.innerText = message;
+
+  let iconSvg = "";
+  if (type === "success") {
+    iconSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  } else if (type === "warning") {
+    iconSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+  } else {
+    iconSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  }
+
+  toast.innerHTML = `
+    <div class="toast-icon-badge">${iconSvg}</div>
+    <span class="toast-message">${message}</span>
+    <button class="toast-close-btn" title="Dismiss">✕</button>
+  `;
+
+  const closeBtn = toast.querySelector(".toast-close-btn") as HTMLButtonElement;
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      toast.style.animation = "toastFadeOut 0.2s ease forwards";
+      setTimeout(() => toast.remove(), 200);
+    });
+  }
+
   tray.appendChild(toast);
 
   setTimeout(() => {
-    toast.remove();
+    if (toast.parentNode) {
+      toast.style.animation = "toastFadeOut 0.2s ease forwards";
+      setTimeout(() => toast.remove(), 200);
+    }
   }, 4000);
+}
+
+function initCustomTooltipEngine() {
+  const tooltipEl = document.querySelector("#custom-tooltip") as HTMLElement | null;
+  if (!tooltipEl) return;
+
+  let currentTarget: HTMLElement | null = null;
+
+  const showTooltipFor = (target: HTMLElement) => {
+    let tooltipText = target.getAttribute("data-tooltip");
+
+    // Convert native title attribute to data-tooltip to prevent native OS tooltips
+    if (!tooltipText && target.hasAttribute("title")) {
+      tooltipText = target.getAttribute("title") || "";
+      if (tooltipText) {
+        target.setAttribute("data-tooltip", tooltipText);
+        target.removeAttribute("title");
+      }
+    }
+
+    if (!tooltipText || tooltipText.trim() === "") {
+      hideTooltip();
+      return;
+    }
+
+    currentTarget = target;
+
+    // Format (Shortcut) into <kbd>Badge</kbd>
+    const formattedText = tooltipText.replace(
+      /\((Ctrl\+[A-Za-z0-9]+|Shift\+[A-Za-z0-9]+|Alt\+[A-Za-z0-9]+)\)/g,
+      '<kbd>$1</kbd>'
+    );
+
+    tooltipEl.innerHTML = formattedText;
+    tooltipEl.style.display = "flex";
+
+    const targetRect = target.getBoundingClientRect();
+    const tooltipRect = tooltipEl.getBoundingClientRect();
+
+    let left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+    let top = targetRect.top - tooltipRect.height - 8;
+    let isTop = true;
+
+    // Flip to bottom if clipping window top
+    if (top < 6) {
+      top = targetRect.bottom + 8;
+      isTop = false;
+    }
+
+    // Clamp left boundary to avoid clipping off-screen
+    if (left < 8) left = 8;
+    if (left + tooltipRect.width > window.innerWidth - 8) {
+      left = window.innerWidth - tooltipRect.width - 8;
+    }
+
+    // Calculate caret pointer position pointing directly to target center
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const caretX = Math.max(10, Math.min(tooltipRect.width - 10, targetCenterX - left));
+
+    tooltipEl.style.setProperty("--caret-x", `${caretX}px`);
+
+    if (isTop) {
+      tooltipEl.classList.add("pos-top");
+      tooltipEl.classList.remove("pos-bottom");
+    } else {
+      tooltipEl.classList.add("pos-bottom");
+      tooltipEl.classList.remove("pos-top");
+    }
+
+    tooltipEl.style.left = `${left}px`;
+    tooltipEl.style.top = `${top}px`;
+    tooltipEl.classList.add("visible");
+  };
+
+  const hideTooltip = () => {
+    currentTarget = null;
+    tooltipEl.classList.remove("visible");
+  };
+
+  document.addEventListener("mouseover", (e) => {
+    const target = (e.target as HTMLElement).closest("[data-tooltip], [title]") as HTMLElement | null;
+    if (target) {
+      showTooltipFor(target);
+    } else {
+      hideTooltip();
+    }
+  });
+
+  document.addEventListener("mouseout", (e) => {
+    if (currentTarget) {
+      const related = e.relatedTarget as HTMLElement | null;
+      if (!related || !currentTarget.contains(related)) {
+        hideTooltip();
+      }
+    }
+  });
+
+  document.addEventListener("mousedown", () => hideTooltip());
+  window.addEventListener("scroll", () => hideTooltip(), true);
 }
 
 function showModal(options: {
@@ -4824,5 +5215,117 @@ async function triggerSaveProject() {
   } catch (err) {
     showToast(`Save failed: ${err}`, "error");
   }
+}
+
+async function loadGlobalPresetsFromAppData() {
+  try {
+    const presets = await invoke<TextPreset[]>("get_app_data_presets");
+    renderPresetLibraryCards(presets);
+  } catch (err) {
+    console.error("Failed to load presets from App Data:", err);
+  }
+}
+
+// Relink Media Modal Helpers (Premiere Pro Style)
+const openRelinkModal = (preset: TextPreset, missingPath: string) => {
+  activeRelinkPreset = preset;
+  if (relinkMissingPath) relinkMissingPath.textContent = missingPath;
+  if (relinkNewPathInput) relinkNewPathInput.value = "";
+  if (relinkMediaModal) relinkMediaModal.style.display = "flex";
+};
+
+const closeRelinkModal = () => {
+  activeRelinkPreset = null;
+  if (relinkMediaModal) relinkMediaModal.style.display = "none";
+};
+
+function renderPresetLibraryCards(presets: TextPreset[]) {
+  if (!presetLibraryList) return;
+  presetLibraryList.innerHTML = "";
+
+  if (presets.length === 0) {
+    presetLibraryList.innerHTML = `<div style="text-align: center; color: var(--text-secondary); font-size: 12px; font-style: italic; padding: 20px 10px;">No global presets saved in App Data.<br/>Configure text styling and click <strong>Save</strong> to export a preset to App Data.</div>`;
+    return;
+  }
+
+  presets.forEach(async (preset) => {
+    const card = document.createElement("div");
+    card.className = "preset-card";
+
+    // Check file paths if present
+    let isMissing = false;
+    let missingPath = "";
+
+    card.innerHTML = `
+      <div class="preset-card-header">
+        <span class="preset-card-title">
+          <span class="preset-card-color-dot" style="background-color: ${preset.font_color || '#ffffff'};"></span>
+          ${preset.name || "Untitled Preset"}
+        </span>
+        ${isMissing ? `<span class="missing-badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; border: 1px solid rgba(245, 158, 11, 0.4);">Missing File ⚠️</span>` : ''}
+      </div>
+      <div class="preset-card-details">
+        <span>${preset.font_family}</span>
+        <span>•</span>
+        <span>${preset.font_size}px</span>
+        <span>•</span>
+        <span>${preset.template_text || "PART {part}"}</span>
+      </div>
+      <div class="preset-card-actions">
+        <button class="preset-card-btn preset-card-btn-apply">Apply to Project</button>
+        ${isMissing ? `<button class="preset-card-btn preset-card-btn-relink" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4);">Relink 🔍</button>` : ''}
+        <button class="preset-card-btn preset-card-btn-delete">Delete</button>
+      </div>
+    `;
+
+    const applyBtn = card.querySelector(".preset-card-btn-apply") as HTMLButtonElement;
+    applyBtn.addEventListener("click", () => {
+      const textPresets = [...(stateManager.project.text_presets || [])];
+      textPresets.push(preset);
+      
+      stateManager.updateProjectBatch({
+        text_presets: textPresets,
+        text_template: preset.template_text || stateManager.project.text_template || "PART {part}",
+        text_settings: {
+          enabled: true,
+          font_size: preset.font_size,
+          font_color: preset.font_color,
+          font_family: preset.font_family,
+          placement: preset.placement || "Custom",
+          x_position: preset.x_position || "100",
+          y_position: preset.y_position || "100",
+          outline: preset.outline,
+          letter_spacing: preset.letter_spacing || 0,
+          font_weight: preset.font_weight || 400,
+        }
+      });
+
+      syncConfigToUi();
+      refreshViewport();
+      showToast(`Applied "${preset.name}" to project presets list`, "success");
+    });
+
+    const relinkBtn = card.querySelector(".preset-card-btn-relink") as HTMLButtonElement | null;
+    if (relinkBtn) {
+      relinkBtn.addEventListener("click", () => {
+        openRelinkModal(preset, missingPath);
+      });
+    }
+
+    const deleteBtn = card.querySelector(".preset-card-btn-delete") as HTMLButtonElement;
+    deleteBtn.addEventListener("click", async () => {
+      if (preset.id) {
+        try {
+          await invoke("delete_app_data_preset", { presetId: preset.id });
+          showToast(`Deleted "${preset.name}" from App Data`, "warning");
+          loadGlobalPresetsFromAppData();
+        } catch (err) {
+          showToast(`Failed to delete preset: ${err}`, "error");
+        }
+      }
+    });
+
+    presetLibraryList.appendChild(card);
+  });
 }
 

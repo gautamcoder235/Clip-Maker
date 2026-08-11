@@ -55,7 +55,13 @@ pub fn run() {
             commands::save_autosave,
             commands::load_autosave,
             commands::select_zip_file,
-            commands::export_clips_as_zip
+            commands::export_clips_as_zip,
+            commands::get_app_data_presets,
+            commands::save_app_data_preset,
+            commands::delete_app_data_preset,
+            commands::select_preset_file,
+            commands::check_file_exists,
+            commands::select_relocate_file
         ])
 
 

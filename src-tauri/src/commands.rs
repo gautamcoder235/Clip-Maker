@@ -22,6 +22,39 @@ pub async fn select_video_file() -> AppResult<String> {
 }
 
 #[tauri::command]
+pub async fn check_file_exists(file_path: String) -> AppResult<bool> {
+    if file_path.trim().is_empty() {
+        return Ok(true);
+    }
+    let path = std::path::Path::new(&file_path);
+    Ok(path.exists())
+}
+
+#[tauri::command]
+pub async fn select_relocate_file() -> AppResult<String> {
+    let file = rfd::FileDialog::new()
+        .add_filter("All Files", &["*"])
+        .pick_file();
+    
+    match file {
+        Some(path) => Ok(path.to_string_lossy().to_string()),
+        None => Ok("".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn select_preset_file() -> AppResult<String> {
+    let file = rfd::FileDialog::new()
+        .add_filter("Preset Files (*.json)", &["json"])
+        .pick_file();
+    
+    match file {
+        Some(path) => Ok(path.to_string_lossy().to_string()),
+        None => Ok("".to_string()),
+    }
+}
+
+#[tauri::command]
 pub async fn select_output_folder() -> AppResult<String> {
     let folder = rfd::FileDialog::new()
         .pick_folder();
@@ -384,6 +417,79 @@ pub async fn export_clips_as_zip(clip_paths: Vec<String>, zip_output_path: Strin
     zip_writer.finish()
         .map_err(|e| AppError::Config(format!("ZIP finalize error: {}", e)))?;
     Ok(zip_output_path)
+}
+
+use crate::config::model::TextPreset;
+
+#[tauri::command]
+pub async fn get_app_data_presets(app_handle: AppHandle) -> AppResult<Vec<TextPreset>> {
+    let app_dir = app_handle.path().app_data_dir()
+        .map_err(|e| crate::errors::AppError::Config(format!("Failed to get app data dir: {}", e)))?;
+    let presets_dir = app_dir.join("presets");
+
+    if !presets_dir.exists() {
+        std::fs::create_dir_all(&presets_dir)
+            .map_err(|e| crate::errors::AppError::Config(format!("Failed to create presets dir: {}", e)))?;
+        return Ok(Vec::new());
+    }
+
+    let mut presets = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&presets_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    if let Ok(preset) = serde_json::from_str::<TextPreset>(&content) {
+                        presets.push(preset);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(presets)
+}
+
+#[tauri::command]
+pub async fn save_app_data_preset(app_handle: AppHandle, mut preset: TextPreset) -> AppResult<TextPreset> {
+    let app_dir = app_handle.path().app_data_dir()
+        .map_err(|e| crate::errors::AppError::Config(format!("Failed to get app data dir: {}", e)))?;
+    let presets_dir = app_dir.join("presets");
+
+    if !presets_dir.exists() {
+        std::fs::create_dir_all(&presets_dir)
+            .map_err(|e| crate::errors::AppError::Config(format!("Failed to create presets dir: {}", e)))?;
+    }
+
+    let preset_id = preset.id.clone().unwrap_or_else(|| {
+        let safe_name = preset.name.to_lowercase().replace(" ", "_");
+        format!("preset_{}", safe_name)
+    });
+    preset.id = Some(preset_id.clone());
+
+    let file_path = presets_dir.join(format!("{}.json", preset_id));
+    let json_content = serde_json::to_string_pretty(&preset)
+        .map_err(|e| crate::errors::AppError::Config(format!("Failed to serialize preset: {}", e)))?;
+
+    std::fs::write(&file_path, json_content)
+        .map_err(|e| crate::errors::AppError::Config(format!("Failed to write preset file: {}", e)))?;
+
+    Ok(preset)
+}
+
+#[tauri::command]
+pub async fn delete_app_data_preset(app_handle: AppHandle, preset_id: String) -> AppResult<bool> {
+    let app_dir = app_handle.path().app_data_dir()
+        .map_err(|e| crate::errors::AppError::Config(format!("Failed to get app data dir: {}", e)))?;
+    let file_path = app_dir.join("presets").join(format!("{}.json", preset_id));
+
+    if file_path.exists() {
+        std::fs::remove_file(file_path)
+            .map_err(|e| crate::errors::AppError::Config(format!("Failed to delete preset: {}", e)))?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 
