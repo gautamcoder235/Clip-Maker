@@ -91,11 +91,7 @@ let propBgMode: HTMLSelectElement;
 let propBgColor: HTMLInputElement;
 let btnBrowseBgImage: HTMLButtonElement;
 
-// Text Presets
-let propPresetMode: HTMLSelectElement;
-let listTextPresets: HTMLSelectElement;
-let btnAddPreset: HTMLButtonElement;
-let btnRemovePreset: HTMLButtonElement;
+
 
 // Extra Overlays
 let listExtraOverlays: HTMLSelectElement;
@@ -462,10 +458,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   propBgColor = document.querySelector("#prop-bg-color")!;
   btnBrowseBgImage = document.querySelector("#btn-browse-bg-image")!;
 
-  propPresetMode = document.querySelector("#prop-preset-mode")!;
-  listTextPresets = document.querySelector("#list-text-presets")!;
-  btnAddPreset = document.querySelector("#btn-add-preset")!;
-  btnRemovePreset = document.querySelector("#btn-remove-preset")!;
 
   listExtraOverlays = document.querySelector("#list-extra-overlays")!;
   propExtraText = document.querySelector("#prop-extra-text")!;
@@ -966,13 +958,7 @@ function syncConfigToUi() {
     propBgColor.value = proj.background.color || "#000000";
   }
 
-  propPresetMode.value = proj.text_preset_mode || "Single";
-  propParallel.checked = proj.parallel_processing !== false;
-  propWorkers.value = (proj.parallel_workers || 2).toString();
-
-
   // Sync Lists
-  syncPresetsList();
   syncExtraOverlaysList();
   syncMediaOverlaysList();
   syncColorPreviewButtons();
@@ -994,20 +980,6 @@ function resetProjectSession() {
   canvasRenderer.clearVideo();
 }
 
-function syncPresetsList() {
-  const currentVal = listTextPresets.value;
-  listTextPresets.innerHTML = "";
-  const presets = stateManager.project.text_presets || [];
-  presets.forEach((preset, idx) => {
-    const opt = document.createElement("option");
-    opt.value = idx.toString();
-    opt.innerText = `${preset.name || `Preset ${idx + 1}`} (${preset.font_family}, ${preset.font_size}px)`;
-    listTextPresets.appendChild(opt);
-  });
-  if (currentVal && listTextPresets.querySelector(`option[value="${currentVal}"]`)) {
-    listTextPresets.value = currentVal;
-  }
-}
 
 function syncExtraOverlaysList() {
   const currentVal = listExtraOverlays.value;
@@ -1641,72 +1613,7 @@ function bindInputFields() {
     }
   });
 
-  // Text Presets
-  propPresetMode.addEventListener("change", () => {
-    stateManager.updateProjectField("text_preset_mode", propPresetMode.value);
-  });
-  listTextPresets.addEventListener("change", () => {
-    const idx = parseInt(listTextPresets.value);
-    const presets = stateManager.project.text_presets || [];
-    const preset = presets[idx];
-    if (preset) {
-      propFontSize.value = preset.font_size.toString();
-      propFontColor.value = preset.font_color;
-      propFontFamily.value = preset.font_family;
-      if (propLetterSpacing) {
-        propLetterSpacing.value = (preset.letter_spacing || 0).toString();
-        if (letterSpacingValue) letterSpacingValue.value = (preset.letter_spacing || 0).toString();
-      }
-      if (propFontWeight) {
-        propFontWeight.value = (preset.font_weight || 400).toString();
-        if (fontWeightValue) fontWeightValue.value = (preset.font_weight || 400).toString();
-      }
-      // Sync font picker display
-      const pv = document.querySelector("#font-picker-primary .font-picker-value") as HTMLSpanElement;
-      if (pv) { pv.textContent = preset.font_family; pv.style.fontFamily = preset.font_family; }
-      
-      const settings = {
-        ...stateManager.project.text_settings,
-        font_size: preset.font_size,
-        font_color: preset.font_color,
-        font_family: preset.font_family,
-        outline: preset.outline,
-        letter_spacing: preset.letter_spacing || 0,
-        font_weight: preset.font_weight || 400
-      };
-      stateManager.updateProjectField("text_settings", settings);
-      refreshViewport();
-    }
-  });
-  btnAddPreset.addEventListener("click", () => {
-    const presets = [...(stateManager.project.text_presets || [])];
-    const currentSettings = stateManager.project.text_settings;
-    presets.push({
-      name: `Preset ${presets.length + 1}`,
-      font_size: currentSettings.font_size,
-      font_color: currentSettings.font_color,
-      font_family: currentSettings.font_family,
-      outline: currentSettings.outline,
-      placement: currentSettings.placement || "Custom",
-      x_position: currentSettings.x_position,
-      y_position: currentSettings.y_position,
-      letter_spacing: currentSettings.letter_spacing || 0,
-      font_weight: currentSettings.font_weight || 400
-    });
-    stateManager.updateProjectField("text_presets", presets);
-    syncPresetsList();
-    showToast("Added new text preset!", "success");
-  });
 
-  btnRemovePreset.addEventListener("click", () => {
-    const idx = parseInt(listTextPresets.value);
-    if (isNaN(idx)) return;
-    const presets = [...(stateManager.project.text_presets || [])];
-    presets.splice(idx, 1);
-    stateManager.updateProjectField("text_presets", presets);
-    syncPresetsList();
-    showToast("Removed text preset", "warning");
-  });
 
   // Extra Text Overlays
   listExtraOverlays.addEventListener("change", () => {
