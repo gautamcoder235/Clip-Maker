@@ -1590,9 +1590,12 @@ function bindInputFields() {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!stateManager.project.selected_clip_index) {
-      showToast("Please select a clip first!", "warning");
+    if (stateManager.assets.length === 0) {
+      showToast("Please import a video file first!", "warning");
       return;
+    }
+    if (!stateManager.project.selected_clip_index) {
+      stateManager.project.selected_clip_index = 1;
     }
     previewModal.style.display = "flex";
     await generateAndShowPreview();
