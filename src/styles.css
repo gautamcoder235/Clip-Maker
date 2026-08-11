@@ -977,7 +977,8 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 0;
+  min-width: 450px;
+  min-height: 450px;
 }
 
 #bottom-panel {

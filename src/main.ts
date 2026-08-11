@@ -3850,7 +3850,9 @@ function setupWorkspaceResizers() {
     const startWidth = leftPanel.clientWidth;
 
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = Math.max(200, Math.min(500, startWidth + (moveEvent.clientX - startX)));
+      const parentW = leftPanel.parentElement?.clientWidth || window.innerWidth;
+      const maxLeft = parentW - rightPanel.clientWidth - 450;
+      const newWidth = Math.max(200, Math.min(Math.max(200, maxLeft), startWidth + (moveEvent.clientX - startX)));
       leftPanel.style.width = `${newWidth}px`;
       savedLeftPanelWidth = newWidth;
       refreshViewport();
@@ -3874,7 +3876,9 @@ function setupWorkspaceResizers() {
     const startWidth = rightPanel.clientWidth;
 
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = Math.max(350, Math.min(600, startWidth - (moveEvent.clientX - startX)));
+      const parentW = rightPanel.parentElement?.clientWidth || window.innerWidth;
+      const maxRight = parentW - leftPanel.clientWidth - 450;
+      const newWidth = Math.max(300, Math.min(Math.max(300, maxRight), startWidth - (moveEvent.clientX - startX)));
       rightPanel.style.width = `${newWidth}px`;
       refreshViewport();
     };
@@ -3897,7 +3901,9 @@ function setupWorkspaceResizers() {
     const startHeight = bottomPanel.clientHeight;
 
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const newHeight = Math.max(150, Math.min(500, startHeight - (moveEvent.clientY - startY)));
+      const parentH = bottomPanel.parentElement?.clientHeight || window.innerHeight;
+      const maxBottom = parentH - 450;
+      const newHeight = Math.max(120, Math.min(Math.max(120, maxBottom), startHeight - (moveEvent.clientY - startY)));
       bottomPanel.style.height = `${newHeight}px`;
       savedBottomPanelHeight = newHeight;
       refreshViewport();
