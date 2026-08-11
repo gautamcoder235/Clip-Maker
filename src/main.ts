@@ -581,6 +581,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   propMediaChroma = document.querySelector("#media-modal-chroma")!;
   propMediaSimilarity = document.querySelector("#media-modal-similarity")!;
   propMediaBlend = document.querySelector("#media-modal-blend")!;
+  propMediaChromaColor = document.querySelector("#media-modal-chroma-color")!;
   propMediaChromaMode = document.querySelector("#media-modal-chroma-mode")!;
   propMediaSpill = document.querySelector("#media-modal-spill")!;
   mediaModalChromaEyedropperBtn = document.querySelector("#media-modal-chroma-eyedropper")!;
@@ -4654,6 +4655,18 @@ function openMediaSettingsModal(idx: number) {
       showToast("Media overlay not found!", "error");
       return;
     }
+
+    propMediaType = propMediaType || document.querySelector("#media-modal-type")!;
+    propMediaLoop = propMediaLoop || document.querySelector("#media-modal-loop")!;
+    propMediaChroma = propMediaChroma || document.querySelector("#media-modal-chroma")!;
+    propMediaChromaColor = propMediaChromaColor || document.querySelector("#media-modal-chroma-color")!;
+    mediaModalChromaColorBtn = mediaModalChromaColorBtn || document.querySelector("#media-modal-chroma-color-btn")!;
+    mediaModalChromaColorHex = mediaModalChromaColorHex || document.querySelector("#media-modal-chroma-color-hex")!;
+    propMediaSimilarity = propMediaSimilarity || document.querySelector("#media-modal-similarity")!;
+    propMediaBlend = propMediaBlend || document.querySelector("#media-modal-blend")!;
+    propMediaChromaMode = propMediaChromaMode || document.querySelector("#media-modal-chroma-mode")!;
+    propMediaSpill = propMediaSpill || document.querySelector("#media-modal-spill")!;
+    mediaModalChromaEyedropperBtn = mediaModalChromaEyedropperBtn || document.querySelector("#media-modal-chroma-eyedropper")!;
 
     const overlayPath = overlay.path || "";
     mediaModalFilename.innerText = overlayPath.split(/[/\\]/).pop() || overlay.name;
