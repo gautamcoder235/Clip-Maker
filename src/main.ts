@@ -5031,11 +5031,41 @@ function openMediaSettingsModal(idx: number) {
     const onCanvasClick = (e: MouseEvent) => {
       if (tempCanvas.width === 0 || tempCanvas.height === 0) return;
       const rect = mainCanvas.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * tempCanvas.width;
-      const y = ((e.clientY - rect.top) / rect.height) * tempCanvas.height;
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      // Calculate object-fit: contain rendering bounds inside canvas
+      const imgAspect = tempCanvas.width / tempCanvas.height;
+      const containerAspect = rect.width / rect.height;
+
+      let drawW = rect.width;
+      let drawH = rect.height;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (containerAspect > imgAspect) {
+        // Pillarboxed (black bars left/right)
+        drawW = rect.height * imgAspect;
+        offsetX = (rect.width - drawW) / 2;
+      } else {
+        // Letterboxed (black bars top/bottom)
+        drawH = rect.width / imgAspect;
+        offsetY = (rect.height - drawH) / 2;
+      }
+
+      const videoX = clickX - offsetX;
+      const videoY = clickY - offsetY;
+
+      if (videoX < 0 || videoX > drawW || videoY < 0 || videoY > drawH) return;
+
+      const normX = videoX / drawW;
+      const normY = videoY / drawH;
+
+      const x = Math.min(tempCanvas.width - 1, Math.max(0, Math.floor(normX * tempCanvas.width)));
+      const y = Math.min(tempCanvas.height - 1, Math.max(0, Math.floor(normY * tempCanvas.height)));
 
       try {
-        const pixel = tempCtx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+        const pixel = tempCtx.getImageData(x, y, 1, 1).data;
         const r = pixel[0];
         const g = pixel[1];
         const b = pixel[2];
