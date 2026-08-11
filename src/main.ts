@@ -4943,6 +4943,11 @@ function openMediaSettingsModal(idx: number) {
         tempCanvas.height = sourceHeight;
         mainCanvas.width = sourceWidth;
         mainCanvas.height = sourceHeight;
+
+        const previewWrapper = document.getElementById("media-modal-preview-wrapper");
+        if (previewWrapper) {
+          previewWrapper.style.aspectRatio = `${sourceWidth} / ${sourceHeight}`;
+        }
       }
 
       if (isVideo && videoEl) {
