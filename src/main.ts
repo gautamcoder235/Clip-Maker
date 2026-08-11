@@ -7,6 +7,7 @@ import { TauriService } from "./services/tauri";
 import { AppConfig, ImportedAsset, RenderJob, ProjectData, SystemFont } from "./types";
 import { SecurityManager } from "./services/security_manager";
 import { ScrubbableInputManager } from "./utils/scrubbable_inputs";
+import { initAllCustomSelects } from "./utils/custom_select";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -627,6 +628,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Initialize custom glassmorphism theme dropdown UI
   setupCustomThemeDropdown();
+
+  // Transform all default HTML <select> dropdowns into custom dark-themed controls
+  initAllCustomSelects();
 
 
   // User Manual Setup

@@ -1,12 +1,15 @@
 /**
- * Canva-style multi-point snapping with alignment guides.
- * Supports: center, edges, thirds, quarter lines, and element-to-element snapping.
+ * Canva / Figma-style multi-point snapping with alignment guides.
+ * Supports: center, edges, thirds, quarter lines, element-to-element snapping,
+ * equal gap spacing, and multi-line visual feedback.
  */
 
 export interface GuideLine {
   axis: "v" | "h";       // vertical or horizontal
-  position: number;       // px position on the canvas
-  label?: string;         // optional label (e.g. "Center", "⅓")
+  position: number;      // px position on the canvas
+  label?: string;        // optional label (e.g. "Center", "⅓", "Align Edge", "24px gap")
+  start?: number;        // start px on perpendicular axis
+  end?: number;          // end px on perpendicular axis
 }
 
 export interface SnapResult {
@@ -53,11 +56,10 @@ export function checkSnapping(
   const quarterW = canvasWidth / 4;
   const quarterH = canvasHeight / 4;
 
-  // Stronger threshold for canvas borders to feel like a magnet pulling it to the edge
   const borderThreshold = 12;
 
-  // Vertical snap points (x-axis): edges, center, thirds, quarters
-  const vSnaps: { pos: number; label: string }[] = [
+  // Vertical candidate snap targets (x-axis)
+  const vSnaps: { pos: number; label: string; id?: string }[] = [
     { pos: 0, label: "Left Edge" },
     { pos: canvasWidth, label: "Right Edge" },
     { pos: canvasCenterX, label: "Center" },
@@ -67,8 +69,8 @@ export function checkSnapping(
     { pos: quarterW * 3, label: "¾" },
   ];
 
-  // Horizontal snap points (y-axis): edges, center, thirds, quarters
-  const hSnaps: { pos: number; label: string }[] = [
+  // Horizontal candidate snap targets (y-axis)
+  const hSnaps: { pos: number; label: string; id?: string }[] = [
     { pos: 0, label: "Top Edge" },
     { pos: canvasHeight, label: "Bottom Edge" },
     { pos: canvasCenterY, label: "Center" },
@@ -88,94 +90,154 @@ export function checkSnapping(
     const elCenterY = el.y + el.height / 2;
 
     vSnaps.push(
-      { pos: elLeft, label: "" },
-      { pos: elRight, label: "" },
-      { pos: elCenterX, label: "" }
+      { pos: elLeft, label: "Align Left", id: el.id },
+      { pos: elRight, label: "Align Right", id: el.id },
+      { pos: elCenterX, label: "Align Center", id: el.id }
     );
     hSnaps.push(
-      { pos: elTop, label: "" },
-      { pos: elBottom, label: "" },
-      { pos: elCenterY, label: "" }
+      { pos: elTop, label: "Align Top", id: el.id },
+      { pos: elBottom, label: "Align Bottom", id: el.id },
+      { pos: elCenterY, label: "Align Middle", id: el.id }
     );
   }
 
-  // Test all 3 reference edges of the dragged box against each vertical snap point
+  // --- Equal Gap Spacing Snapping (X-axis & Y-axis) ---
+  // Check for equal horizontal spacing between other elements
+  if (otherElements.length >= 2) {
+    for (let i = 0; i < otherElements.length; i++) {
+      for (let j = i + 1; j < otherElements.length; j++) {
+        const elA = otherElements[i];
+        const elB = otherElements[j];
+
+        // Ensure elA is to the left of elB
+        const leftEl = elA.x < elB.x ? elA : elB;
+        const rightEl = elA.x < elB.x ? elB : elA;
+        const gap = rightEl.x - (leftEl.x + leftEl.width);
+
+        if (gap > 0) {
+          // Case 1: Dragged box is positioned between leftEl and rightEl
+          const targetX1 = leftEl.x + leftEl.width + gap;
+          vSnaps.push({ pos: targetX1, label: `${Math.round(gap)}px gap` });
+
+          // Case 2: Dragged box is positioned to the right of rightEl
+          const targetX2 = rightEl.x + rightEl.width + gap;
+          vSnaps.push({ pos: targetX2, label: `${Math.round(gap)}px gap` });
+
+          // Case 3: Dragged box is positioned to the left of leftEl
+          const targetX3 = leftEl.x - gap - width;
+          vSnaps.push({ pos: targetX3, label: `${Math.round(gap)}px gap` });
+        }
+
+        const topEl = elA.y < elB.y ? elA : elB;
+        const bottomEl = elA.y < elB.y ? elB : elA;
+        const vGap = bottomEl.y - (topEl.y + topEl.height);
+
+        if (vGap > 0) {
+          const targetY1 = topEl.y + topEl.height + vGap;
+          hSnaps.push({ pos: targetY1, label: `${Math.round(vGap)}px gap` });
+
+          const targetY2 = bottomEl.y + bottomEl.height + vGap;
+          hSnaps.push({ pos: targetY2, label: `${Math.round(vGap)}px gap` });
+
+          const targetY3 = topEl.y - vGap - height;
+          hSnaps.push({ pos: targetY3, label: `${Math.round(vGap)}px gap` });
+        }
+      }
+    }
+  }
+
+  // --- Vertical Snapping (X-axis) ---
   let bestVDist = 9999;
-  let bestVSnap: { pos: number; label: string; edge: "left" | "center" | "right" } | null = null;
+  let bestVSnaps: { pos: number; label: string; edge: "left" | "center" | "right" }[] = [];
 
   for (const vp of vSnaps) {
     const isBorder = (vp.pos === 0 || vp.pos === canvasWidth);
     const activeThreshold = isBorder ? borderThreshold : threshold;
 
-    // Box left edge
-    const dLeft = Math.abs(boxLeft - vp.pos);
-    if (dLeft < activeThreshold && dLeft < bestVDist) {
-      bestVDist = dLeft;
-      bestVSnap = { ...vp, edge: "left" };
-    }
-    // Box center
-    const dCenter = Math.abs(boxCenterX - vp.pos);
-    if (dCenter < activeThreshold && dCenter < bestVDist) {
-      bestVDist = dCenter;
-      bestVSnap = { ...vp, edge: "center" };
-    }
-    // Box right edge
-    const dRight = Math.abs(boxRight - vp.pos);
-    if (dRight < activeThreshold && dRight < bestVDist) {
-      bestVDist = dRight;
-      bestVSnap = { ...vp, edge: "right" };
+    const testEdges: { diff: number; edge: "left" | "center" | "right" }[] = [
+      { diff: Math.abs(boxLeft - vp.pos), edge: "left" },
+      { diff: Math.abs(boxCenterX - vp.pos), edge: "center" },
+      { diff: Math.abs(boxRight - vp.pos), edge: "right" },
+    ];
+
+    for (const te of testEdges) {
+      if (te.diff < activeThreshold) {
+        if (te.diff < bestVDist - 0.5) {
+          // Found a strictly closer snap point
+          bestVDist = te.diff;
+          bestVSnaps = [{ ...vp, edge: te.edge }];
+        } else if (Math.abs(te.diff - bestVDist) <= 0.5) {
+          // Found a secondary snap line at the same distance
+          bestVSnaps.push({ ...vp, edge: te.edge });
+        }
+      }
     }
   }
 
-  if (bestVSnap) {
-    if (bestVSnap.edge === "left") {
-      snapX = bestVSnap.pos;
-    } else if (bestVSnap.edge === "center") {
-      snapX = bestVSnap.pos - width / 2;
+  if (bestVSnaps.length > 0) {
+    const primary = bestVSnaps[0];
+    if (primary.edge === "left") {
+      snapX = primary.pos;
+    } else if (primary.edge === "center") {
+      snapX = primary.pos - width / 2;
     } else {
-      snapX = bestVSnap.pos - width;
+      snapX = primary.pos - width;
     }
-    guides.push({ axis: "v", position: bestVSnap.pos, label: bestVSnap.label });
+
+    const addedPos = new Set<number>();
+    for (const snap of bestVSnaps) {
+      if (!addedPos.has(snap.pos)) {
+        addedPos.add(snap.pos);
+        guides.push({ axis: "v", position: snap.pos, label: snap.label });
+      }
+    }
   }
 
-  // Test all 3 reference edges of the dragged box against each horizontal snap point
+  // --- Horizontal Snapping (Y-axis) ---
   let bestHDist = 9999;
-  let bestHSnap: { pos: number; label: string; edge: "top" | "center" | "bottom" } | null = null;
+  let bestHSnaps: { pos: number; label: string; edge: "top" | "center" | "bottom" }[] = [];
 
   for (const hp of hSnaps) {
     const isBorder = (hp.pos === 0 || hp.pos === canvasHeight);
     const activeThreshold = isBorder ? borderThreshold : threshold;
 
-    // Box top edge
-    const dTop = Math.abs(boxTop - hp.pos);
-    if (dTop < activeThreshold && dTop < bestHDist) {
-      bestHDist = dTop;
-      bestHSnap = { ...hp, edge: "top" };
-    }
-    // Box center
-    const dCenter = Math.abs(boxCenterY - hp.pos);
-    if (dCenter < activeThreshold && dCenter < bestHDist) {
-      bestHDist = dCenter;
-      bestHSnap = { ...hp, edge: "center" };
-    }
-    // Box bottom edge
-    const dBottom = Math.abs(boxBottom - hp.pos);
-    if (dBottom < activeThreshold && dBottom < bestHDist) {
-      bestHDist = dBottom;
-      bestHSnap = { ...hp, edge: "bottom" };
+    const testEdges: { diff: number; edge: "top" | "center" | "bottom" }[] = [
+      { diff: Math.abs(boxTop - hp.pos), edge: "top" },
+      { diff: Math.abs(boxCenterY - hp.pos), edge: "center" },
+      { diff: Math.abs(boxBottom - hp.pos), edge: "bottom" },
+    ];
+
+    for (const te of testEdges) {
+      if (te.diff < activeThreshold) {
+        if (te.diff < bestHDist - 0.5) {
+          bestHDist = te.diff;
+          bestHSnaps = [{ ...hp, edge: te.edge }];
+        } else if (Math.abs(te.diff - bestHDist) <= 0.5) {
+          bestHSnaps.push({ ...hp, edge: te.edge });
+        }
+      }
     }
   }
 
-  if (bestHSnap) {
-    if (bestHSnap.edge === "top") {
-      snapY = bestHSnap.pos;
-    } else if (bestHSnap.edge === "center") {
-      snapY = bestHSnap.pos - height / 2;
+  if (bestHSnaps.length > 0) {
+    const primary = bestHSnaps[0];
+    if (primary.edge === "top") {
+      snapY = primary.pos;
+    } else if (primary.edge === "center") {
+      snapY = primary.pos - height / 2;
     } else {
-      snapY = bestHSnap.pos - height;
+      snapY = primary.pos - height;
     }
-    guides.push({ axis: "h", position: bestHSnap.pos, label: bestHSnap.label });
+
+    const addedPos = new Set<number>();
+    for (const snap of bestHSnaps) {
+      if (!addedPos.has(snap.pos)) {
+        addedPos.add(snap.pos);
+        guides.push({ axis: "h", position: snap.pos, label: snap.label });
+      }
+    }
   }
 
   return { x: snapX, y: snapY, guides };
 }
+

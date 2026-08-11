@@ -1203,7 +1203,7 @@ export class DOMOverlay {
     return targets;
   }
 
-  /** Render dynamic guide lines — show exactly the lines in `guides`, hide the rest */
+  /** Render dynamic guide lines & labels — show exactly the lines in `guides`, hide the rest */
   private renderGuides(guides: GuideLine[]) {
     // Grow pool if needed
     while (this.guidePool.length < guides.length) {
@@ -1212,6 +1212,11 @@ export class DOMOverlay {
       el.style.position = "absolute";
       el.style.pointerEvents = "none";
       el.style.zIndex = "100";
+
+      const labelEl = document.createElement("div");
+      labelEl.className = "snap-guide-label";
+      el.appendChild(labelEl);
+
       this.guideContainer.appendChild(el);
       this.guidePool.push(el);
     }
@@ -1222,6 +1227,13 @@ export class DOMOverlay {
 
     for (let i = 0; i < this.guidePool.length; i++) {
       const el = this.guidePool[i];
+      let labelEl = el.querySelector(".snap-guide-label") as HTMLDivElement | null;
+      if (!labelEl) {
+        labelEl = document.createElement("div");
+        labelEl.className = "snap-guide-label";
+        el.appendChild(labelEl);
+      }
+
       if (i < guides.length) {
         const g = guides[i];
         el.style.display = "block";
@@ -1241,6 +1253,15 @@ export class DOMOverlay {
           el.style.border = "none";
           el.style.backgroundImage = "repeating-linear-gradient(180deg, #34d399 0px, #34d399 12px, transparent 12px, transparent 22px)";
           el.style.filter = "drop-shadow(0 0 5px rgba(52, 211, 153, 0.85))";
+
+          if (g.label) {
+            labelEl.innerText = g.label;
+            labelEl.style.display = "block";
+            labelEl.style.left = "6px";
+            labelEl.style.top = "16px";
+          } else {
+            labelEl.style.display = "none";
+          }
         } else {
           el.style.left = "0";
           el.style.top = `${g.position}px`;
@@ -1249,6 +1270,15 @@ export class DOMOverlay {
           el.style.border = "none";
           el.style.backgroundImage = "repeating-linear-gradient(90deg, #34d399 0px, #34d399 12px, transparent 12px, transparent 22px)";
           el.style.filter = "drop-shadow(0 0 5px rgba(52, 211, 153, 0.85))";
+
+          if (g.label) {
+            labelEl.innerText = g.label;
+            labelEl.style.display = "block";
+            labelEl.style.left = "16px";
+            labelEl.style.top = "6px";
+          } else {
+            labelEl.style.display = "none";
+          }
         }
       } else {
         el.style.display = "none";
