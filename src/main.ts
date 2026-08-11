@@ -206,6 +206,10 @@ let btnToggleLeft: HTMLButtonElement;
 let btnToggleBottom: HTMLButtonElement;
 let isLeftPanelVisible = true;
 let isBottomPanelVisible = true;
+let isLeftPanelAnimating = false;
+let isBottomPanelAnimating = false;
+let savedLeftPanelWidth = 280;
+let savedBottomPanelHeight = 150;
 
 // Command Palette
 let btnCommandPalette: HTMLButtonElement;
@@ -3166,29 +3170,187 @@ function switchBottomTab(tab: "clips" | "render") {
 
 
 export function toggleLeftPanel(show?: boolean) {
-  isLeftPanelVisible = show !== undefined ? show : !isLeftPanelVisible;
   const leftPanel = document.querySelector("#left-panel") as HTMLDivElement | null;
   const leftResizer = document.querySelector("#left-resizer") as HTMLDivElement | null;
-  if (leftPanel) leftPanel.style.display = isLeftPanelVisible ? "flex" : "none";
-  if (leftResizer) leftResizer.style.display = isLeftPanelVisible ? "block" : "none";
+  if (!leftPanel || isLeftPanelAnimating) return;
+
+  const targetState = show !== undefined ? show : !isLeftPanelVisible;
+  if (targetState === isLeftPanelVisible) return;
+
+  isLeftPanelVisible = targetState;
+  isLeftPanelAnimating = true;
+
   if (btnToggleLeft) {
     btnToggleLeft.classList.toggle("active", isLeftPanelVisible);
   }
-  showToast(isLeftPanelVisible ? "Left Sidebar shown" : "Left Sidebar hidden", "success");
-  refreshViewport();
+
+  if (isLeftPanelVisible) {
+    // --- EXPAND LEFT PANEL ---
+    if (leftResizer) leftResizer.style.display = "block";
+    leftPanel.style.display = "flex";
+    leftPanel.style.overflow = "hidden";
+
+    const targetWidth = savedLeftPanelWidth || leftPanel.clientWidth || 280;
+
+    const anim = leftPanel.animate(
+      [
+        { width: "0px", minWidth: "0px", opacity: 0 },
+        { width: `${targetWidth}px`, minWidth: `${targetWidth}px`, opacity: 1 }
+      ],
+      {
+        duration: 250,
+        easing: "cubic-bezier(0.16, 1, 0.3, 1)"
+      }
+    );
+
+    const updateLoop = () => {
+      refreshViewport();
+      if (isLeftPanelAnimating) {
+        requestAnimationFrame(updateLoop);
+      }
+    };
+    requestAnimationFrame(updateLoop);
+
+    anim.onfinish = () => {
+      leftPanel.style.width = `${targetWidth}px`;
+      leftPanel.style.minWidth = "";
+      leftPanel.style.opacity = "";
+      leftPanel.style.overflow = "";
+      isLeftPanelAnimating = false;
+      refreshViewport();
+    };
+
+    showToast("Left Sidebar shown", "success");
+  } else {
+    // --- COLLAPSE LEFT PANEL ---
+    const currentWidth = leftPanel.clientWidth || savedLeftPanelWidth || 280;
+    savedLeftPanelWidth = currentWidth;
+    leftPanel.style.overflow = "hidden";
+
+    const anim = leftPanel.animate(
+      [
+        { width: `${currentWidth}px`, minWidth: `${currentWidth}px`, opacity: 1 },
+        { width: "0px", minWidth: "0px", opacity: 0 }
+      ],
+      {
+        duration: 220,
+        easing: "cubic-bezier(0.4, 0, 0.2, 1)"
+      }
+    );
+
+    const updateLoop = () => {
+      refreshViewport();
+      if (isLeftPanelAnimating) {
+        requestAnimationFrame(updateLoop);
+      }
+    };
+    requestAnimationFrame(updateLoop);
+
+    anim.onfinish = () => {
+      leftPanel.style.display = "none";
+      leftPanel.style.width = "";
+      leftPanel.style.minWidth = "";
+      leftPanel.style.opacity = "";
+      leftPanel.style.overflow = "";
+      if (leftResizer) leftResizer.style.display = "none";
+      isLeftPanelAnimating = false;
+      refreshViewport();
+    };
+
+    showToast("Left Sidebar hidden", "success");
+  }
 }
 
 export function toggleBottomPanel(show?: boolean) {
-  isBottomPanelVisible = show !== undefined ? show : !isBottomPanelVisible;
   const bottomPanel = document.querySelector("#bottom-panel") as HTMLDivElement | null;
   const bottomResizer = document.querySelector("#bottom-resizer") as HTMLDivElement | null;
-  if (bottomPanel) bottomPanel.style.display = isBottomPanelVisible ? "flex" : "none";
-  if (bottomResizer) bottomResizer.style.display = isBottomPanelVisible ? "block" : "none";
+  if (!bottomPanel || isBottomPanelAnimating) return;
+
+  const targetState = show !== undefined ? show : !isBottomPanelVisible;
+  if (targetState === isBottomPanelVisible) return;
+
+  isBottomPanelVisible = targetState;
+  isBottomPanelAnimating = true;
+
   if (btnToggleBottom) {
     btnToggleBottom.classList.toggle("active", isBottomPanelVisible);
   }
-  showToast(isBottomPanelVisible ? "Bottom Timeline shown" : "Bottom Timeline hidden", "success");
-  refreshViewport();
+
+  if (isBottomPanelVisible) {
+    // --- EXPAND BOTTOM PANEL ---
+    if (bottomResizer) bottomResizer.style.display = "block";
+    bottomPanel.style.display = "flex";
+    bottomPanel.style.overflow = "hidden";
+
+    const targetHeight = savedBottomPanelHeight || bottomPanel.clientHeight || 150;
+
+    const anim = bottomPanel.animate(
+      [
+        { height: "0px", minHeight: "0px", opacity: 0 },
+        { height: `${targetHeight}px`, minHeight: `${targetHeight}px`, opacity: 1 }
+      ],
+      {
+        duration: 250,
+        easing: "cubic-bezier(0.16, 1, 0.3, 1)"
+      }
+    );
+
+    const updateLoop = () => {
+      refreshViewport();
+      if (isBottomPanelAnimating) {
+        requestAnimationFrame(updateLoop);
+      }
+    };
+    requestAnimationFrame(updateLoop);
+
+    anim.onfinish = () => {
+      bottomPanel.style.height = `${targetHeight}px`;
+      bottomPanel.style.minHeight = "";
+      bottomPanel.style.opacity = "";
+      bottomPanel.style.overflow = "";
+      isBottomPanelAnimating = false;
+      refreshViewport();
+    };
+
+    showToast("Bottom Timeline shown", "success");
+  } else {
+    // --- COLLAPSE BOTTOM PANEL ---
+    const currentHeight = bottomPanel.clientHeight || savedBottomPanelHeight || 150;
+    savedBottomPanelHeight = currentHeight;
+    bottomPanel.style.overflow = "hidden";
+
+    const anim = bottomPanel.animate(
+      [
+        { height: `${currentHeight}px`, minHeight: `${currentHeight}px`, opacity: 1 },
+        { height: "0px", minHeight: "0px", opacity: 0 }
+      ],
+      {
+        duration: 220,
+        easing: "cubic-bezier(0.4, 0, 0.2, 1)"
+      }
+    );
+
+    const updateLoop = () => {
+      refreshViewport();
+      if (isBottomPanelAnimating) {
+        requestAnimationFrame(updateLoop);
+      }
+    };
+    requestAnimationFrame(updateLoop);
+
+    anim.onfinish = () => {
+      bottomPanel.style.display = "none";
+      bottomPanel.style.height = "";
+      bottomPanel.style.minHeight = "";
+      bottomPanel.style.opacity = "";
+      bottomPanel.style.overflow = "";
+      if (bottomResizer) bottomResizer.style.display = "none";
+      isBottomPanelAnimating = false;
+      refreshViewport();
+    };
+
+    showToast("Bottom Timeline hidden", "success");
+  }
 }
 
 (window as any).toggleLeftPanel = toggleLeftPanel;
@@ -3690,6 +3852,7 @@ function setupWorkspaceResizers() {
     const onMouseMove = (moveEvent: MouseEvent) => {
       const newWidth = Math.max(200, Math.min(500, startWidth + (moveEvent.clientX - startX)));
       leftPanel.style.width = `${newWidth}px`;
+      savedLeftPanelWidth = newWidth;
       refreshViewport();
     };
 
@@ -3736,6 +3899,7 @@ function setupWorkspaceResizers() {
     const onMouseMove = (moveEvent: MouseEvent) => {
       const newHeight = Math.max(150, Math.min(500, startHeight - (moveEvent.clientY - startY)));
       bottomPanel.style.height = `${newHeight}px`;
+      savedBottomPanelHeight = newHeight;
       refreshViewport();
     };
 
