@@ -31,6 +31,8 @@ pub struct ProjectData {
     pub extra_overlays: Vec<ExtraOverlay>,
     pub media_overlays: Vec<MediaOverlay>,
     pub include_audio: bool,
+    #[serde(default = "default_audio_codec")]
+    pub audio_codec: String,
     pub parallel_processing: bool,
     pub parallel_workers: u32,
     pub text_settings: TextSettings,
@@ -75,6 +77,7 @@ impl Default for ProjectData {
             extra_overlays: default_config.extra_overlays,
             media_overlays: default_config.media_overlays,
             include_audio: default_config.include_audio,
+            audio_codec: default_config.audio_codec,
             parallel_processing: default_config.parallel_processing,
             parallel_workers: default_config.parallel_workers,
             text_settings: default_config.text_settings,
@@ -84,4 +87,8 @@ impl Default for ProjectData {
             selected_clip_index: None,
         }
     }
+}
+
+fn default_audio_codec() -> String {
+    "copy".to_string()
 }

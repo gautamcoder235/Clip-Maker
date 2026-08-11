@@ -81,6 +81,7 @@ export class AppStateManager {
       media_overlays: [],
       overlay_order: ["text"],
       include_audio: true,
+      audio_codec: "copy",
       parallel_processing: true,
       parallel_workers: 2,
       text_settings: {

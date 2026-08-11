@@ -35,6 +35,7 @@ pub struct FFmpegBuilder {
     gpu_acceleration: bool,
     gpu_encoder: Option<String>,
     include_audio: bool,
+    audio_codec: String,
     preset: String,
     crf: u32,
 }
@@ -65,6 +66,7 @@ impl FFmpegBuilder {
             gpu_acceleration: false,
             gpu_encoder: None,
             include_audio: true,
+            audio_codec: "copy".to_string(),
             preset: "fast".to_string(),
             crf: 22,
         }
@@ -196,6 +198,13 @@ impl FFmpegBuilder {
         self
     }
 
+    pub fn set_audio_codec(&mut self, codec: &str) -> &mut Self {
+        if !codec.is_empty() {
+            self.audio_codec = codec.to_string();
+        }
+        self
+    }
+
     pub fn build(&mut self) -> Vec<String> {
         // Apply FPS if set (must be done before filter graph construction)
         if let Some(rate) = self.fps {
@@ -314,11 +323,50 @@ impl FFmpegBuilder {
             cmd.push(self.crf.to_string());
         }
 
-        if self.include_audio {
-            cmd.push("-c:a".to_string());
-            cmd.push("copy".to_string());
-        } else {
-            cmd.push("-an".to_string());
+        match self.audio_codec.to_lowercase().as_str() {
+            "none" | "mute" | "disabled" => {
+                cmd.push("-an".to_string());
+            }
+            "aac" => {
+                cmd.push("-c:a".to_string());
+                cmd.push("aac".to_string());
+                cmd.push("-b:a".to_string());
+                cmd.push("192k".to_string());
+            }
+            "mp3" | "libmp3lame" => {
+                cmd.push("-c:a".to_string());
+                cmd.push("libmp3lame".to_string());
+                cmd.push("-b:a".to_string());
+                cmd.push("192k".to_string());
+            }
+            "opus" | "libopus" => {
+                cmd.push("-c:a".to_string());
+                cmd.push("libopus".to_string());
+                cmd.push("-b:a".to_string());
+                cmd.push("160k".to_string());
+            }
+            "ac3" => {
+                cmd.push("-c:a".to_string());
+                cmd.push("ac3".to_string());
+                cmd.push("-b:a".to_string());
+                cmd.push("384k".to_string());
+            }
+            "flac" => {
+                cmd.push("-c:a".to_string());
+                cmd.push("flac".to_string());
+            }
+            "pcm_s16le" | "wav" | "pcm" => {
+                cmd.push("-c:a".to_string());
+                cmd.push("pcm_s16le".to_string());
+            }
+            _ => {
+                if self.include_audio {
+                    cmd.push("-c:a".to_string());
+                    cmd.push("copy".to_string());
+                } else {
+                    cmd.push("-an".to_string());
+                }
+            }
         }
 
         cmd.push(self.output_path.clone());

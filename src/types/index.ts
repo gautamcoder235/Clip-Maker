@@ -111,6 +111,7 @@ export interface AssetSettings {
   extra_overlays?: ExtraOverlay[];
   media_overlays?: MediaOverlay[];
   overlay_order?: string[];
+  audio_codec?: string;
 }
 
 export interface AppConfig {
@@ -140,6 +141,7 @@ export interface AppConfig {
   media_overlays: MediaOverlay[];
   overlay_order?: string[];
   include_audio: boolean;
+  audio_codec?: string;
   parallel_processing: boolean;
   parallel_workers: number;
   text_settings: TextSettings;

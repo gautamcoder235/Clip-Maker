@@ -783,6 +783,21 @@
               </div>
 
               <div class="control-group" style="margin-bottom: 12px;">
+                <label>Audio Format & Codec</label>
+                <select id="prop-audio-codec" style="width: 100%;">
+                  <option value="copy" selected>Copy Original Audio (Fastest)</option>
+                  <option value="aac">AAC Audio (Universal - 192 kbps)</option>
+                  <option value="mp3">MP3 Audio (192 kbps)</option>
+                  <option value="opus">Opus Audio (High Quality - 160 kbps)</option>
+                  <option value="ac3">AC3 Dolby Audio (384 kbps)</option>
+                  <option value="flac">FLAC Lossless Audio</option>
+                  <option value="pcm_s16le">WAV / Lossless PCM Audio</option>
+                  <option value="none">Mute / Remove Audio Track 🔇</option>
+                </select>
+                <div class="setting-desc">Audio encoding format for exported video clips.</div>
+              </div>
+
+              <div class="control-group" style="margin-bottom: 12px;">
                 <label>Export Scope</label>
                 <select id="prop-export-scope" style="width: 100%;">
                   <option value="selected" selected>Selected Video Only</option>

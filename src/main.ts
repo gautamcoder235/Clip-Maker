@@ -48,6 +48,7 @@ let propCropL: HTMLInputElement;
 let propCropR: HTMLInputElement;
 let propAspectRatio: HTMLSelectElement;
 let propCropAnchor: HTMLSelectElement;
+let propAudioCodec: HTMLSelectElement;
 let propTextEnabled: HTMLInputElement;
 let primaryTextControls: HTMLDivElement;
 let propTextTemplate: HTMLInputElement;
@@ -522,6 +523,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   propCropR = document.querySelector("#prop-crop-r")!;
   propAspectRatio = document.querySelector("#prop-aspect-ratio")!;
   propCropAnchor = document.querySelector("#prop-crop-anchor")!;
+  propAudioCodec = document.querySelector("#prop-audio-codec")!;
   propTextEnabled = document.querySelector("#prop-text-enabled")!;
   primaryTextControls = document.querySelector("#primary-text-controls")!;
   propTextTemplate = document.querySelector("#prop-text-template")!;
@@ -1249,6 +1251,9 @@ function syncConfigToUi() {
 
   propAspectRatio.value = proj.aspect_ratio;
   propCropAnchor.value = proj.crop_anchor;
+  if (propAudioCodec && proj.audio_codec) {
+    propAudioCodec.value = proj.audio_codec;
+  }
   const textEnabled = proj.text_settings.enabled !== false;
   propTextEnabled.checked = textEnabled;
   primaryTextControls.style.opacity = textEnabled ? "1" : "0.5";
@@ -1574,6 +1579,13 @@ function bindInputFields() {
   propCropAnchor.addEventListener("change", () => {
     stateManager.updateProjectField("crop_anchor", propCropAnchor.value);
   });
+  if (propAudioCodec) {
+    propAudioCodec.addEventListener("change", () => {
+      const codec = propAudioCodec.value;
+      stateManager.updateProjectField("audio_codec", codec);
+      stateManager.project.include_audio = codec !== "none";
+    });
+  }
   
   propTextEnabled.addEventListener("change", () => {
     const textSettings = { ...stateManager.project.text_settings, enabled: propTextEnabled.checked };
@@ -2390,6 +2402,7 @@ function saveActiveAssetSettings() {
   settings.extra_overlays = JSON.parse(JSON.stringify(stateManager.project.extra_overlays || []));
   settings.media_overlays = JSON.parse(JSON.stringify(stateManager.project.media_overlays || []));
   settings.overlay_order = [...(stateManager.project.overlay_order || [])];
+  settings.audio_codec = stateManager.project.audio_codec;
 }
 
 function loadActiveAssetSettings(asset: ImportedAsset) {
@@ -2405,6 +2418,9 @@ function loadActiveAssetSettings(asset: ImportedAsset) {
     }
     if (settings.text_template !== undefined) {
       stateManager.project.text_template = settings.text_template;
+    }
+    if (settings.audio_codec) {
+      stateManager.project.audio_codec = settings.audio_codec;
     }
     if (settings.extra_overlays) {
       stateManager.project.extra_overlays = JSON.parse(JSON.stringify(settings.extra_overlays));

@@ -155,6 +155,8 @@ pub struct AssetSettings {
     pub media_overlays: Option<Vec<MediaOverlay>>,
     #[serde(default)]
     pub overlay_order: Option<Vec<String>>,
+    #[serde(default)]
+    pub audio_codec: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -190,6 +192,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub overlay_order: Option<Vec<String>>,
     pub include_audio: bool,
+    #[serde(default = "default_audio_codec")]
+    pub audio_codec: String,
     pub parallel_processing: bool,
     pub parallel_workers: u32,
     pub text_settings: TextSettings,
@@ -208,6 +212,10 @@ fn default_text_enabled() -> bool {
 
 fn default_font_weight() -> u32 {
     400
+}
+
+fn default_audio_codec() -> String {
+    "copy".to_string()
 }
 
 impl Default for AppConfig {
@@ -260,6 +268,7 @@ impl Default for AppConfig {
             media_overlays: Vec::new(),
             overlay_order: Some(vec!["text".to_string()]),
             include_audio: true,
+            audio_codec: "copy".to_string(),
             parallel_processing: false,
             parallel_workers: 2,
             text_settings: TextSettings {
