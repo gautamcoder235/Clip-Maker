@@ -93,11 +93,14 @@ export class CanvasRenderer {
     this.container.style.left = `${left}px`;
     this.container.style.top = `${top}px`;
 
-    // Draw background on canvas
-    this.canvasElement.width = canvasW;
-    this.canvasElement.height = canvasH;
+    // Draw background on canvas - use devicePixelRatio for sharp rendering
+    const dpr = window.devicePixelRatio || 1;
+    this.canvasElement.width = canvasW * dpr;
+    this.canvasElement.height = canvasH * dpr;
 
     if (this.ctx) {
+      // Scale context so draw calls use CSS pixel coordinates
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.ctx.clearRect(0, 0, canvasW, canvasH);
       
       // Background color
@@ -111,10 +114,10 @@ export class CanvasRenderer {
           this.bgImage = new Image();
           this.bgImage.src = convertFileSrc(project.background.image_path);
           this.bgImage.onload = () => {
-            this.drawCachedBackgroundImage(project, scale);
+            this.drawCachedBackgroundImage(project, scale, canvasW, canvasH);
           };
         } else if (this.bgImage && this.bgImage.complete) {
-          this.drawCachedBackgroundImage(project, scale);
+          this.drawCachedBackgroundImage(project, scale, canvasW, canvasH);
         }
       }
     }
@@ -155,16 +158,16 @@ export class CanvasRenderer {
     }
   }
 
-  private drawCachedBackgroundImage(project: ProjectData, scale: number) {
+  private drawCachedBackgroundImage(project: ProjectData, scale: number, cssW: number, cssH: number) {
     if (this.ctx && this.bgImage) {
       const imgX = (project.background.image_x || 0) * scale;
       const imgY = (project.background.image_y || 0) * scale;
       const imgW = (project.background.image_width && project.background.image_width > 0)
         ? project.background.image_width * scale
-        : this.canvasElement.width;
+        : cssW;
       const imgH = (project.background.image_height && project.background.image_height > 0)
         ? project.background.image_height * scale
-        : this.canvasElement.height;
+        : cssH;
       this.ctx.drawImage(this.bgImage, imgX, imgY, imgW, imgH);
     }
   }
