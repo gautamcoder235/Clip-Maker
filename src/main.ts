@@ -48,7 +48,6 @@ let propCropL: HTMLInputElement;
 let propCropR: HTMLInputElement;
 let propAspectRatio: HTMLSelectElement;
 let propCropAnchor: HTMLSelectElement;
-let propResolution: HTMLSelectElement | null = null;
 let propTextEnabled: HTMLInputElement;
 let primaryTextControls: HTMLDivElement;
 let propTextTemplate: HTMLInputElement;
@@ -515,7 +514,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   propCropR = document.querySelector("#prop-crop-r")!;
   propAspectRatio = document.querySelector("#prop-aspect-ratio")!;
   propCropAnchor = document.querySelector("#prop-crop-anchor")!;
-  propResolution = document.querySelector("#prop-resolution")!;
   propTextEnabled = document.querySelector("#prop-text-enabled")!;
   primaryTextControls = document.querySelector("#primary-text-controls")!;
   propTextTemplate = document.querySelector("#prop-text-template")!;
@@ -1233,9 +1231,10 @@ function syncConfigToUi() {
 
   syncPlacementUI();
 
+  syncRatioLockUI();
+
   propAspectRatio.value = proj.aspect_ratio;
   propCropAnchor.value = proj.crop_anchor;
-  if (propResolution) propResolution.value = proj.output_resolution;
   const textEnabled = proj.text_settings.enabled !== false;
   propTextEnabled.checked = textEnabled;
   primaryTextControls.style.opacity = textEnabled ? "1" : "0.5";
@@ -1246,25 +1245,23 @@ function syncConfigToUi() {
   propFontColor.value = proj.text_settings.font_color;
   propTextOutline.checked = proj.text_settings.outline ?? true;
   if (propLetterSpacing) {
-    propLetterSpacing.value = (proj.text_settings.letter_spacing ?? 0).toString();
-  }
-  if (letterSpacingValue) {
-    letterSpacingValue.value = (proj.text_settings.letter_spacing ?? 0).toString();
+    propLetterSpacing.value = (proj.text_settings.letter_spacing || 0).toString();
+    if (letterSpacingValue) letterSpacingValue.value = (proj.text_settings.letter_spacing || 0).toString();
   }
   if (propFontWeight) {
-    propFontWeight.value = (proj.text_settings.font_weight ?? 400).toString();
-  }
-  if (fontWeightValue) {
-    fontWeightValue.value = (proj.text_settings.font_weight ?? 400).toString();
+    propFontWeight.value = (proj.text_settings.font_weight || 400).toString();
+    if (fontWeightValue) fontWeightValue.value = (proj.text_settings.font_weight || 400).toString();
   }
   propFontFamily.value = proj.text_settings.font_family;
 
-  // Sync font picker UI button label
-  const primaryFontTrigger = document.querySelector("#font-picker-primary-trigger .font-picker-value") as HTMLSpanElement | null;
-  if (primaryFontTrigger) {
-    primaryFontTrigger.textContent = proj.text_settings.font_family || "Segoe UI";
+  propFontFamily.style.fontFamily = proj.text_settings.font_family;
+  // Sync font picker display (without dispatching change to avoid infinite loop)
+  const primaryPickerValue = document.querySelector("#font-picker-primary .font-picker-value") as HTMLSpanElement;
+  if (primaryPickerValue) {
+    primaryPickerValue.textContent = proj.text_settings.font_family;
+    primaryPickerValue.style.fontFamily = proj.text_settings.font_family;
   }
-
+  
   propGpuAccel.checked = proj.gpu_acceleration;
   propIncludeAudio.checked = proj.include_audio;
   propClipDuration.value = proj.clip_duration.toString();
@@ -1400,7 +1397,7 @@ function refreshViewport() {
   domOverlay.update(stateManager.project, finalW, finalH, false);
 }
 
-function updateResolutionAndAspectRatio() {
+function updateOutputDimensionsFromAspectRatio() {
   const ratio = propAspectRatio.value;
   stateManager.project.aspect_ratio = ratio;
 
@@ -1413,7 +1410,7 @@ function updateResolutionAndAspectRatio() {
     stateManager.project.output_width = 1920;
     stateManager.project.output_height = 1080;
   } else {
-    // "original" / Source resolution
+    // "original" / Source
     stateManager.project.output_resolution = "Source";
     if (currentSelectedAsset && currentSelectedAsset.metadata) {
       stateManager.project.output_width = currentSelectedAsset.metadata.width;
@@ -1424,11 +1421,8 @@ function updateResolutionAndAspectRatio() {
     }
   }
 
-  if (propResolution) {
-    propResolution.value = stateManager.project.output_resolution;
-  }
-
   stateManager.updateProjectDirectly(stateManager.project);
+  refreshViewport();
 }
 
 function bindInputFields() {
@@ -1557,7 +1551,7 @@ function bindInputFields() {
   });
 
   propAspectRatio.addEventListener("change", () => {
-    updateResolutionAndAspectRatio();
+    updateOutputDimensionsFromAspectRatio();
   });
   propCropAnchor.addEventListener("change", () => {
     stateManager.updateProjectField("crop_anchor", propCropAnchor.value);
@@ -2180,7 +2174,7 @@ function bindInputFields() {
   
 
   // Focus video overlay when interacting with placement settings in inspector
-  const videoInputs = [propPlacementX, propPlacementY, propPlacementW, propPlacementH, propAspectRatio, propCropAnchor].filter(Boolean);
+  const videoInputs = [propPlacementX, propPlacementY, propPlacementW, propPlacementH, propAspectRatio, propCropAnchor];
   videoInputs.forEach(input => {
     input.addEventListener("focus", () => {
       if (!domOverlay.getFocusedElement()) {
