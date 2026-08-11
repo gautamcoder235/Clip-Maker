@@ -68,9 +68,10 @@ impl ExportService {
         let temp_filepath = Path::new(&config.output_path).join(&temp_filename);
         let temp_filepath_str = temp_filepath.to_string_lossy().replace("\\", "/");
 
-        // Calculate clip start/duration matching the ClipSplitter logic and user-specific trim settings
         let mut trim_start = 0.0;
         let mut trim_end = None;
+        let mut audio_stream_index = config.audio_stream_index;
+        let mut audio_codec = config.audio_codec.clone();
 
         let asset_id = config.imported_assets.iter()
             .find(|asset| asset.path == *input_path)
@@ -83,6 +84,12 @@ impl ExportService {
                         trim_start = trim.start;
                         trim_end = Some(trim.end);
                     }
+                }
+                if let Some(stream_idx) = settings.audio_stream_index {
+                    audio_stream_index = stream_idx;
+                }
+                if let Some(ref codec) = &settings.audio_codec {
+                    audio_codec = codec.clone();
                 }
             }
         }
@@ -327,8 +334,8 @@ impl ExportService {
             }
         }
 
-        builder.set_audio_codec(&config.audio_codec);
-        builder.set_audio_stream_index(config.audio_stream_index);
+        builder.set_audio_codec(&audio_codec);
+        builder.set_audio_stream_index(audio_stream_index);
         builder.encode(
             &temp_filepath_str,
             active_gpu,
@@ -446,8 +453,8 @@ impl ExportService {
                     }
                 }
 
-                retry_builder.set_audio_codec(&config.audio_codec);
-                retry_builder.set_audio_stream_index(config.audio_stream_index);
+                retry_builder.set_audio_codec(&audio_codec);
+                retry_builder.set_audio_stream_index(audio_stream_index);
                 retry_builder.encode(
                     &temp_filepath_str,
                     false, // force CPU fallback
