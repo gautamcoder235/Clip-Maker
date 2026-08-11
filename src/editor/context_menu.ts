@@ -555,6 +555,8 @@ export class CanvasContextMenu {
       chroma_color: "#00ff00",
       chroma_similarity: 0.3,
       chroma_blend: 0.05,
+      chroma_mode: "chromakey",
+      chroma_spill: 0.3,
     });
     
     const order = [...this.stateManager.getNormalizedOverlayOrder(), `media-${newIdx}`];

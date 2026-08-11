@@ -425,11 +425,20 @@ impl FFmpegBuilder {
                     }
                     if overlay.chroma_key {
                         let norm_color = Self::normalize_color(&overlay.chroma_color);
+                        let mode = if overlay.chroma_mode == "colorkey" { "colorkey" } else { "chromakey" };
                         filters.push("format=rgba".to_string());
                         filters.push(format!(
-                            "chromakey={}:{:.3}:{:.3}",
-                            norm_color, overlay.chroma_similarity * 0.3, overlay.chroma_blend * 0.3
+                            "{}={}:{:.3}:{:.3}",
+                            mode, norm_color, overlay.chroma_similarity.clamp(0.01, 1.0), overlay.chroma_blend.clamp(0.0, 1.0)
                         ));
+                        if overlay.chroma_spill > 0.001 {
+                            let spill_type = if Self::is_green_dominant(&overlay.chroma_color) {
+                                "g"
+                            } else {
+                                "b"
+                            };
+                            filters.push(format!("despill=type={}:mix={:.2}", spill_type, overlay.chroma_spill));
+                        }
                         filters.push("format=rgba".to_string());
                     }
 
@@ -533,5 +542,19 @@ impl FFmpegBuilder {
         } else {
             value.to_string()
         }
+    }
+
+    fn is_green_dominant(hex_color: &str) -> bool {
+        let clean = hex_color.trim().trim_start_matches('#');
+        if clean.len() == 6 {
+            if let (Ok(r), Ok(g), Ok(b)) = (
+                u8::from_str_radix(&clean[0..2], 16),
+                u8::from_str_radix(&clean[2..4], 16),
+                u8::from_str_radix(&clean[4..6], 16),
+            ) {
+                return g >= r && g >= b;
+            }
+        }
+        true
     }
 }

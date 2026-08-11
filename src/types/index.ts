@@ -79,6 +79,8 @@ export interface MediaOverlay {
   chroma_color: string;
   chroma_similarity: number;
   chroma_blend: number;
+  chroma_mode?: string; // "chromakey" | "colorkey"
+  chroma_spill?: number; // 0.0 - 1.0
   ratio_locked?: boolean;
   rotation?: number;
   crop_top?: number;

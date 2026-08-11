@@ -1693,6 +1693,11 @@ export class DOMOverlay {
               const targetYuv = rgbToYuv(targetRgb.r, targetRgb.g, targetRgb.b);
               const similarity = overlay.chroma_similarity || 0.3;
               const blend = overlay.chroma_blend || 0.05;
+              const mode = overlay.chroma_mode || "chromakey";
+              const spill = overlay.chroma_spill ?? 0.3;
+
+              const isGreenDominant = targetRgb.g >= targetRgb.r && targetRgb.g >= targetRgb.b;
+              const isBlueDominant = !isGreenDominant && targetRgb.b >= targetRgb.r && targetRgb.b >= targetRgb.g;
 
               const tU = targetYuv.u;
               const tV = targetYuv.v;
@@ -1702,19 +1707,34 @@ export class DOMOverlay {
                 const g = data[i+1];
                 const b = data[i+2];
 
-                const u = -0.169 * r - 0.331 * g + 0.5 * b + 128;
-                const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
-
-                const uDiff = u - tU;
-                const vDiff = v - tV;
-                const dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+                let dist = 0;
+                if (mode === "colorkey") {
+                  const dr = r - targetRgb.r;
+                  const dg = g - targetRgb.g;
+                  const db = b - targetRgb.b;
+                  dist = Math.sqrt(dr * dr + dg * dg + db * db) / 441.67;
+                } else {
+                  const u = -0.169 * r - 0.331 * g + 0.5 * b + 128;
+                  const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
+                  const uDiff = u - tU;
+                  const vDiff = v - tV;
+                  dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+                }
 
                 if (dist < similarity) {
                   if (blend > 0 && (similarity - dist) < blend) {
                     const alphaFactor = (similarity - dist) / blend;
-                    data[i + 3] = Math.round(alphaFactor * 255);
+                    data[i + 3] = Math.round(alphaFactor * data[i + 3]);
                   } else {
                     data[i + 3] = 0;
+                  }
+                } else if (spill > 0 && data[i + 3] > 0) {
+                  if (isGreenDominant && g > Math.max(r, b)) {
+                    const excess = g - Math.max(r, b);
+                    data[i + 1] = Math.max(0, Math.round(g - excess * spill));
+                  } else if (isBlueDominant && b > Math.max(r, g)) {
+                    const excess = b - Math.max(r, g);
+                    data[i + 2] = Math.max(0, Math.round(b - excess * spill));
                   }
                 }
               }

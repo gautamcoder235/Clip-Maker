@@ -144,6 +144,10 @@ let btnAddMedia: HTMLButtonElement;
 let btnEditMediaPopup: HTMLButtonElement;
 let btnRemoveMedia: HTMLButtonElement;
 
+let propMediaChromaMode: HTMLSelectElement;
+let propMediaSpill: HTMLInputElement;
+let mediaModalChromaEyedropperBtn: HTMLButtonElement;
+
 // Media Settings Modal elements
 let mediaSettingsModal: HTMLDivElement;
 let mediaModalFilename: HTMLSpanElement;
@@ -577,7 +581,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   propMediaChroma = document.querySelector("#media-modal-chroma")!;
   propMediaSimilarity = document.querySelector("#media-modal-similarity")!;
   propMediaBlend = document.querySelector("#media-modal-blend")!;
-  propMediaChromaColor = document.querySelector("#media-modal-chroma-color")!;
+  propMediaChromaMode = document.querySelector("#media-modal-chroma-mode")!;
+  propMediaSpill = document.querySelector("#media-modal-spill")!;
+  mediaModalChromaEyedropperBtn = document.querySelector("#media-modal-chroma-eyedropper")!;
   btnAddMedia = document.querySelector("#btn-add-media")!;
   btnEditMediaPopup = document.querySelector("#btn-edit-media-popup")!;
   btnRemoveMedia = document.querySelector("#btn-remove-media")!;
@@ -2109,7 +2115,9 @@ function bindInputFields() {
         chroma_key: false,
         chroma_color: "#00ff00",
         chroma_similarity: 0.3,
-        chroma_blend: 0.05
+        chroma_blend: 0.05,
+        chroma_mode: "chromakey",
+        chroma_spill: 0.3
       });
       
       const order = [...stateManager.getNormalizedOverlayOrder(), `media-${newIdx}`];
@@ -4653,11 +4661,15 @@ function openMediaSettingsModal(idx: number) {
     mediaModalChromaColorHex.value = propMediaChromaColor.value;
     propMediaSimilarity.value = (overlay.chroma_similarity || 0.3).toString();
     propMediaBlend.value = (overlay.chroma_blend || 0.05).toString();
+    propMediaChromaMode.value = overlay.chroma_mode || "chromakey";
+    propMediaSpill.value = (overlay.chroma_spill ?? 0.3).toString();
 
     const simValSpan = document.getElementById("media-modal-similarity-val")!;
     const blendValSpan = document.getElementById("media-modal-blend-val")!;
+    const spillValSpan = document.getElementById("media-modal-spill-val")!;
     simValSpan.innerText = parseFloat(propMediaSimilarity.value).toFixed(2);
     blendValSpan.innerText = parseFloat(propMediaBlend.value).toFixed(2);
+    spillValSpan.innerText = parseFloat(propMediaSpill.value).toFixed(2);
 
     // Setup live-preview canvases
     const mainCanvas = document.getElementById("media-modal-canvas") as HTMLCanvasElement;
@@ -4670,6 +4682,8 @@ function openMediaSettingsModal(idx: number) {
     let targetColor = propMediaChromaColor.value;
     let similarity = parseFloat(propMediaSimilarity.value);
     let blend = parseFloat(propMediaBlend.value);
+    let chromaMode = propMediaChromaMode.value;
+    let spill = parseFloat(propMediaSpill.value);
 
     const hexToRgb = (hex: string) => {
       const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
@@ -4739,6 +4753,8 @@ function openMediaSettingsModal(idx: number) {
       const data = imgData.data;
 
       if (chromaEnabled) {
+        const isGreenDominant = targetRgb.g >= targetRgb.r && targetRgb.g >= targetRgb.b;
+        const isBlueDominant = !isGreenDominant && targetRgb.b >= targetRgb.r && targetRgb.b >= targetRgb.g;
         const tU = targetYuv.u;
         const tV = targetYuv.v;
 
@@ -4747,19 +4763,34 @@ function openMediaSettingsModal(idx: number) {
           const g = data[i+1];
           const b = data[i+2];
 
-          const u = -0.169 * r - 0.331 * g + 0.5 * b + 128;
-          const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
-
-          const uDiff = u - tU;
-          const vDiff = v - tV;
-          const dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+          let dist = 0;
+          if (chromaMode === "colorkey") {
+            const dr = r - targetRgb.r;
+            const dg = g - targetRgb.g;
+            const db = b - targetRgb.b;
+            dist = Math.sqrt(dr * dr + dg * dg + db * db) / 441.67;
+          } else {
+            const u = -0.169 * r - 0.331 * g + 0.5 * b + 128;
+            const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
+            const uDiff = u - tU;
+            const vDiff = v - tV;
+            dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+          }
 
           if (dist < similarity) {
             if (blend > 0 && (similarity - dist) < blend) {
               const alphaFactor = (similarity - dist) / blend;
-              data[i + 3] = Math.round(alphaFactor * 255);
+              data[i + 3] = Math.round(alphaFactor * data[i + 3]);
             } else {
               data[i + 3] = 0;
+            }
+          } else if (spill > 0 && data[i + 3] > 0) {
+            if (isGreenDominant && g > Math.max(r, b)) {
+              const excess = g - Math.max(r, b);
+              data[i + 1] = Math.max(0, Math.round(g - excess * spill));
+            } else if (isBlueDominant && b > Math.max(r, g)) {
+              const excess = b - Math.max(r, g);
+              data[i + 2] = Math.max(0, Math.round(b - excess * spill));
             }
           }
         }
@@ -4901,6 +4932,53 @@ function openMediaSettingsModal(idx: number) {
     };
     propMediaBlend.addEventListener("input", onBlendChange);
 
+    const onEyeDropperClick = async () => {
+      if ((window as any).EyeDropper) {
+        try {
+          const eyeDropper = new (window as any).EyeDropper();
+          const result = await eyeDropper.open();
+          if (result && result.sRGBHex) {
+            const hex = result.sRGBHex;
+            propMediaChromaColor.value = hex;
+            mediaModalChromaColorHex.value = hex;
+            mediaModalChromaColorBtn.style.backgroundColor = hex;
+            updateColorConfig(hex);
+          }
+        } catch (err) {
+          // EyeDropper cancelled
+        }
+      } else {
+        showToast("Click directly on the preview image to pick a color!", "warning");
+      }
+    };
+    if (mediaModalChromaEyedropperBtn) {
+      mediaModalChromaEyedropperBtn.addEventListener("click", onEyeDropperClick);
+    }
+
+    const presetChips = document.querySelectorAll<HTMLButtonElement>(".chroma-preset-chip");
+    const onPresetClick = (e: Event) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const hex = btn.dataset.color || "#00ff00";
+      propMediaChromaColor.value = hex;
+      mediaModalChromaColorHex.value = hex;
+      mediaModalChromaColorBtn.style.backgroundColor = hex;
+      updateColorConfig(hex);
+    };
+    presetChips.forEach(chip => chip.addEventListener("click", onPresetClick));
+
+    const onChromaModeChange = () => {
+      chromaMode = propMediaChromaMode.value;
+      if (!isVideo) drawFrame();
+    };
+    propMediaChromaMode.addEventListener("change", onChromaModeChange);
+
+    const onSpillChange = () => {
+      spill = parseFloat(propMediaSpill.value);
+      spillValSpan.innerText = spill.toFixed(2);
+      if (!isVideo) drawFrame();
+    };
+    propMediaSpill.addEventListener("input", onSpillChange);
+
     mediaSettingsModal.style.display = "flex";
 
     const cleanup = () => {
@@ -4923,6 +5001,12 @@ function openMediaSettingsModal(idx: number) {
       mediaModalChromaColorHex.removeEventListener("input", onHexTextInputChange);
       propMediaSimilarity.removeEventListener("input", onSimilarityChange);
       propMediaBlend.removeEventListener("input", onBlendChange);
+      if (mediaModalChromaEyedropperBtn) {
+        mediaModalChromaEyedropperBtn.removeEventListener("click", onEyeDropperClick);
+      }
+      presetChips.forEach(chip => chip.removeEventListener("click", onPresetClick));
+      propMediaChromaMode.removeEventListener("change", onChromaModeChange);
+      propMediaSpill.removeEventListener("input", onSpillChange);
       btnMediaModalCancel.removeEventListener("click", onCancel);
       btnMediaModalSave.removeEventListener("click", onSave);
     };
@@ -4941,6 +5025,8 @@ function openMediaSettingsModal(idx: number) {
         overlaysCopy[idx].chroma_color = propMediaChromaColor.value;
         overlaysCopy[idx].chroma_similarity = parseFloat(propMediaSimilarity.value) || 0.3;
         overlaysCopy[idx].chroma_blend = parseFloat(propMediaBlend.value) || 0.05;
+        overlaysCopy[idx].chroma_mode = propMediaChromaMode.value;
+        overlaysCopy[idx].chroma_spill = parseFloat(propMediaSpill.value) || 0.3;
 
         stateManager.updateProjectField("media_overlays", overlaysCopy);
         syncMediaOverlaysList();

@@ -114,6 +114,10 @@ pub struct MediaOverlay {
     pub crop_bottom: Option<f64>,
     #[serde(default)]
     pub crop_left: Option<f64>,
+    #[serde(default)]
+    pub chroma_mode: Option<String>,
+    #[serde(default)]
+    pub chroma_spill: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
