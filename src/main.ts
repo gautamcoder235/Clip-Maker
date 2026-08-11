@@ -3074,11 +3074,11 @@ async function clearCacheDir() {
 
 function switchBottomTab(tab: "clips" | "render") {
   const bottomTabIndicator = document.querySelector("#bottom-tab-indicator") as HTMLElement | null;
+  const targetBtn = tab === "clips" ? tabClipQueue : tabRenderQueue;
 
   if (tab === "clips") {
     tabClipQueue.classList.add("active");
     tabRenderQueue.classList.remove("active");
-    if (bottomTabIndicator) bottomTabIndicator.style.transform = "translateX(0%)";
 
     paneRenderQueue.classList.remove("active");
     paneRenderQueue.classList.add("pane-exit-right");
@@ -3090,7 +3090,6 @@ function switchBottomTab(tab: "clips" | "render") {
   } else {
     tabRenderQueue.classList.add("active");
     tabClipQueue.classList.remove("active");
-    if (bottomTabIndicator) bottomTabIndicator.style.transform = "translateX(100%)";
 
     paneClipQueue.classList.remove("active");
     paneClipQueue.classList.add("pane-exit-left");
@@ -3099,6 +3098,11 @@ function switchBottomTab(tab: "clips" | "render") {
     paneRenderQueue.classList.add("active");
     paneRenderQueue.classList.remove("pane-exit-left");
     paneRenderQueue.classList.remove("pane-exit-right");
+  }
+
+  if (bottomTabIndicator && targetBtn) {
+    bottomTabIndicator.style.width = `${targetBtn.offsetWidth}px`;
+    bottomTabIndicator.style.transform = `translateX(${targetBtn.offsetLeft - 3}px)`;
   }
 }
 
