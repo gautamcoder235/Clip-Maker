@@ -1691,8 +1691,8 @@ export class DOMOverlay {
               const chromaColor = overlay.chroma_color || "#00ff00";
               const targetRgb = hexToRgb(chromaColor);
               const targetYuv = rgbToYuv(targetRgb.r, targetRgb.g, targetRgb.b);
-              const similarity = overlay.chroma_similarity || 0.3;
-              const blend = overlay.chroma_blend || 0.05;
+              const similarity = overlay.chroma_similarity ?? 0.3;
+              const blend = overlay.chroma_blend ?? 0.05;
               const mode = overlay.chroma_mode || "chromakey";
               const spill = overlay.chroma_spill ?? 0.3;
 
@@ -1712,23 +1712,26 @@ export class DOMOverlay {
                   const dr = r - targetRgb.r;
                   const dg = g - targetRgb.g;
                   const db = b - targetRgb.b;
-                  dist = Math.sqrt(dr * dr + dg * dg + db * db) / 441.67;
+                  dist = Math.sqrt(dr * dr + dg * dg + db * db) / 441.673;
                 } else {
                   const u = -0.169 * r - 0.331 * g + 0.5 * b + 128;
                   const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
                   const uDiff = u - tU;
                   const vDiff = v - tV;
-                  dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+                  dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 181.019;
                 }
 
                 if (dist < similarity) {
-                  if (blend > 0 && (similarity - dist) < blend) {
-                    const alphaFactor = (similarity - dist) / blend;
+                  const innerBound = Math.max(0, similarity - blend);
+                  if (blend > 0 && dist > innerBound) {
+                    const alphaFactor = (dist - innerBound) / blend;
                     data[i + 3] = Math.round(alphaFactor * data[i + 3]);
                   } else {
                     data[i + 3] = 0;
                   }
-                } else if (spill > 0 && data[i + 3] > 0) {
+                }
+
+                if (spill > 0 && data[i + 3] > 0) {
                   if (isGreenDominant && g > Math.max(r, b)) {
                     const excess = g - Math.max(r, b);
                     data[i + 1] = Math.max(0, Math.round(g - excess * spill));

@@ -432,12 +432,10 @@ impl FFmpegBuilder {
                             mode, norm_color, overlay.chroma_similarity.clamp(0.01, 1.0), overlay.chroma_blend.clamp(0.0, 1.0)
                         ));
                         if overlay.chroma_spill > 0.001 {
-                            let spill_type = if Self::is_green_dominant(&overlay.chroma_color) {
-                                "g"
-                            } else {
-                                "b"
-                            };
-                            filters.push(format!("despill=type={}:mix={:.2}", spill_type, overlay.chroma_spill));
+                            if let Some(spill_type) = Self::detect_spill_type(&overlay.chroma_color) {
+                                filters.push("format=rgba".to_string());
+                                filters.push(format!("despill=type={}:mix={:.2}", spill_type, overlay.chroma_spill));
+                            }
                         }
                         filters.push("format=rgba".to_string());
                     }
@@ -536,25 +534,45 @@ impl FFmpegBuilder {
     }
 
     fn normalize_color(color: &str) -> String {
-        let value = color.trim();
-        if value.starts_with('#') && value.len() == 7 {
-            format!("0x{}", &value[1..])
-        } else {
+        let value = color.trim().trim_start_matches('#');
+        if value.len() == 3 {
+            let r = &value[0..1];
+            let g = &value[1..2];
+            let b = &value[2..3];
+            format!("0x{}{}{}{}{}{}", r, r, g, g, b, b)
+        } else if value.len() == 6 {
+            format!("0x{}", value)
+        } else if value.starts_with("0x") {
             value.to_string()
+        } else {
+            format!("0x{}", value)
         }
     }
 
-    fn is_green_dominant(hex_color: &str) -> bool {
+    fn detect_spill_type(hex_color: &str) -> Option<&'static str> {
         let clean = hex_color.trim().trim_start_matches('#');
-        if clean.len() == 6 {
-            if let (Ok(r), Ok(g), Ok(b)) = (
-                u8::from_str_radix(&clean[0..2], 16),
-                u8::from_str_radix(&clean[2..4], 16),
-                u8::from_str_radix(&clean[4..6], 16),
-            ) {
-                return g >= r && g >= b;
-            }
+        let (r, g, b) = if clean.len() == 3 {
+            (
+                u8::from_str_radix(&clean[0..1], 16).map(|v| v * 17).unwrap_or(0),
+                u8::from_str_radix(&clean[1..2], 16).map(|v| v * 17).unwrap_or(0),
+                u8::from_str_radix(&clean[2..3], 16).map(|v| v * 17).unwrap_or(0),
+            )
+        } else if clean.len() == 6 {
+            (
+                u8::from_str_radix(&clean[0..2], 16).unwrap_or(0),
+                u8::from_str_radix(&clean[2..4], 16).unwrap_or(0),
+                u8::from_str_radix(&clean[4..6], 16).unwrap_or(0),
+            )
+        } else {
+            return None;
+        };
+
+        if g >= r && g >= b {
+            Some("g")
+        } else if b >= r && b >= g {
+            Some("b")
+        } else {
+            None
         }
-        true
     }
 }

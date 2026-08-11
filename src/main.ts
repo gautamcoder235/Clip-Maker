@@ -4981,17 +4981,20 @@ function openMediaSettingsModal(idx: number) {
             const v = 0.5 * r - 0.419 * g - 0.081 * b + 128;
             const uDiff = u - tU;
             const vDiff = v - tV;
-            dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 240.0;
+            dist = Math.sqrt(uDiff * uDiff + vDiff * vDiff) / 181.019;
           }
 
           if (dist < similarity) {
-            if (blend > 0 && (similarity - dist) < blend) {
-              const alphaFactor = (similarity - dist) / blend;
+            const innerBound = Math.max(0, similarity - blend);
+            if (blend > 0 && dist > innerBound) {
+              const alphaFactor = (dist - innerBound) / blend;
               data[i + 3] = Math.round(alphaFactor * data[i + 3]);
             } else {
               data[i + 3] = 0;
             }
-          } else if (spill > 0 && data[i + 3] > 0) {
+          }
+
+          if (spill > 0 && data[i + 3] > 0) {
             if (isGreenDominant && g > Math.max(r, b)) {
               const excess = g - Math.max(r, b);
               data[i + 1] = Math.max(0, Math.round(g - excess * spill));
@@ -5260,10 +5263,14 @@ function openMediaSettingsModal(idx: number) {
         overlaysCopy[idx].loop_mode = propMediaLoop.value;
         overlaysCopy[idx].chroma_key = propMediaChroma.checked;
         overlaysCopy[idx].chroma_color = propMediaChromaColor.value;
-        overlaysCopy[idx].chroma_similarity = parseFloat(propMediaSimilarity.value) || 0.3;
-        overlaysCopy[idx].chroma_blend = parseFloat(propMediaBlend.value) || 0.05;
+        const simVal = parseFloat(propMediaSimilarity.value);
+        const blendVal = parseFloat(propMediaBlend.value);
+        const spillVal = parseFloat(propMediaSpill.value);
+
+        overlaysCopy[idx].chroma_similarity = isNaN(simVal) ? 0.3 : simVal;
+        overlaysCopy[idx].chroma_blend = isNaN(blendVal) ? 0.05 : blendVal;
         overlaysCopy[idx].chroma_mode = propMediaChromaMode.value;
-        overlaysCopy[idx].chroma_spill = parseFloat(propMediaSpill.value) || 0.3;
+        overlaysCopy[idx].chroma_spill = isNaN(spillVal) ? 0.3 : spillVal;
 
         stateManager.updateProjectField("media_overlays", overlaysCopy);
         syncMediaOverlaysList();
