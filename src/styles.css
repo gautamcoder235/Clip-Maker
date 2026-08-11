@@ -1221,9 +1221,12 @@ select:focus-visible,
 
 /* Custom Pro Desktop List Box & Cards */
 .pro-list-box {
+  width: 100%;
+  max-width: 100%;
   min-height: 70px;
   max-height: 120px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
@@ -1243,6 +1246,11 @@ select:focus-visible,
   background: transparent;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .pro-list-box option:hover {

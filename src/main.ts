@@ -1313,8 +1313,10 @@ function syncExtraOverlaysList() {
   overlays.forEach((overlay, idx) => {
     const opt = document.createElement("option");
     opt.value = idx.toString();
-    const txtSnippet = overlay.text.length > 15 ? overlay.text.substring(0, 15) + "..." : overlay.text;
-    opt.innerText = `${overlay.name || `Overlay ${idx + 1}`} ("${txtSnippet}")`;
+    const txtSnippet = overlay.text.length > 25 ? overlay.text.substring(0, 25) + "..." : overlay.text;
+    const labelText = `${overlay.name || `Overlay ${idx + 1}`} ("${txtSnippet}")`;
+    opt.innerText = labelText;
+    opt.title = `${overlay.name || `Overlay ${idx + 1}`} ("${overlay.text}")`;
     listExtraOverlays.appendChild(opt);
   });
   if (currentVal && listExtraOverlays.querySelector(`option[value="${currentVal}"]`)) {
@@ -1355,7 +1357,9 @@ function syncMediaOverlaysList() {
     const opt = document.createElement("option");
     opt.value = idx.toString();
     const file = overlay.path.split(/[/\\]/).pop() || "None";
-    opt.innerText = `${overlay.name || `Media ${idx + 1}`} (${overlay.type}: ${file})`;
+    const labelText = `${overlay.name || `Media ${idx + 1}`} (${overlay.type}: ${file})`;
+    opt.innerText = labelText;
+    opt.title = labelText;
     listMediaOverlays.appendChild(opt);
   });
   if (currentVal && listMediaOverlays.querySelector(`option[value="${currentVal}"]`)) {
