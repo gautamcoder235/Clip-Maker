@@ -376,17 +376,92 @@ function setupInspectorAccordions() {
   headers.forEach((header) => {
     const section = header.parentElement as HTMLDivElement;
     if (!section || !section.id) return;
+    const content = section.querySelector<HTMLDivElement>(".inspector-content");
+    if (!content) return;
 
     if (savedStates[section.id] === true) {
       section.classList.add("collapsed");
       header.setAttribute("aria-expanded", "false");
+      content.style.display = "none";
+    } else {
+      section.classList.remove("collapsed");
+      header.setAttribute("aria-expanded", "true");
+      content.style.display = "flex";
     }
+
+    let isAnimating = false;
 
     const toggleAccordion = (e: Event) => {
       if ((e.target as HTMLElement).tagName === "INPUT") return;
-      const isCollapsed = section.classList.toggle("collapsed");
-      header.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
-      savedStates[section.id] = isCollapsed;
+      if (isAnimating) return;
+
+      const isCurrentlyCollapsed = section.classList.contains("collapsed");
+      isAnimating = true;
+
+      if (isCurrentlyCollapsed) {
+        // --- EXPAND ---
+        section.classList.remove("collapsed");
+        header.setAttribute("aria-expanded", "true");
+        savedStates[section.id] = false;
+
+        content.style.display = "flex";
+        content.style.overflow = "hidden";
+
+        const fullHeight = content.scrollHeight;
+
+        const anim = content.animate(
+          [
+            { height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: 0, transform: "translateY(-6px)" },
+            { height: `${fullHeight}px`, paddingTop: "14px", paddingBottom: "14px", opacity: 1, transform: "translateY(0px)" }
+          ],
+          {
+            duration: 240,
+            easing: "cubic-bezier(0.16, 1, 0.3, 1)"
+          }
+        );
+
+        anim.onfinish = () => {
+          content.style.display = "flex";
+          content.style.height = "";
+          content.style.paddingTop = "";
+          content.style.paddingBottom = "";
+          content.style.opacity = "";
+          content.style.transform = "";
+          content.style.overflow = "";
+          isAnimating = false;
+        };
+      } else {
+        // --- COLLAPSE ---
+        section.classList.add("collapsed");
+        header.setAttribute("aria-expanded", "false");
+        savedStates[section.id] = true;
+
+        const startHeight = content.offsetHeight;
+        content.style.overflow = "hidden";
+
+        const anim = content.animate(
+          [
+            { height: `${startHeight}px`, paddingTop: "14px", paddingBottom: "14px", opacity: 1, transform: "translateY(0px)" },
+            { height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: 0, transform: "translateY(-6px)" }
+          ],
+          {
+            duration: 200,
+            easing: "cubic-bezier(0.4, 0, 0.2, 1)"
+          }
+        );
+
+        anim.onfinish = () => {
+          content.style.display = "none";
+          content.style.height = "";
+          content.style.paddingTop = "";
+          content.style.paddingBottom = "";
+          content.style.opacity = "";
+          content.style.transform = "";
+          content.style.overflow = "";
+          isAnimating = false;
+        };
+      }
+
       try {
         localStorage.setItem("clipmaker_inspector_accordions", JSON.stringify(savedStates));
       } catch (err) {
