@@ -1375,8 +1375,8 @@ function syncMediaOverlaysList() {
 function refreshViewport() {
   const previewArea = document.getElementById("preview-area-16-9")!;
   const centerPanel = previewArea.parentElement!;
-  const containerW = centerPanel.clientWidth - 40;
-  const containerH = centerPanel.clientHeight - 40;
+  const containerW = Math.max(80, centerPanel.clientWidth - 40);
+  const containerH = Math.max(80, centerPanel.clientHeight - 40);
   
   // Calculate a strict 16:9 aspect-ratio box that fits inside the center panel
   const ratio = 16 / 9;
@@ -3851,7 +3851,7 @@ function setupWorkspaceResizers() {
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const parentW = leftPanel.parentElement?.clientWidth || window.innerWidth;
-      const maxLeft = parentW - rightPanel.clientWidth - 450;
+      const maxLeft = parentW - rightPanel.clientWidth - 200;
       const newWidth = Math.max(200, Math.min(Math.max(200, maxLeft), startWidth + (moveEvent.clientX - startX)));
       leftPanel.style.width = `${newWidth}px`;
       savedLeftPanelWidth = newWidth;
@@ -3877,7 +3877,7 @@ function setupWorkspaceResizers() {
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const parentW = rightPanel.parentElement?.clientWidth || window.innerWidth;
-      const maxRight = parentW - leftPanel.clientWidth - 450;
+      const maxRight = parentW - leftPanel.clientWidth - 200;
       const newWidth = Math.max(300, Math.min(Math.max(300, maxRight), startWidth - (moveEvent.clientX - startX)));
       rightPanel.style.width = `${newWidth}px`;
       refreshViewport();
@@ -3902,7 +3902,7 @@ function setupWorkspaceResizers() {
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const parentH = bottomPanel.parentElement?.clientHeight || window.innerHeight;
-      const maxBottom = parentH - 450;
+      const maxBottom = parentH - 180;
       const newHeight = Math.max(120, Math.min(Math.max(120, maxBottom), startHeight - (moveEvent.clientY - startY)));
       bottomPanel.style.height = `${newHeight}px`;
       savedBottomPanelHeight = newHeight;
