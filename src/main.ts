@@ -840,6 +840,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       outline: propTextOutline.checked,
       letter_spacing: parseInt(propLetterSpacing?.value || "0"),
       font_weight: parseInt(propFontWeight?.value || "400"),
+      extra_overlays: JSON.parse(JSON.stringify(stateManager.project.extra_overlays || [])),
+      media_overlays: JSON.parse(JSON.stringify(stateManager.project.media_overlays || [])),
+      overlay_order: [...(stateManager.project.overlay_order || [])],
     };
 
     try {
@@ -2386,6 +2389,7 @@ function saveActiveAssetSettings() {
   settings.text_template = stateManager.project.text_template;
   settings.extra_overlays = JSON.parse(JSON.stringify(stateManager.project.extra_overlays || []));
   settings.media_overlays = JSON.parse(JSON.stringify(stateManager.project.media_overlays || []));
+  settings.overlay_order = [...(stateManager.project.overlay_order || [])];
 }
 
 function loadActiveAssetSettings(asset: ImportedAsset) {
@@ -2412,6 +2416,11 @@ function loadActiveAssetSettings(asset: ImportedAsset) {
     } else {
       stateManager.project.media_overlays = [];
     }
+    if (settings.overlay_order) {
+      stateManager.project.overlay_order = [...settings.overlay_order];
+    } else {
+      stateManager.project.overlay_order = [];
+    }
   } else {
     // Clean default settings for a newly loaded video asset
     stateManager.project.video_placement = {
@@ -2434,6 +2443,7 @@ function loadActiveAssetSettings(asset: ImportedAsset) {
     stateManager.project.text_template = "PART {part}";
     stateManager.project.extra_overlays = [];
     stateManager.project.media_overlays = [];
+    stateManager.project.overlay_order = [];
   }
 }
 
@@ -2501,6 +2511,11 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
   } catch (e) {
     console.error("Direct video source loading failed:", e);
   }
+
+  // Full UI & Canvas Sync for asset change
+  syncConfigToUi();
+  syncMediaOverlaysList();
+  syncExtraOverlaysList();
   
   refreshViewport();
   toggleDashboard(false);
@@ -5562,6 +5577,7 @@ async function triggerSaveProject() {
     const path = await invoke<string>("select_project_file", { mode: "save" });
     if (!path || path.trim() === "") return;
     
+    saveActiveAssetSettings();
     showToast("Saving project file...", "success");
     stateManager.project.imported_videos = stateManager.assets.map(a => a.path);
     stateManager.project.imported_assets = stateManager.assets.map(a => ({ id: a.id, path: a.path }));
@@ -5638,7 +5654,7 @@ function renderPresetLibraryCards(presets: TextPreset[]) {
       const textPresets = [...(stateManager.project.text_presets || [])];
       textPresets.push(preset);
       
-      stateManager.updateProjectBatch({
+      const batchUpdate: Partial<ProjectData> = {
         text_presets: textPresets,
         text_template: preset.template_text || stateManager.project.text_template || "PART {part}",
         text_settings: {
@@ -5653,9 +5669,23 @@ function renderPresetLibraryCards(presets: TextPreset[]) {
           letter_spacing: preset.letter_spacing || 0,
           font_weight: preset.font_weight || 400,
         }
-      });
+      };
+
+      if (preset.extra_overlays) {
+        batchUpdate.extra_overlays = JSON.parse(JSON.stringify(preset.extra_overlays));
+      }
+      if (preset.media_overlays) {
+        batchUpdate.media_overlays = JSON.parse(JSON.stringify(preset.media_overlays));
+      }
+      if (preset.overlay_order) {
+        batchUpdate.overlay_order = [...preset.overlay_order];
+      }
+
+      stateManager.updateProjectBatch(batchUpdate);
 
       syncConfigToUi();
+      syncMediaOverlaysList();
+      syncExtraOverlaysList();
       refreshViewport();
       showToast(`Applied "${preset.name}" to project presets list`, "success");
     });

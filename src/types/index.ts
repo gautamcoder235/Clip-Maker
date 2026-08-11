@@ -48,6 +48,9 @@ export interface TextPreset {
   outline: boolean;
   letter_spacing?: number;
   font_weight?: number;
+  extra_overlays?: ExtraOverlay[];
+  media_overlays?: MediaOverlay[];
+  overlay_order?: string[];
 }
 
 export interface ExtraOverlay {
@@ -107,6 +110,7 @@ export interface AssetSettings {
   text_template?: string;
   extra_overlays?: ExtraOverlay[];
   media_overlays?: MediaOverlay[];
+  overlay_order?: string[];
 }
 
 export interface AppConfig {

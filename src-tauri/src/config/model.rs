@@ -67,6 +67,12 @@ pub struct TextPreset {
     pub letter_spacing: i32,
     #[serde(default = "default_font_weight")]
     pub font_weight: u32,
+    #[serde(default)]
+    pub extra_overlays: Option<Vec<ExtraOverlay>>,
+    #[serde(default)]
+    pub media_overlays: Option<Vec<MediaOverlay>>,
+    #[serde(default)]
+    pub overlay_order: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,7 +141,20 @@ pub struct TrimSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssetSettings {
+    #[serde(default)]
     pub trim: Option<TrimSettings>,
+    #[serde(default)]
+    pub video_placement: Option<VideoPlacementConfig>,
+    #[serde(default)]
+    pub text_settings: Option<TextSettings>,
+    #[serde(default)]
+    pub text_template: Option<String>,
+    #[serde(default)]
+    pub extra_overlays: Option<Vec<ExtraOverlay>>,
+    #[serde(default)]
+    pub media_overlays: Option<Vec<MediaOverlay>>,
+    #[serde(default)]
+    pub overlay_order: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

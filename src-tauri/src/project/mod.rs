@@ -40,6 +40,16 @@ impl ProjectManager {
             }
         }
 
+        for (_asset_id, asset_setting) in &mut data.asset_settings {
+            if let Some(ref mut media_overlays) = asset_setting.media_overlays {
+                for overlay in media_overlays {
+                    if !overlay.path.is_empty() {
+                        overlay.path = Self::make_relative(project_dir, &overlay.path);
+                    }
+                }
+            }
+        }
+
         let content = serde_json::to_string_pretty(&data)?;
         fs::write(file_path, content)?;
         Ok(())
@@ -92,6 +102,16 @@ impl ProjectManager {
         for overlay in &mut data.media_overlays {
             if !overlay.path.is_empty() {
                 overlay.path = Self::make_absolute(project_dir, &overlay.path);
+            }
+        }
+
+        for (_asset_id, asset_setting) in &mut data.asset_settings {
+            if let Some(ref mut media_overlays) = asset_setting.media_overlays {
+                for overlay in media_overlays {
+                    if !overlay.path.is_empty() {
+                        overlay.path = Self::make_absolute(project_dir, &overlay.path);
+                    }
+                }
             }
         }
 
