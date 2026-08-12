@@ -49,7 +49,6 @@ let propCropR: HTMLInputElement;
 let propAspectRatio: HTMLSelectElement;
 let propCropAnchor: HTMLSelectElement;
 let propAudioCodec: HTMLSelectElement;
-let propAudioStream: HTMLSelectElement;
 let propTextEnabled: HTMLInputElement;
 let primaryTextControls: HTMLDivElement;
 let propTextTemplate: HTMLInputElement;
@@ -525,7 +524,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   propAspectRatio = document.querySelector("#prop-aspect-ratio")!;
   propCropAnchor = document.querySelector("#prop-crop-anchor")!;
   propAudioCodec = document.querySelector("#prop-audio-codec")!;
-  propAudioStream = document.querySelector("#prop-audio-stream")!;
   propTextEnabled = document.querySelector("#prop-text-enabled")!;
   primaryTextControls = document.querySelector("#primary-text-controls")!;
   propTextTemplate = document.querySelector("#prop-text-template")!;
@@ -1241,39 +1239,6 @@ function updateBgControlsVisibility() {
   }
 }
 
-function syncAudioStreamsList() {
-  if (!propAudioStream) return;
-  const currentStreamIdx = stateManager.project.audio_stream_index || 0;
-  propAudioStream.innerHTML = "";
-
-  const streams = currentSelectedAsset?.metadata?.audio_streams || [];
-  if (streams.length > 0) {
-    streams.forEach((st, i) => {
-      const opt = document.createElement("option");
-      opt.value = i.toString();
-      let label = `Track ${i + 1}: `;
-      if (st.title) {
-        label += st.title;
-      } else {
-        const channelsLabel = st.channels === 6 ? '5.1 Surround' : st.channels === 1 ? 'Mono' : 'Stereo';
-        label += `${st.codec_name.toUpperCase()} (${channelsLabel})`;
-      }
-      if (st.language && st.language !== "und") {
-        label += ` [${st.language.toUpperCase()}]`;
-      }
-      opt.textContent = label;
-      if (i === currentStreamIdx) opt.selected = true;
-      propAudioStream.appendChild(opt);
-    });
-  } else {
-    const opt = document.createElement("option");
-    opt.value = "0";
-    opt.textContent = "Track 1 (Default Audio Track)";
-    opt.selected = true;
-    propAudioStream.appendChild(opt);
-  }
-}
-
 function syncConfigToUi() {
   const proj = stateManager.project;
   
@@ -1289,7 +1254,6 @@ function syncConfigToUi() {
   if (propAudioCodec && proj.audio_codec) {
     propAudioCodec.value = proj.audio_codec;
   }
-  syncAudioStreamsList();
   const textEnabled = proj.text_settings.enabled !== false;
   propTextEnabled.checked = textEnabled;
   primaryTextControls.style.opacity = textEnabled ? "1" : "0.5";
@@ -1620,12 +1584,6 @@ function bindInputFields() {
       const codec = propAudioCodec.value;
       stateManager.updateProjectField("audio_codec", codec);
       stateManager.project.include_audio = codec !== "none";
-    });
-  }
-  if (propAudioStream) {
-    propAudioStream.addEventListener("change", () => {
-      const idx = parseInt(propAudioStream.value) || 0;
-      stateManager.updateProjectField("audio_stream_index", idx);
     });
   }
   
@@ -4906,7 +4864,6 @@ function openTrimModal(asset: ImportedAsset) {
 
     if (currentSelectedAsset?.id === asset.id) {
       stateManager.project.audio_stream_index = audioStreamIdx;
-      syncAudioStreamsList();
     }
     
     // Refresh asset card UI
