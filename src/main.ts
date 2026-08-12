@@ -4469,6 +4469,38 @@ function openTrimModal(asset: ImportedAsset) {
   trimModalVideo.src = convertFileSrc(asset.path);
   trimModalVideo.load();
 
+  const trimAudioStreamSelect = document.querySelector("#trim-audio-stream-select") as HTMLSelectElement;
+  if (trimAudioStreamSelect) {
+    trimAudioStreamSelect.innerHTML = "";
+    const streams = asset.metadata?.audio_streams || [];
+    if (streams.length > 0) {
+      streams.forEach((st, i) => {
+        const opt = document.createElement("option");
+        opt.value = i.toString();
+        let label = `Track ${i + 1}: `;
+        if (st.title) {
+          label += st.title;
+        } else {
+          const channelsLabel = st.channels === 6 ? '5.1 Surround' : st.channels === 1 ? 'Mono' : 'Stereo';
+          label += `${st.codec_name.toUpperCase()} (${channelsLabel})`;
+        }
+        if (st.language && st.language !== "und") {
+          label += ` [${st.language.toUpperCase()}]`;
+        }
+        opt.textContent = label;
+        trimAudioStreamSelect.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement("option");
+      opt.value = "0";
+      opt.textContent = "Track 1 (Default Audio Track)";
+      trimAudioStreamSelect.appendChild(opt);
+    }
+
+    const savedStreamIdx = stateManager.project.asset_settings?.[asset.id]?.audio_stream_index ?? (stateManager.project.audio_stream_index || 0);
+    trimAudioStreamSelect.value = savedStreamIdx.toString();
+  }
+
   // Custom playback controllers state
   let isScrubbing = false;
 
@@ -4854,26 +4886,28 @@ function openTrimModal(asset: ImportedAsset) {
     const isEnabled = trimEnabledCheckbox.checked;
     const start = Math.max(0, Math.min(duration, parseFloat(trimStartInput.value) || 0));
     const end = Math.max(start, Math.min(duration, parseFloat(trimEndInput.value) || duration));
+    const audioStreamIdx = trimAudioStreamSelect ? (parseInt(trimAudioStreamSelect.value) || 0) : 0;
 
     const currentSettings = { ...stateManager.project.asset_settings };
-    
-    // Only save settings if trimming is enabled and differs from default bounds
+    if (!currentSettings[asset.id]) {
+      currentSettings[asset.id] = {};
+    }
+
+    currentSettings[asset.id].audio_stream_index = audioStreamIdx;
+
     const isModified = start > 0.01 || end < duration - 0.01;
     if (isEnabled && isModified) {
-      currentSettings[asset.id] = {
-        ...currentSettings[asset.id],
-        trim: { start, end, enabled: true }
-      };
+      currentSettings[asset.id].trim = { start, end, enabled: true };
     } else {
-      if (currentSettings[asset.id]) {
-        delete currentSettings[asset.id].trim;
-        if (Object.keys(currentSettings[asset.id]).length === 0) {
-          delete currentSettings[asset.id];
-        }
-      }
+      delete currentSettings[asset.id].trim;
     }
 
     stateManager.updateProjectField("asset_settings", currentSettings);
+
+    if (currentSelectedAsset?.id === asset.id) {
+      stateManager.project.audio_stream_index = audioStreamIdx;
+      syncAudioStreamsList();
+    }
     
     // Refresh asset card UI
     assetListContainer.innerHTML = "";
@@ -4885,6 +4919,7 @@ function openTrimModal(asset: ImportedAsset) {
       rebuildClipTimeline();
     }
 
+    showToast("Saved raw video trim & audio track settings!", "success");
     closeTrimModal();
   };
 
