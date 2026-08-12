@@ -51,6 +51,7 @@ export interface TextPreset {
   extra_overlays?: ExtraOverlay[];
   media_overlays?: MediaOverlay[];
   overlay_order?: string[];
+  created_at?: string;
 }
 
 export interface ExtraOverlay {

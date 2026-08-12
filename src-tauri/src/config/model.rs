@@ -73,6 +73,8 @@ pub struct TextPreset {
     pub media_overlays: Option<Vec<MediaOverlay>>,
     #[serde(default)]
     pub overlay_order: Option<Vec<String>>,
+    #[serde(default)]
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

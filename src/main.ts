@@ -131,7 +131,6 @@ let btnBrowseRelocateFile: HTMLButtonElement;
 let btnCloseRelinkModal: HTMLButtonElement;
 let btnCancelRelinkModal: HTMLButtonElement;
 let btnConfirmRelinkModal: HTMLButtonElement;
-let activeRelinkPreset: TextPreset | null = null;
 
 // Media Overlays
 let listMediaOverlays: HTMLSelectElement;
@@ -830,6 +829,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     const textSettings = stateManager.project.text_settings;
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ", " + now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
     const newPreset: TextPreset = {
       name: presetName,
       template_text: propTextTemplate?.value || "PART {part}",
@@ -845,6 +847,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       extra_overlays: JSON.parse(JSON.stringify(stateManager.project.extra_overlays || [])),
       media_overlays: JSON.parse(JSON.stringify(stateManager.project.media_overlays || [])),
       overlay_order: [...(stateManager.project.overlay_order || [])],
+      created_at: dateFormatted,
     };
 
     try {
@@ -904,6 +907,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         const path = await invoke<string>("select_relocate_file");
         if (path && path.trim() !== "" && relinkNewPathInput) {
           relinkNewPathInput.value = path;
+          executeRelinkAction();
         }
       } catch (err) {
         showToast(`Locate file error: ${err}`, "error");
@@ -912,32 +916,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   if (btnConfirmRelinkModal) {
-    btnConfirmRelinkModal.addEventListener("click", async () => {
-      if (!activeRelinkPreset) return;
-      const newPath = relinkNewPathInput?.value.trim();
-      if (!newPath) {
-        showToast("Please enter or select a valid relocated file path!", "warning");
-        return;
-      }
-
-      try {
-        const exists = await invoke<boolean>("check_file_exists", { filePath: newPath });
-        if (!exists) {
-          showToast("Specified file does not exist on disk!", "error");
-          return;
-        }
-
-        const updatedPreset: TextPreset = {
-          ...activeRelinkPreset,
-        };
-
-        await invoke("save_app_data_preset", { preset: updatedPreset });
-        showToast(`Relinked file for "${updatedPreset.name}" successfully!`, "success");
-        closeRelinkModal();
-        loadGlobalPresetsFromAppData();
-      } catch (err) {
-        showToast(`Relink failed: ${err}`, "error");
-      }
+    btnConfirmRelinkModal.addEventListener("click", () => {
+      executeRelinkAction();
     });
   }
 
@@ -5631,6 +5611,11 @@ async function triggerOpenProject() {
     } else {
       toggleDashboard(true);
     }
+
+    const missing = await scanProjectMissingFiles(projectData);
+    if (missing.length > 0) {
+      openProjectRelinkModal(missing);
+    }
     
     showToast("Project loaded successfully!", "success");
   } catch (err) {
@@ -5663,18 +5648,250 @@ async function loadGlobalPresetsFromAppData() {
   }
 }
 
-// Relink Media Modal Helpers (Premiere Pro Style)
+// Premiere Pro Style Missing Media & Asset Relink System
+interface MissingMediaItem {
+  id?: string;
+  type: "imported_asset" | "background_image" | "media_overlay" | "preset_overlay";
+  name: string;
+  originalPath: string;
+  preset?: TextPreset;
+}
+
+let activeMissingItems: MissingMediaItem[] = [];
+let activeRelinkIndex = 0;
+
 const openRelinkModal = (preset: TextPreset, missingPath: string) => {
-  activeRelinkPreset = preset;
-  if (relinkMissingPath) relinkMissingPath.textContent = missingPath;
-  if (relinkNewPathInput) relinkNewPathInput.value = "";
+  activeMissingItems = [{
+    type: "preset_overlay",
+    name: preset.name || "Preset Media Overlay",
+    originalPath: missingPath,
+    preset: preset,
+  }];
+  activeRelinkIndex = 0;
+  renderRelinkMissingList();
+  if (relinkMediaModal) relinkMediaModal.style.display = "flex";
+};
+
+const openProjectRelinkModal = (missingItems: MissingMediaItem[]) => {
+  activeMissingItems = missingItems;
+  activeRelinkIndex = 0;
+  renderRelinkMissingList();
   if (relinkMediaModal) relinkMediaModal.style.display = "flex";
 };
 
 const closeRelinkModal = () => {
-  activeRelinkPreset = null;
+  activeMissingItems = [];
   if (relinkMediaModal) relinkMediaModal.style.display = "none";
 };
+
+function renderRelinkMissingList() {
+  const listEl = document.querySelector("#relink-missing-list");
+  if (!listEl) return;
+  listEl.innerHTML = "";
+
+  if (activeMissingItems.length === 0) {
+    listEl.innerHTML = `<div style="text-align: center; color: var(--text-secondary); font-size: 12px; padding: 12px;">All media assets linked cleanly.</div>`;
+    return;
+  }
+
+  activeMissingItems.forEach((item, idx) => {
+    const card = document.createElement("div");
+    const isSelected = idx === activeRelinkIndex;
+    card.style.cssText = `padding: 8px 12px; border-radius: 6px; background: ${isSelected ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${isSelected ? '#f59e0b' : 'var(--panel-border)'}; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.2s;`;
+
+    card.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; flex: 1;">
+        <span style="font-size: 14px;">⚠️</span>
+        <div style="display: flex; flex-direction: column; overflow: hidden;">
+          <span style="font-size: 12px; font-weight: 600; color: white;">${item.name}</span>
+          <span style="font-size: 10px; color: var(--text-secondary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${item.originalPath}</span>
+        </div>
+      </div>
+      <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(245, 158, 11, 0.2); color: #f59e0b; font-weight: 600; white-space: nowrap; margin-left: 8px;">${item.type.replace('_', ' ').toUpperCase()}</span>
+    `;
+
+    card.addEventListener("click", () => {
+      activeRelinkIndex = idx;
+      renderRelinkMissingList();
+    });
+
+    listEl.appendChild(card);
+  });
+
+  const selectedItem = activeMissingItems[activeRelinkIndex];
+  if (selectedItem) {
+    if (relinkMissingPath) relinkMissingPath.textContent = selectedItem.originalPath;
+    if (relinkNewPathInput) relinkNewPathInput.value = "";
+  }
+}
+
+async function executeRelinkAction() {
+  if (activeMissingItems.length === 0) {
+    closeRelinkModal();
+    return;
+  }
+
+  const selectedItem = activeMissingItems[activeRelinkIndex];
+  if (!selectedItem) return;
+
+  const newPath = relinkNewPathInput?.value.trim();
+  if (!newPath) {
+    showToast("Please select or specify a relocated file path!", "warning");
+    return;
+  }
+
+  try {
+    const exists = await invoke<boolean>("check_file_exists", { filePath: newPath });
+    if (!exists) {
+      showToast("Specified file does not exist on disk!", "error");
+      return;
+    }
+
+    const lastSlash = Math.max(newPath.lastIndexOf("/"), newPath.lastIndexOf("\\"));
+    const newDir = lastSlash > 0 ? newPath.substring(0, lastSlash) : "";
+
+    const relinkedPaths = new Map<string, string>();
+    relinkedPaths.set(selectedItem.originalPath, newPath);
+
+    // Smart Auto-Search in same folder directory for other missing assets
+    if (newDir && activeMissingItems.length > 1) {
+      for (const other of activeMissingItems) {
+        if (other.originalPath === selectedItem.originalPath) continue;
+        const fname = other.name;
+        const candidate = `${newDir}/${fname}`;
+        const candExists = await invoke<boolean>("check_file_exists", { filePath: candidate });
+        if (candExists) {
+          relinkedPaths.set(other.originalPath, candidate);
+        }
+      }
+    }
+
+    const prj = { ...stateManager.project };
+    let hasPrjUpdate = false;
+
+    for (const [oldP, newP] of relinkedPaths.entries()) {
+      if (prj.imported_assets) {
+        prj.imported_assets.forEach(a => {
+          if (a.path === oldP) {
+            a.path = newP;
+            hasPrjUpdate = true;
+          }
+        });
+      }
+      if (prj.imported_videos) {
+        prj.imported_videos = prj.imported_videos.map(p => p === oldP ? newP : p);
+      }
+      stateManager.assets.forEach(a => {
+        if (a.path === oldP) {
+          a.path = newP;
+          a.name = newP.split(/[/\\]/).pop() || a.name;
+        }
+      });
+
+      if (prj.background?.image_path === oldP) {
+        prj.background.image_path = newP;
+        hasPrjUpdate = true;
+      }
+
+      if (prj.media_overlays) {
+        prj.media_overlays.forEach(ov => {
+          if (ov.path === oldP) {
+            ov.path = newP;
+            ov.name = newP.split(/[/\\]/).pop() || ov.name;
+            hasPrjUpdate = true;
+          }
+        });
+      }
+
+      if (selectedItem.type === "preset_overlay" && selectedItem.preset) {
+        if (selectedItem.preset.media_overlays) {
+          selectedItem.preset.media_overlays.forEach(ov => {
+            if (ov.path === oldP) ov.path = newP;
+          });
+        }
+        await invoke("save_app_data_preset", { preset: selectedItem.preset });
+      }
+    }
+
+    if (hasPrjUpdate) {
+      stateManager.updateProjectDirectly(prj);
+      refreshViewport();
+    }
+
+    const relinkedCount = relinkedPaths.size;
+    showToast(
+      relinkedCount > 1
+        ? `Relinked ${relinkedCount} missing files automatically!`
+        : `Relinked file successfully!`,
+      "success"
+    );
+
+    activeMissingItems = activeMissingItems.filter(item => !relinkedPaths.has(item.originalPath));
+    activeRelinkIndex = 0;
+
+    if (activeMissingItems.length === 0) {
+      closeRelinkModal();
+      assetListContainer.innerHTML = "";
+      stateManager.assets.forEach(a => appendAssetCard(a));
+      highlightActiveAssetCard();
+      loadGlobalPresetsFromAppData();
+    } else {
+      if (relinkNewPathInput) relinkNewPathInput.value = "";
+      renderRelinkMissingList();
+    }
+  } catch (err) {
+    showToast(`Relink failed: ${err}`, "error");
+  }
+}
+
+async function scanProjectMissingFiles(project: ProjectData): Promise<MissingMediaItem[]> {
+  const missing: MissingMediaItem[] = [];
+
+  const assets = project.imported_assets || [];
+  for (const a of assets) {
+    if (a.path) {
+      const exists = await invoke<boolean>("check_file_exists", { filePath: a.path });
+      if (!exists) {
+        missing.push({
+          id: a.id,
+          type: "imported_asset",
+          name: a.path.split(/[/\\]/).pop() || "Video Asset",
+          originalPath: a.path,
+        });
+      }
+    }
+  }
+
+  if (project.background?.mode === "image" && project.background?.image_path) {
+    const bgPath = project.background.image_path;
+    const exists = await invoke<boolean>("check_file_exists", { filePath: bgPath });
+    if (!exists) {
+      missing.push({
+        type: "background_image",
+        name: bgPath.split(/[/\\]/).pop() || "Background Image",
+        originalPath: bgPath,
+      });
+    }
+  }
+
+  const overlays = project.media_overlays || [];
+  for (let i = 0; i < overlays.length; i++) {
+    const ov = overlays[i];
+    if (ov.path) {
+      const exists = await invoke<boolean>("check_file_exists", { filePath: ov.path });
+      if (!exists) {
+        missing.push({
+          id: i.toString(),
+          type: "media_overlay",
+          name: ov.name || ov.path.split(/[/\\]/).pop() || `Media Overlay ${i + 1}`,
+          originalPath: ov.path,
+        });
+      }
+    }
+  }
+
+  return missing;
+}
 
 function renderPresetLibraryCards(presets: TextPreset[]) {
   if (!presetLibraryList) return;
@@ -5706,7 +5923,7 @@ function renderPresetLibraryCards(presets: TextPreset[]) {
         <span>•</span>
         <span>${preset.font_size}px</span>
         <span>•</span>
-        <span>${preset.template_text || "PART {part}"}</span>
+        <span>${preset.created_at || "Global Preset"}</span>
       </div>
       <div class="preset-card-actions">
         <button class="preset-card-btn preset-card-btn-apply">Apply to Project</button>
