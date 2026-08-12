@@ -2116,7 +2116,7 @@ function bindInputFields() {
 
       if (type === "video") {
         try {
-          const probed = await TauriService.importFile(path);
+          const probed = await TauriService.importFile(path, true);
           if (probed && probed.metadata && probed.metadata.width > 0 && probed.metadata.height > 0) {
             const aspect = probed.metadata.width / probed.metadata.height;
             initialW = 320;
@@ -2145,10 +2145,25 @@ function bindInputFields() {
 
       const overlays = [...(stateManager.project.media_overlays || [])];
       const newIdx = overlays.length;
+      
+      let proxy_path: string | undefined = undefined;
+      if (type === "video") {
+         // Re-probe to ensure we get the proxy_path from the rust side if it was generated
+         try {
+           const probed = await TauriService.importFile(path, true);
+           if (probed && probed.proxy_path) {
+             proxy_path = probed.proxy_path;
+           }
+         } catch (e) {
+           console.warn("Could not get proxy path for media overlay:", e);
+         }
+      }
+
       overlays.push({
         name: `Media ${newIdx + 1}`,
         type: type,
         path: path,
+        proxy_path: proxy_path,
         x: 50,
         y: 50,
         width: initialW,
@@ -5703,6 +5718,29 @@ async function tryLoadAutosave(): Promise<boolean> {
     stateManager.updateProjectDirectly(projectData);
     stateManager.history.clear();
 
+    // Ensure loaded media overlays have their proxies generated
+    if (stateManager.project.media_overlays) {
+      let proxyGenerated = false;
+      for (const ov of stateManager.project.media_overlays) {
+        if (ov.type === "video" && !ov.proxy_path) {
+          try {
+            const probed = await TauriService.importFile(ov.path, true);
+            if (probed && probed.proxy_path) {
+              ov.proxy_path = probed.proxy_path;
+              proxyGenerated = true;
+            }
+          } catch (e) {
+            console.warn("Failed to generate proxy for loaded media overlay:", e);
+          }
+        }
+      }
+      if (proxyGenerated && domOverlay) {
+         const fw = parseFloat(canvasViewport.style.width) || 320;
+         const fh = parseFloat(canvasViewport.style.height) || 180;
+         domOverlay.update(stateManager.project, fw, fh, true);
+      }
+    }
+
     // Load assets asynchronously
     assetListContainer.innerHTML = "";
     stateManager.assets = [];
@@ -5795,6 +5833,29 @@ async function triggerOpenProject() {
     if (domOverlay) domOverlay.reset();
     stateManager.updateProjectDirectly(projectData);
     stateManager.clearAllHistory();
+    
+    // Ensure loaded media overlays have their proxies generated
+    if (stateManager.project.media_overlays) {
+      let proxyGenerated = false;
+      for (const ov of stateManager.project.media_overlays) {
+        if (ov.type === "video" && !ov.proxy_path) {
+          try {
+            const probed = await TauriService.importFile(ov.path, true);
+            if (probed && probed.proxy_path) {
+              ov.proxy_path = probed.proxy_path;
+              proxyGenerated = true;
+            }
+          } catch (e) {
+            console.warn("Failed to generate proxy for loaded media overlay:", e);
+          }
+        }
+      }
+      if (proxyGenerated && domOverlay) {
+         const fw = parseFloat(canvasViewport.style.width) || 320;
+         const fh = parseFloat(canvasViewport.style.height) || 180;
+         domOverlay.update(stateManager.project, fw, fh, true);
+      }
+    }
     
     // Load assets asynchronously
     assetListContainer.innerHTML = "";
@@ -6200,6 +6261,19 @@ async function applyPresetToProject(preset: TextPreset) {
 
   if (preset.media_overlays) {
     batchUpdate.media_overlays = JSON.parse(JSON.stringify(preset.media_overlays));
+    // Ensure any media overlays in the preset have their proxies generated
+    for (const ov of batchUpdate.media_overlays!) {
+      if (ov.type === "video") {
+        try {
+          const probed = await TauriService.importFile(ov.path, true);
+          if (probed && probed.proxy_path) {
+            ov.proxy_path = probed.proxy_path;
+          }
+        } catch (e) {
+          console.warn("Could not generate proxy for preset media overlay:", e);
+        }
+      }
+    }
   } else {
     batchUpdate.media_overlays = [];
   }

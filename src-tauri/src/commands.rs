@@ -103,8 +103,9 @@ pub async fn save_project(file_path: String, project: ProjectData) -> AppResult<
 }
 
 #[tauri::command]
-pub async fn import_file(state: State<'_, AppState>, file_path: String) -> AppResult<ImportedAsset> {
-    state.resource_manager.import_asset(&file_path)
+pub async fn import_file(state: State<'_, AppState>, file_path: String, generate_proxy: Option<bool>) -> AppResult<ImportedAsset> {
+    let should_gen = generate_proxy.unwrap_or(false);
+    state.resource_manager.import_asset(&file_path, should_gen)
 }
 
 #[tauri::command]

@@ -76,6 +76,7 @@ export interface MediaOverlay {
   name: string;
   type: string; // "video" | "image"
   path: string;
+  proxy_path?: string;
   x: number;
   y: number;
   width: number;

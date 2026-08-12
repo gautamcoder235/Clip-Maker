@@ -44,7 +44,7 @@ impl ResourceManager {
         }
     }
 
-    pub fn import_asset(&self, path: &str) -> AppResult<ImportedAsset> {
+    pub fn import_asset(&self, path: &str, generate_proxy: bool) -> AppResult<ImportedAsset> {
         let abs_path = std::fs::canonicalize(path)?;
         let abs_path_str = abs_path.to_string_lossy()
             .trim_start_matches(r"\\?\")
@@ -55,7 +55,14 @@ impl ResourceManager {
         {
             let assets = self.assets.lock().unwrap();
             if let Some(asset) = assets.get(&hash) {
-                return Ok(asset.clone());
+                let ext = abs_path_str.split('.').last().unwrap_or("").to_lowercase();
+                let is_unsupported = !matches!(ext.as_str(), "mp4" | "webm" | "png" | "jpg" | "jpeg" | "gif" | "webp");
+                // If the cached asset doesn't have a proxy, but we requested one, bypass cache to generate it
+                if generate_proxy && asset.proxy_path.is_none() && is_unsupported {
+                    // Do nothing, let it fall through and regenerate
+                } else {
+                    return Ok(asset.clone());
+                }
             }
         }
 
@@ -121,7 +128,7 @@ impl ResourceManager {
             }
 
             // Generate Proxy for unsupported formats for live DOM preview
-            if !matches!(ext.as_str(), "mp4" | "webm") {
+            if generate_proxy && !matches!(ext.as_str(), "mp4" | "webm") {
                 let proxy_filename = format!("{}_proxy.mp4", hash);
                 let proxy_dest = self.cache.thumbnail_dir().join(&proxy_filename);
                 
@@ -130,12 +137,10 @@ impl ResourceManager {
                     cmd.args(&[
                         "-y",
                         "-i", &abs_path_str,
-                        "-vf", "scale=-2:720", // Fast 720p proxy
+                        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", // Ensure even dimensions
                         "-c:v", "libx264",
                         "-preset", "ultrafast",
                         "-crf", "28",
-                        "-c:a", "aac",
-                        "-b:a", "128k",
                         &proxy_dest.to_string_lossy(),
                     ]);
                     

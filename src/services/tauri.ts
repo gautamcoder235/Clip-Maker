@@ -19,8 +19,8 @@ export class TauriService {
     return invoke("save_project", { filePath, project });
   }
 
-  static async importFile(filePath: string): Promise<ImportedAsset> {
-    return invoke<ImportedAsset>("import_file", { filePath });
+  static async importFile(filePath: string, generateProxy: boolean = false): Promise<ImportedAsset> {
+    return invoke<ImportedAsset>("import_file", { filePath, generateProxy });
   }
 
   static async generatePreviewClip(config: AppConfig): Promise<string> {

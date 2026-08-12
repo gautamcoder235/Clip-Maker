@@ -422,11 +422,8 @@ export class DOMOverlay {
         this.activeOverlayCanvases[idx] = canvas;
 
         let activePath = overlay.path;
-        if (overlay.type === "video") {
-          const asset = this.stateManager.assets.find(a => a.path === overlay.path);
-          if (asset && asset.proxy_path) {
-            activePath = asset.proxy_path;
-          }
+        if (overlay.type === "video" && overlay.proxy_path) {
+          activePath = overlay.proxy_path;
         }
         const src = convertFileSrc(activePath);
         
