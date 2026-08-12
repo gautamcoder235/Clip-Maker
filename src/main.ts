@@ -2093,6 +2093,38 @@ function bindInputFields() {
       const ext = path.split(".").pop()?.toLowerCase();
       const type = (ext === "mp4" || ext === "webm" || ext === "mov") ? "video" : "image";
       
+      let initialW = 320;
+      let initialH = 180;
+
+      if (type === "video") {
+        try {
+          const probed = await TauriService.importFile(path);
+          if (probed && probed.metadata && probed.metadata.width > 0 && probed.metadata.height > 0) {
+            const aspect = probed.metadata.width / probed.metadata.height;
+            initialW = 320;
+            initialH = Math.round(320 / aspect);
+          }
+        } catch (e) {
+          console.warn("Could not probe video overlay metadata:", e);
+        }
+      } else {
+        try {
+          const img = new Image();
+          img.src = convertFileSrc(path);
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            const aspect = img.naturalWidth / img.naturalHeight;
+            initialW = 320;
+            initialH = Math.round(320 / aspect);
+          }
+        } catch (e) {
+          console.warn("Could not probe image overlay dimensions:", e);
+        }
+      }
+
       const overlays = [...(stateManager.project.media_overlays || [])];
       const newIdx = overlays.length;
       overlays.push({
@@ -2101,8 +2133,8 @@ function bindInputFields() {
         path: path,
         x: 50,
         y: 50,
-        width: 320,
-        height: 180,
+        width: initialW,
+        height: initialH,
         enabled: true,
         loop_mode: "repeat",
         chroma_key: false,

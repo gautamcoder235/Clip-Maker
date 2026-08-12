@@ -933,7 +933,7 @@ export class DOMOverlay {
         let newX = this.elementStartX;
         let newY = this.elementStartY;
 
-        let isProportional = this.getElementRatioLocked(this.activeElement) || (this.activeElement === "text" || (this.activeElement !== null && this.activeElement.startsWith("extra-")));
+        let isProportional = this.getElementRatioLocked(this.activeElement) || (this.activeElement === "text" || (this.activeElement !== null && (this.activeElement.startsWith("extra-") || this.activeElement.startsWith("media-"))));
         let startRatio = 1.0;
 
         if (this.activeElement) {
@@ -1703,6 +1703,22 @@ export class DOMOverlay {
           }
 
           if (srcW > 0 && srcH > 0) {
+            // Auto aspect ratio correction if overlay has squeezed or default aspect ratio
+            if (!(overlay as any).ratio_corrected) {
+              const currentAspect = overlay.width / overlay.height;
+              const trueAspect = srcW / srcH;
+              if (Math.abs(currentAspect - trueAspect) > 0.05) {
+                overlay.height = Math.round(overlay.width / trueAspect);
+                (overlay as any).ratio_corrected = true;
+                this.stateManager.updateProjectDirectly(this.stateManager.project);
+                requestAnimationFrame(() => {
+                  this.update(this.stateManager.project, this.overlayContainer.clientWidth, this.overlayContainer.clientHeight);
+                });
+              } else {
+                (overlay as any).ratio_corrected = true;
+              }
+            }
+
             if (canvas.width !== srcW || canvas.height !== srcH) {
               canvas.width = srcW;
               canvas.height = srcH;
