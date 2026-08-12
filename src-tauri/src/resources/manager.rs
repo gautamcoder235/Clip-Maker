@@ -55,14 +55,7 @@ impl ResourceManager {
         {
             let assets = self.assets.lock().unwrap();
             if let Some(asset) = assets.get(&hash) {
-                let ext = abs_path_str.split('.').last().unwrap_or("").to_lowercase();
-                let is_unsupported = !matches!(ext.as_str(), "mp4" | "webm" | "png" | "jpg" | "jpeg" | "gif" | "webp");
-                // If the cached asset doesn't have a proxy, but we requested one, bypass cache to generate it
-                if generate_proxy && asset.proxy_path.is_none() && is_unsupported {
-                    // Do nothing, let it fall through and regenerate
-                } else {
-                    return Ok(asset.clone());
-                }
+                return Ok(asset.clone());
             }
         }
 

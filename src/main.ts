@@ -2109,10 +2109,12 @@ function bindInputFields() {
       if (!path || path.trim() === "") return;
       
       const ext = path.split(".").pop()?.toLowerCase();
-      const type = (ext === "mp4" || ext === "webm" || ext === "mov") ? "video" : "image";
+      const videoExts = ["mp4", "webm", "mov", "mkv", "avi", "flv", "wmv"];
+      const type = videoExts.includes(ext || "") ? "video" : "image";
       
       let initialW = 320;
       let initialH = 180;
+      let proxy_path: string | undefined = undefined;
 
       if (type === "video") {
         try {
@@ -2121,6 +2123,9 @@ function bindInputFields() {
             const aspect = probed.metadata.width / probed.metadata.height;
             initialW = 320;
             initialH = Math.round(320 / aspect);
+          }
+          if (probed && probed.proxy_path) {
+            proxy_path = probed.proxy_path;
           }
         } catch (e) {
           console.warn("Could not probe video overlay metadata:", e);
@@ -2145,19 +2150,6 @@ function bindInputFields() {
 
       const overlays = [...(stateManager.project.media_overlays || [])];
       const newIdx = overlays.length;
-      
-      let proxy_path: string | undefined = undefined;
-      if (type === "video") {
-         // Re-probe to ensure we get the proxy_path from the rust side if it was generated
-         try {
-           const probed = await TauriService.importFile(path, true);
-           if (probed && probed.proxy_path) {
-             proxy_path = probed.proxy_path;
-           }
-         } catch (e) {
-           console.warn("Could not get proxy path for media overlay:", e);
-         }
-      }
 
       overlays.push({
         name: `Media ${newIdx + 1}`,
@@ -2598,8 +2590,7 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
     canvasRenderer.setOfflineState(true, asset.path);
   } else {
     try {
-      const activePath = asset.proxy_path ? asset.proxy_path : asset.path;
-      const webSrc = convertFileSrc(activePath);
+      const webSrc = convertFileSrc(asset.path);
       canvasRenderer.setVideoSource(webSrc);
       
       const settings = stateManager.project.asset_settings?.[asset.id];
@@ -5718,29 +5709,6 @@ async function tryLoadAutosave(): Promise<boolean> {
     stateManager.updateProjectDirectly(projectData);
     stateManager.history.clear();
 
-    // Ensure loaded media overlays have their proxies generated
-    if (stateManager.project.media_overlays) {
-      let proxyGenerated = false;
-      for (const ov of stateManager.project.media_overlays) {
-        if (ov.type === "video" && !ov.proxy_path) {
-          try {
-            const probed = await TauriService.importFile(ov.path, true);
-            if (probed && probed.proxy_path) {
-              ov.proxy_path = probed.proxy_path;
-              proxyGenerated = true;
-            }
-          } catch (e) {
-            console.warn("Failed to generate proxy for loaded media overlay:", e);
-          }
-        }
-      }
-      if (proxyGenerated && domOverlay) {
-         const fw = parseFloat(canvasViewport.style.width) || 320;
-         const fh = parseFloat(canvasViewport.style.height) || 180;
-         domOverlay.update(stateManager.project, fw, fh, true);
-      }
-    }
-
     // Load assets asynchronously
     assetListContainer.innerHTML = "";
     stateManager.assets = [];
@@ -5833,29 +5801,6 @@ async function triggerOpenProject() {
     if (domOverlay) domOverlay.reset();
     stateManager.updateProjectDirectly(projectData);
     stateManager.clearAllHistory();
-    
-    // Ensure loaded media overlays have their proxies generated
-    if (stateManager.project.media_overlays) {
-      let proxyGenerated = false;
-      for (const ov of stateManager.project.media_overlays) {
-        if (ov.type === "video" && !ov.proxy_path) {
-          try {
-            const probed = await TauriService.importFile(ov.path, true);
-            if (probed && probed.proxy_path) {
-              ov.proxy_path = probed.proxy_path;
-              proxyGenerated = true;
-            }
-          } catch (e) {
-            console.warn("Failed to generate proxy for loaded media overlay:", e);
-          }
-        }
-      }
-      if (proxyGenerated && domOverlay) {
-         const fw = parseFloat(canvasViewport.style.width) || 320;
-         const fh = parseFloat(canvasViewport.style.height) || 180;
-         domOverlay.update(stateManager.project, fw, fh, true);
-      }
-    }
     
     // Load assets asynchronously
     assetListContainer.innerHTML = "";
