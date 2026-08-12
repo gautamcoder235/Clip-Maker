@@ -2156,8 +2156,9 @@ select:focus {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(6px);
+  background: rgba(8, 8, 12, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -2165,18 +2166,24 @@ select:focus {
   animation: modalFadeIn 0.2s ease;
 }
 
-.modal-container {
-  background: var(--panel-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--panel-border);
+.modal-container,
+.modal-content,
+.glass-panel {
+  background: rgba(12, 12, 18, 0.92) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  animation: modalSlideUp 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
+  color: var(--text-primary);
+}
+
+.modal-container {
   padding: 32px 36px;
   min-width: 380px;
   max-width: 460px;
-  box-shadow: var(--shadow);
   text-align: center;
-  animation: modalSlideUp 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
-  color: var(--text-primary);
 }
 
 .modal-icon {
