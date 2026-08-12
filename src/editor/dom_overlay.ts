@@ -421,7 +421,15 @@ export class DOMOverlay {
         box.appendChild(canvas);
         this.activeOverlayCanvases[idx] = canvas;
 
-        const src = convertFileSrc(overlay.path);
+        let activePath = overlay.path;
+        if (overlay.type === "video") {
+          const asset = this.stateManager.assets.find(a => a.path === overlay.path);
+          if (asset && asset.proxy_path) {
+            activePath = asset.proxy_path;
+          }
+        }
+        const src = convertFileSrc(activePath);
+        
         if (overlay.type === "video") {
           let video = this.activeOverlayVideos[idx];
           if (!video || video.src !== src) {

@@ -201,6 +201,7 @@ export interface ImportedAsset {
   size_bytes: number;
   type: string; // "video" | "image" | "audio"
   thumbnail_path: string | null;
+  proxy_path?: string;
   timeline_thumbnails: string[];
   metadata: {
     duration: number;

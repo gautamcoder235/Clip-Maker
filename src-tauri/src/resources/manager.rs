@@ -5,6 +5,9 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 use crate::errors::AppResult;
 use crate::resources::cache::CacheManager;
 use crate::resources::thumbnails::ThumbnailGenerator;
@@ -20,6 +23,7 @@ pub struct ImportedAsset {
     pub thumbnail_path: Option<String>,
     pub timeline_thumbnails: Vec<String>,
     pub metadata: Option<VideoMetadata>,
+    pub proxy_path: Option<String>,
 }
 
 #[derive(Clone)]
@@ -81,6 +85,8 @@ impl ResourceManager {
         let mut thumbnail_path = None;
         let mut timeline_thumbnails = Vec::new();
 
+        let mut proxy_path = None;
+
         if r#type == "video" {
             // Probe video details
             let probe = VideoProbe::new(&self.ffprobe_path);
@@ -113,6 +119,38 @@ impl ResourceManager {
                     .map(|p| p.to_string_lossy().replace("\\", "/"))
                     .collect();
             }
+
+            // Generate Proxy for unsupported formats for live DOM preview
+            if !matches!(ext.as_str(), "mp4" | "webm") {
+                let proxy_filename = format!("{}_proxy.mp4", hash);
+                let proxy_dest = self.cache.thumbnail_dir().join(&proxy_filename);
+                
+                if !proxy_dest.exists() {
+                    let mut cmd = std::process::Command::new(&self.ffmpeg_path);
+                    cmd.args(&[
+                        "-y",
+                        "-i", &abs_path_str,
+                        "-vf", "scale=-2:720", // Fast 720p proxy
+                        "-c:v", "libx264",
+                        "-preset", "ultrafast",
+                        "-crf", "28",
+                        "-c:a", "aac",
+                        "-b:a", "128k",
+                        &proxy_dest.to_string_lossy(),
+                    ]);
+                    
+                    #[cfg(target_os = "windows")]
+                    cmd.creation_flags(0x08000000); // Hide console window
+                    
+                    if let Ok(status) = cmd.status() {
+                        if status.success() {
+                            proxy_path = Some(proxy_dest.to_string_lossy().replace("\\", "/"));
+                        }
+                    }
+                } else {
+                    proxy_path = Some(proxy_dest.to_string_lossy().replace("\\", "/"));
+                }
+            }
         } else if r#type == "image" {
             // Copy or link image as its thumbnail
             thumbnail_path = Some(abs_path_str.clone());
@@ -127,6 +165,7 @@ impl ResourceManager {
             thumbnail_path,
             timeline_thumbnails,
             metadata: video_metadata,
+            proxy_path,
         };
 
         self.assets.lock().unwrap().insert(hash, asset.clone());

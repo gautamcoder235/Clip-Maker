@@ -2583,7 +2583,8 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
     canvasRenderer.setOfflineState(true, asset.path);
   } else {
     try {
-      const webSrc = convertFileSrc(asset.path);
+      const activePath = asset.proxy_path ? asset.proxy_path : asset.path;
+      const webSrc = convertFileSrc(activePath);
       canvasRenderer.setVideoSource(webSrc);
       
       const settings = stateManager.project.asset_settings?.[asset.id];
