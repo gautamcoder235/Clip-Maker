@@ -169,6 +169,38 @@ export class DOMOverlay {
       const rot = project.video_placement.rotation || 0;
 
       this.videoBox = this.createInteractiveBox("video", boxX, boxY, boxW, boxH, scale, undefined, rot, cropT, cropR, cropB, cropL);
+
+      const activeAsset = this.stateManager.assets.find(a => a.path === project.input_path);
+      if (activeAsset && activeAsset.isMissing) {
+        const btnRelinkCanvas = document.createElement("button");
+        btnRelinkCanvas.className = "btn-canvas-relink-media";
+        btnRelinkCanvas.innerHTML = `🔍 Relink Media`;
+        btnRelinkCanvas.style.cssText = `
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 50;
+          padding: 8px 16px;
+          background: #f59e0b;
+          color: #000;
+          font-weight: 700;
+          font-size: 13px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5);
+          pointer-events: auto;
+          transition: transform 0.15s;
+        `;
+        btnRelinkCanvas.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const btn = document.querySelector("#btn-browse-relocate-file") as HTMLButtonElement;
+          if (btn) btn.click();
+        });
+        this.videoBox.appendChild(btnRelinkCanvas);
+      }
+
       this.overlayContainer.appendChild(this.videoBox);
     }
 

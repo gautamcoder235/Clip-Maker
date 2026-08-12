@@ -210,4 +210,5 @@ export interface ImportedAsset {
     format_name: string;
     size_bytes: number;
   } | null;
+  isMissing?: boolean;
 }

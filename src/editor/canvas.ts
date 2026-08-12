@@ -6,6 +6,8 @@ export class CanvasRenderer {
   private videoElement: HTMLVideoElement;
   private canvasElement: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null;
+  private isMissing: boolean = false;
+  private missingPath: string = "";
   private bgImage: HTMLImageElement | null = null;
   private bgImagePath: string = "";
 
@@ -23,6 +25,10 @@ export class CanvasRenderer {
     this.videoElement.style.pointerEvents = "none";
     this.videoElement.style.display = "none";
 
+    this.videoElement.onerror = () => {
+      this.setOfflineState(true, this.videoElement.src);
+    };
+
     // Create background canvas
     this.canvasElement = document.createElement("canvas");
     this.canvasElement.className = "preview-canvas-element";
@@ -39,13 +45,30 @@ export class CanvasRenderer {
     this.container.appendChild(this.canvasElement);
   }
 
+  setOfflineState(isMissing: boolean, missingPath: string = "") {
+    this.isMissing = isMissing;
+    this.missingPath = missingPath;
+    if (isMissing) {
+      this.videoElement.pause();
+      this.videoElement.style.display = "none";
+    } else {
+      this.videoElement.style.display = "block";
+    }
+  }
+
+  getIsMissing(): boolean {
+    return this.isMissing;
+  }
+
   setVideoSource(src: string) {
+    this.setOfflineState(false);
     this.videoElement.src = src;
     this.videoElement.load();
     this.videoElement.style.display = "block";
   }
 
   clearVideo() {
+    this.setOfflineState(false);
     this.videoElement.pause();
     this.videoElement.removeAttribute("src");
     this.videoElement.load();
@@ -103,21 +126,78 @@ export class CanvasRenderer {
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.ctx.clearRect(0, 0, canvasW, canvasH);
       
-      // Background color
-      this.ctx.fillStyle = project.background.color || "#000000";
-      this.ctx.fillRect(0, 0, canvasW, canvasH);
+      if (this.isMissing) {
+        // ── PREMIERE PRO STYLE "MEDIA OFFLINE" GRAPHIC ──
+        // 1. Red/Dark Red Diagonal Hazard Pattern Background
+        this.ctx.fillStyle = "#7f1d1d";
+        this.ctx.fillRect(0, 0, canvasW, canvasH);
 
-      // Background image (if set)
-      if (project.background.mode === "image" && project.background.image_path) {
-        if (this.bgImagePath !== project.background.image_path) {
-          this.bgImagePath = project.background.image_path;
-          this.bgImage = new Image();
-          this.bgImage.src = convertFileSrc(project.background.image_path);
-          this.bgImage.onload = () => {
+        this.ctx.fillStyle = "#991b1b";
+        const stripeWidth = 30 * scale;
+        for (let x = -canvasH; x < canvasW + canvasH; x += stripeWidth * 2) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(x, 0);
+          this.ctx.lineTo(x + stripeWidth, 0);
+          this.ctx.lineTo(x + stripeWidth - canvasH, canvasH);
+          this.ctx.lineTo(x - canvasH, canvasH);
+          this.ctx.closePath();
+          this.ctx.fill();
+        }
+
+        // 2. Central Translucent Dark Card Overlay
+        const cardW = Math.min(canvasW * 0.88, 420 * scale);
+        const cardH = 160 * scale;
+        const cardX = (canvasW - cardW) / 2;
+        const cardY = (canvasH - cardH) / 2;
+
+        this.ctx.fillStyle = "rgba(15, 23, 42, 0.94)";
+        this.ctx.strokeStyle = "rgba(245, 158, 11, 0.7)";
+        this.ctx.lineWidth = 2 * scale;
+        
+        const radius = 12 * scale;
+        if (typeof (this.ctx as any).roundRect === "function") {
+          this.ctx.beginPath();
+          (this.ctx as any).roundRect(cardX, cardY, cardW, cardH, radius);
+          this.ctx.fill();
+          this.ctx.stroke();
+        } else {
+          this.ctx.fillRect(cardX, cardY, cardW, cardH);
+          this.ctx.strokeRect(cardX, cardY, cardW, cardH);
+        }
+
+        // 3. Warning Icon & MEDIA OFFLINE Text
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+
+        this.ctx.font = `900 ${Math.max(16, 22 * scale)}px sans-serif`;
+        this.ctx.fillStyle = "#f59e0b";
+        this.ctx.fillText("⚠️ MEDIA OFFLINE", canvasW / 2, cardY + 40 * scale);
+
+        this.ctx.font = `500 ${Math.max(11, 13 * scale)}px sans-serif`;
+        this.ctx.fillStyle = "#cbd5e1";
+        const fname = (this.missingPath || "").split(/[/\\]/).pop() || "Missing File";
+        this.ctx.fillText(`File: ${fname}`, canvasW / 2, cardY + 80 * scale);
+
+        this.ctx.font = `600 ${Math.max(11, 12 * scale)}px sans-serif`;
+        this.ctx.fillStyle = "#94a3b8";
+        this.ctx.fillText("Click 'Relink Media' to locate file", canvasW / 2, cardY + 120 * scale);
+      } else {
+        // Background color
+        this.ctx.fillStyle = project.background.color || "#000000";
+        this.ctx.fillRect(0, 0, canvasW, canvasH);
+
+        // Background image (if set)
+        if (project.background.mode === "image" && project.background.image_path) {
+          if (this.bgImagePath !== project.background.image_path) {
+            this.bgImagePath = project.background.image_path;
+            this.bgImage = new Image();
+            this.bgImage.src = convertFileSrc(project.background.image_path);
+            this.bgImage.onload = () => {
+              this.drawCachedBackgroundImage(project, scale, canvasW, canvasH);
+            };
+          } else if (this.bgImage && this.bgImage.complete) {
             this.drawCachedBackgroundImage(project, scale, canvasW, canvasH);
-          };
-        } else if (this.bgImage && this.bgImage.complete) {
-          this.drawCachedBackgroundImage(project, scale, canvasW, canvasH);
+          }
         }
       }
     }

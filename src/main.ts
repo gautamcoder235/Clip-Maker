@@ -2263,6 +2263,11 @@ function appendAssetCard(asset: ImportedAsset) {
   card.dataset.hash = asset.hash;
   card.dataset.id = asset.id;
 
+  if (asset.isMissing) {
+    card.classList.add("offline");
+    card.style.borderColor = "rgba(245, 158, 11, 0.6)";
+  }
+
   const settings = stateManager.project.asset_settings?.[asset.id];
   const trim = settings?.trim;
   const isTrimmed = trim && trim.enabled;
@@ -2273,6 +2278,9 @@ function appendAssetCard(asset: ImportedAsset) {
   const thumb = document.createElement("img");
   thumb.className = "asset-thumbnail";
   thumb.src = asset.thumbnail_path ? convertFileSrc(asset.thumbnail_path) : "";
+  thumb.onerror = () => {
+    thumb.style.display = "none";
+  };
 
   const info = document.createElement("div");
   info.className = "asset-info";
@@ -2283,7 +2291,10 @@ function appendAssetCard(asset: ImportedAsset) {
 
   const meta = document.createElement("div");
   meta.className = "asset-meta";
-  if (isTrimmed && trim) {
+  if (asset.isMissing) {
+    meta.innerText = "⚠️ OFFLINE - FILE MISSING";
+    meta.style.color = "#f59e0b";
+  } else if (isTrimmed && trim) {
     const activeDur = trim.end - trim.start;
     const origDur = asset.metadata ? asset.metadata.duration : 0;
     meta.innerText = `Active: ${formatDuration(activeDur)} | Orig: ${formatDuration(origDur)}`;
@@ -2297,6 +2308,24 @@ function appendAssetCard(asset: ImportedAsset) {
   info.appendChild(meta);
   card.appendChild(thumb);
   card.appendChild(info);
+
+  if (asset.isMissing) {
+    const btnRelinkCard = document.createElement("button");
+    btnRelinkCard.className = "asset-relink-btn";
+    btnRelinkCard.innerHTML = `🔍`;
+    btnRelinkCard.title = "Relink missing media file";
+    btnRelinkCard.style.cssText = `background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; margin-right: 4px;`;
+    btnRelinkCard.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openProjectRelinkModal([{
+        id: asset.id,
+        type: "imported_asset",
+        name: asset.name,
+        originalPath: asset.path,
+      }]);
+    });
+    card.appendChild(btnRelinkCard);
+  }
 
   // Asset Action Buttons: Trim Button
   const btnTrim = document.createElement("button");
@@ -2493,24 +2522,41 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
   stateManager.updateProjectDirectly(stateManager.project);
 
   // Load selected video immediately to the preview engine
-  try {
-    const webSrc = convertFileSrc(asset.path);
-    canvasRenderer.setVideoSource(webSrc);
-    
-    const settings = stateManager.project.asset_settings?.[asset.id];
-    const trim = settings?.trim;
-    if (trim && trim.enabled) {
-      canvasRenderer.setCurrentTime(trim.start);
+  if (asset.isMissing) {
+    canvasRenderer.setOfflineState(true, asset.path);
+  } else {
+    try {
+      const webSrc = convertFileSrc(asset.path);
+      canvasRenderer.setVideoSource(webSrc);
+      
+      const settings = stateManager.project.asset_settings?.[asset.id];
+      const trim = settings?.trim;
+      if (trim && trim.enabled) {
+        canvasRenderer.setCurrentTime(trim.start);
+      }
+      
+      if (autoPlay) {
+        canvasRenderer.play();
+      } else {
+        canvasRenderer.pause();
+      }
+    } catch (e) {
+      console.error("Direct video source loading failed:", e);
+      canvasRenderer.setOfflineState(true, asset.path);
     }
-    
-    if (autoPlay) {
-      canvasRenderer.play();
-    } else {
-      canvasRenderer.pause();
-    }
-  } catch (e) {
-    console.error("Direct video source loading failed:", e);
   }
+
+  invoke<boolean>("check_file_exists", { filePath: asset.path }).then(exists => {
+    if (!exists) {
+      asset.isMissing = true;
+      canvasRenderer.setOfflineState(true, asset.path);
+      refreshViewport();
+    }
+  }).catch(() => {
+    asset.isMissing = true;
+    canvasRenderer.setOfflineState(true, asset.path);
+    refreshViewport();
+  });
 
   // Full UI & Canvas Sync for asset change
   syncConfigToUi();
@@ -5528,10 +5574,29 @@ async function tryLoadAutosave(): Promise<boolean> {
           appendAssetCard(asset);
         } catch (e) {
           console.error("Failed to import asset during autosave load:", prjAsset.path, e);
+          const offlineAsset: ImportedAsset = {
+            id: prjAsset.id,
+            hash: `missing_${Date.now()}`,
+            path: prjAsset.path,
+            name: prjAsset.path.split(/[/\\]/).pop() || "Missing Video",
+            size_bytes: 0,
+            type: "video",
+            thumbnail_path: null,
+            timeline_thumbnails: [],
+            metadata: null,
+            isMissing: true,
+          };
+          stateManager.assets.push(offlineAsset);
+          appendAssetCard(offlineAsset);
         }
       }
       
       stateManager.isSavingEnabled = true;
+
+      const missing = await scanProjectMissingFiles(projectData);
+      if (missing.length > 0) {
+        openProjectRelinkModal(missing);
+      }
 
       if (stateManager.assets.length > 0) {
         selectAsset(stateManager.assets[0], false);
@@ -5601,6 +5666,20 @@ async function triggerOpenProject() {
           appendAssetCard(asset);
         } catch (e) {
           console.error("Failed to import asset during project load:", prjAsset.path, e);
+          const offlineAsset: ImportedAsset = {
+            id: prjAsset.id,
+            hash: `missing_${Date.now()}`,
+            path: prjAsset.path,
+            name: prjAsset.path.split(/[/\\]/).pop() || "Missing Video",
+            size_bytes: 0,
+            type: "video",
+            thumbnail_path: null,
+            timeline_thumbnails: [],
+            metadata: null,
+            isMissing: true,
+          };
+          stateManager.assets.push(offlineAsset);
+          appendAssetCard(offlineAsset);
         }
       }
       if (stateManager.assets.length > 0) {
@@ -5781,12 +5860,24 @@ async function executeRelinkAction() {
       if (prj.imported_videos) {
         prj.imported_videos = prj.imported_videos.map(p => p === oldP ? newP : p);
       }
-      stateManager.assets.forEach(a => {
+      for (let i = 0; i < stateManager.assets.length; i++) {
+        const a = stateManager.assets[i];
         if (a.path === oldP) {
-          a.path = newP;
-          a.name = newP.split(/[/\\]/).pop() || a.name;
+          try {
+            const reimported = await TauriService.importFile(newP);
+            reimported.id = a.id;
+            reimported.isMissing = false;
+            stateManager.assets[i] = reimported;
+            if (currentSelectedAsset?.id === a.id) {
+              selectAsset(reimported);
+            }
+          } catch (e) {
+            a.path = newP;
+            a.name = newP.split(/[/\\]/).pop() || a.name;
+            a.isMissing = false;
+          }
         }
-      });
+      }
 
       if (prj.background?.image_path === oldP) {
         prj.background.image_path = newP;
