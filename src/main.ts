@@ -685,6 +685,19 @@ window.addEventListener("DOMContentLoaded", async () => {
   domOverlay = new DOMOverlay(domOverlayContainer, stateManager);
   domOverlay.onFocusChange((focused) => {
     syncRatioLockUI(focused);
+    if (!focused) return;
+    if (focused.startsWith("media-")) {
+      const idx = focused.split("-")[1];
+      if (listMediaOverlays && listMediaOverlays.querySelector(`option[value="${idx}"]`)) {
+        listMediaOverlays.value = idx;
+      }
+    } else if (focused.startsWith("extra-")) {
+      const idx = focused.split("-")[1];
+      if (listExtraOverlays && listExtraOverlays.querySelector(`option[value="${idx}"]`)) {
+        listExtraOverlays.value = idx;
+        syncExtraOverlaysList();
+      }
+    }
   });
   new CanvasContextMenu(domOverlayContainer, stateManager, domOverlay, {
     syncExtraOverlaysList,
@@ -833,10 +846,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       outline: propTextOutline.checked,
       letter_spacing: parseInt(propLetterSpacing?.value || "0"),
       font_weight: parseInt(propFontWeight?.value || "400"),
+      video_placement: stateManager.project.video_placement ? JSON.parse(JSON.stringify(stateManager.project.video_placement)) : undefined,
+      background: stateManager.project.background ? JSON.parse(JSON.stringify(stateManager.project.background)) : undefined,
       extra_overlays: JSON.parse(JSON.stringify(stateManager.project.extra_overlays || [])),
       media_overlays: JSON.parse(JSON.stringify(stateManager.project.media_overlays || [])),
       overlay_order: [...(stateManager.project.overlay_order || [])],
       created_at: dateFormatted,
+      preset_asset_path: currentSelectedAsset ? currentSelectedAsset.path : undefined,
     };
 
     try {
@@ -1273,9 +1289,10 @@ function syncConfigToUi() {
 
 function resetProjectSession() {
   stateManager.project = stateManager.createDefaultProject();
-  stateManager.history.clear();
+  stateManager.clearAllHistory();
   stateManager.assets = [];
   currentSelectedAsset = null;
+  stateManager.activeAssetId = null;
   activeJobUis.clear();
   stateManager.renderQueue = [];
   updateRenderStats();
@@ -1285,6 +1302,7 @@ function resetProjectSession() {
   jobsListContainer.innerHTML = "";
 
   canvasRenderer.clearVideo();
+  if (domOverlay) domOverlay.reset();
 }
 
 
@@ -1349,7 +1367,7 @@ function syncMediaOverlaysList() {
   }
 }
 
-function refreshViewport() {
+function refreshViewport(forceRebuild = false) {
   const previewArea = document.getElementById("preview-area-16-9")!;
   const centerPanel = previewArea.parentElement!;
   const containerW = Math.max(80, centerPanel.clientWidth - 40);
@@ -1386,7 +1404,7 @@ function refreshViewport() {
   overlayContainer.style.top = `${finalTop}px`;
   overlayContainer.style.position = "absolute";
 
-  domOverlay.update(stateManager.project, finalW, finalH, false);
+  domOverlay.update(stateManager.project, finalW, finalH, forceRebuild);
 }
 
 function updateOutputDimensionsFromAspectRatio() {
@@ -2378,7 +2396,7 @@ function appendAssetCard(asset: ImportedAsset) {
     if (!confirmed) return;
     
     // Remove from state manager cache and project model
-    stateManager.assets = stateManager.assets.filter(a => a.hash !== asset.hash);
+    stateManager.assets = stateManager.assets.filter(a => a.id !== asset.id && a.hash !== asset.hash);
     stateManager.project.imported_videos = stateManager.project.imported_videos.filter(path => path !== asset.path);
     stateManager.project.imported_assets = stateManager.project.imported_assets.filter(a => a.id !== asset.id);
     if (stateManager.project.asset_settings?.[asset.id]) {
@@ -2386,17 +2404,21 @@ function appendAssetCard(asset: ImportedAsset) {
     }
     stateManager.updateProjectField("imported_assets", stateManager.project.imported_assets);
     
-    // Unload viewport if current selection gets removed
-    if (currentSelectedAsset?.hash === asset.hash) {
-      currentSelectedAsset = null;
-      canvasRenderer.clearVideo();
-      clipsGridContainer.innerHTML = "";
-      toggleDashboard(true);
-    }
-    
     // Animate removal from domestic panel
     card.remove();
     showToast(`Removed '${asset.name}'`, "warning");
+
+    // Handle viewport & selection update if current asset was removed
+    if (currentSelectedAsset?.id === asset.id || currentSelectedAsset?.hash === asset.hash) {
+      if (stateManager.assets.length > 0) {
+        selectAsset(stateManager.assets[0]);
+      } else {
+        currentSelectedAsset = null;
+        canvasRenderer.clearVideo();
+        clipsGridContainer.innerHTML = "";
+        toggleDashboard(true);
+      }
+    }
   });
   card.appendChild(btnRemove);
 
@@ -2458,42 +2480,49 @@ function loadActiveAssetSettings(asset: ImportedAsset) {
     }
     if (settings.extra_overlays) {
       stateManager.project.extra_overlays = JSON.parse(JSON.stringify(settings.extra_overlays));
-    } else {
-      stateManager.project.extra_overlays = [];
     }
     if (settings.media_overlays) {
       stateManager.project.media_overlays = JSON.parse(JSON.stringify(settings.media_overlays));
-    } else {
-      stateManager.project.media_overlays = [];
     }
     if (settings.overlay_order) {
       stateManager.project.overlay_order = [...settings.overlay_order];
-    } else {
-      stateManager.project.overlay_order = [];
     }
   } else {
-    // Clean default settings for a newly loaded video asset
-    stateManager.project.video_placement = {
-      enabled: true,
-      x: 0,
-      y: 460,
-      width: 1080,
-      height: 1000
-    };
-    stateManager.project.text_settings = {
-      enabled: true,
-      font_size: 120,
-      font_color: "#ffffff",
-      font_family: "Arial",
-      x_position: "center",
-      y_position: "top",
-      outline: true,
-      placement: "Top"
-    };
-    stateManager.project.text_template = "PART {part}";
-    stateManager.project.extra_overlays = [];
-    stateManager.project.media_overlays = [];
-    stateManager.project.overlay_order = [];
+    if (asset.metadata && asset.metadata.width && asset.metadata.height) {
+      const vidRatio = asset.metadata.width / asset.metadata.height;
+      const cw = stateManager.project.output_width || 1080;
+      const ch = stateManager.project.output_height || 1920;
+      
+      let newW = cw;
+      let newH = cw / vidRatio;
+      
+      if (newH > ch) {
+        newH = ch;
+        newW = ch * vidRatio;
+      }
+      
+      stateManager.project.video_placement = {
+        enabled: true,
+        x: Math.round((cw - newW) / 2),
+        y: Math.round((ch - newH) / 2),
+        width: Math.round(newW),
+        height: Math.round(newH),
+        ratio_locked: true
+      };
+    } else {
+      if (!stateManager.project.video_placement || !stateManager.project.video_placement.width) {
+        stateManager.project.video_placement = {
+          enabled: true,
+          x: 0,
+          y: 460,
+          width: 1080,
+          height: 1000,
+          ratio_locked: true
+        };
+      } else {
+        stateManager.project.video_placement.enabled = true;
+      }
+    }
   }
 }
 
@@ -2503,6 +2532,7 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
   }
 
   currentSelectedAsset = asset;
+  stateManager.activeAssetId = asset.id;
   highlightActiveAssetCard();
   
   loadActiveAssetSettings(asset);
@@ -2517,27 +2547,33 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
     stateManager.project.output_height = asset.metadata.height;
   }
 
-  // Adjust video placement box to match the loaded video's actual aspect ratio if not previously configured
+  // Adjust video placement box to match the loaded video's actual aspect ratio only if video_placement is not already set
   const hasSavedPlacement = !!stateManager.project.asset_settings?.[asset.id]?.video_placement;
   if (!hasSavedPlacement && asset.metadata && asset.metadata.width && asset.metadata.height) {
-    const assetRatio = asset.metadata.width / asset.metadata.height;
-    const canvasW = stateManager.project.output_width || 1080;
-    const canvasH = stateManager.project.output_height || 1920;
-    
-    // Fit video width to canvas width and calculate height proportionally
-    const newW = canvasW;
-    const newH = Math.round(canvasW / assetRatio);
-    const newX = 0;
-    const newY = Math.round((canvasH - newH) / 2);
+    if (!stateManager.project.video_placement || !stateManager.project.video_placement.width) {
+      const assetRatio = asset.metadata.width / asset.metadata.height;
+      const canvasW = stateManager.project.output_width || 1080;
+      const canvasH = stateManager.project.output_height || 1920;
+      
+      // Fit video width to canvas width and calculate height proportionally
+      const newW = canvasW;
+      const newH = Math.round(canvasW / assetRatio);
+      const newX = 0;
+      const newY = Math.round((canvasH - newH) / 2);
 
-    stateManager.project.video_placement = {
-      enabled: true,
-      x: newX,
-      y: newY,
-      width: newW,
-      height: newH,
-      ratio_locked: true,
-    };
+      stateManager.project.video_placement = {
+        enabled: true,
+        x: newX,
+        y: newY,
+        width: newW,
+        height: newH,
+        ratio_locked: true,
+      };
+    } else {
+      stateManager.project.video_placement.enabled = true;
+    }
+  } else if (stateManager.project.video_placement) {
+    stateManager.project.video_placement.enabled = true;
   }
 
   stateManager.updateProjectDirectly(stateManager.project);
@@ -2785,7 +2821,14 @@ function formatEtaHuman(seconds: number | null): string {
   return `About ${hours}h ${remainMins}m left`;
 }
 
+function pauseCanvasPlayback() {
+  if (canvasRenderer) {
+    canvasRenderer.pause();
+  }
+}
+
 async function generateAndShowPreview() {
+  pauseCanvasPlayback();
   const loaderEl = document.getElementById("preview-loader");
   const emptyStateEl = document.getElementById("preview-empty-state");
   
@@ -3870,7 +3913,12 @@ function showModal(options: {
 
     title.innerText = options.title;
     message.innerText = options.message;
-    icon.innerText = options.icon || "⚠️";
+    if (options.icon) {
+      icon.innerText = options.icon;
+      icon.style.display = "block";
+    } else {
+      icon.style.display = "none";
+    }
     btnConfirm.innerText = options.confirmText || "Confirm";
     btnCancel.innerText = options.cancelText || "Cancel";
 
@@ -3934,7 +3982,12 @@ function showChoiceModal(options: {
 
     title.innerText = options.title;
     message.innerText = options.message;
-    icon.innerText = options.icon || "💾";
+    if (options.icon) {
+      icon.innerText = options.icon;
+      icon.style.display = "block";
+    } else {
+      icon.style.display = "none";
+    }
     btnConfirm.innerText = options.confirmText || "Apply Without Saving";
     btnCancel.innerText = options.cancelText || "Cancel";
 
@@ -4249,11 +4302,15 @@ function setupDashboard() {
   });
 
   document.getElementById("dash-btn-open")?.addEventListener("click", () => {
-    document.getElementById("btn-open-project")?.click();
-  });
-
-  document.getElementById("dash-btn-import")?.addEventListener("click", () => {
-    triggerImport();
+    resetProjectSession();
+    toggleDashboard(false);
+    
+    // Switch to Presets tab
+    const presetsTab = document.getElementById('left-tab-presets') as HTMLElement;
+    if (presetsTab) presetsTab.click();
+    
+    // Render preset library
+    loadGlobalPresetsFromAppData();
   });
 
   // Template Quick aspect ratios
@@ -5734,8 +5791,9 @@ async function triggerOpenProject() {
     
     showToast("Loading project file...", "success");
     const projectData = await invoke<ProjectData>("load_project", { filePath: path });
+    if (domOverlay) domOverlay.reset();
     stateManager.updateProjectDirectly(projectData);
-    stateManager.history.clear();
+    stateManager.clearAllHistory();
     
     // Load assets asynchronously
     assetListContainer.innerHTML = "";
@@ -6091,7 +6149,7 @@ async function scanProjectMissingFiles(project: ProjectData): Promise<MissingMed
   return missing;
 }
 
-function applyPresetToProject(preset: TextPreset) {
+async function applyPresetToProject(preset: TextPreset) {
   const textPresets = [...(stateManager.project.text_presets || [])];
   textPresets.push(preset);
   
@@ -6112,22 +6170,153 @@ function applyPresetToProject(preset: TextPreset) {
     }
   };
 
-  if (preset.extra_overlays) {
-    batchUpdate.extra_overlays = JSON.parse(JSON.stringify(preset.extra_overlays));
-  }
-  if (preset.media_overlays) {
-    batchUpdate.media_overlays = JSON.parse(JSON.stringify(preset.media_overlays));
-  }
-  if (preset.overlay_order) {
-    batchUpdate.overlay_order = [...preset.overlay_order];
+  if (preset.video_placement && preset.video_placement.width && preset.video_placement.height) {
+    batchUpdate.video_placement = JSON.parse(JSON.stringify(preset.video_placement));
+    batchUpdate.video_placement!.enabled = true;
+  } else {
+    const currentPlacement = stateManager.project.video_placement || {
+      enabled: true,
+      x: 0,
+      y: 460,
+      width: 1080,
+      height: 1000,
+    };
+    batchUpdate.video_placement = {
+      ...currentPlacement,
+      enabled: true,
+    };
   }
 
+  if (preset.background) {
+    batchUpdate.background = JSON.parse(JSON.stringify(preset.background));
+  }
+
+  if (preset.extra_overlays) {
+    batchUpdate.extra_overlays = JSON.parse(JSON.stringify(preset.extra_overlays));
+  } else {
+    batchUpdate.extra_overlays = [];
+  }
+
+  if (preset.media_overlays) {
+    batchUpdate.media_overlays = JSON.parse(JSON.stringify(preset.media_overlays));
+  } else {
+    batchUpdate.media_overlays = [];
+  }
+
+  if (preset.overlay_order && preset.overlay_order.length > 0) {
+    batchUpdate.overlay_order = [...preset.overlay_order];
+  } else {
+    const extraIds = (batchUpdate.extra_overlays || []).map((_, i) => `extra-${i}`);
+    const mediaIds = (batchUpdate.media_overlays || []).map((_, i) => `media-${i}`);
+    batchUpdate.overlay_order = ["video", "text", ...extraIds, ...mediaIds];
+  }
+
+  // Auto-import the preset's associated main video if we don't have any videos loaded yet
+  if (preset.preset_asset_path && (!stateManager.assets || stateManager.assets.length === 0)) {
+    let existingAsset = stateManager.assets.find(a => a.path === preset.preset_asset_path);
+    if (!existingAsset) {
+      try {
+        const asset = await TauriService.importFile(preset.preset_asset_path);
+        asset.id = "asset_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+        stateManager.assets.push(asset);
+        existingAsset = asset;
+        
+        // Ensure the newly auto-imported asset is included in the project data batch update
+        batchUpdate.imported_assets = stateManager.assets.map(a => ({ id: a.id, path: a.path }));
+        batchUpdate.imported_videos = stateManager.assets.map(a => a.path);
+        
+        // Render the new asset card in the UI
+        appendAssetCard(asset);
+      } catch (err) {
+        console.warn("Failed to auto-import preset main video asset:", err);
+      }
+    }
+    if (existingAsset) {
+      currentSelectedAsset = existingAsset;
+    }
+  }
+
+  // Fallback: If no asset is currently selected but assets exist in project, select the first asset
+  if (!currentSelectedAsset && stateManager.assets && stateManager.assets.length > 0) {
+    currentSelectedAsset = stateManager.assets[0];
+  }
+
+  // Sync settings for ALL imported assets so switching assets preserves the applied preset
+  // IMPORTANT: We bundle this into the batchUpdate so UNDO/REDO logic correctly tracks per-asset settings!
+  const newAssetSettings = { ...(stateManager.project.asset_settings || {}) };
+  if (stateManager.assets && stateManager.assets.length > 0) {
+    for (const asset of stateManager.assets) {
+      newAssetSettings[asset.id] = {
+        video_placement: JSON.parse(JSON.stringify(batchUpdate.video_placement)),
+        text_settings: JSON.parse(JSON.stringify(batchUpdate.text_settings)),
+        text_template: batchUpdate.text_template,
+        extra_overlays: JSON.parse(JSON.stringify(batchUpdate.extra_overlays || [])),
+        media_overlays: JSON.parse(JSON.stringify(batchUpdate.media_overlays || [])),
+        overlay_order: [...(batchUpdate.overlay_order || [])],
+        audio_codec: stateManager.project.audio_codec,
+        audio_stream_index: stateManager.project.audio_stream_index
+      };
+    }
+  }
+  batchUpdate.asset_settings = newAssetSettings;
+
   stateManager.updateProjectBatch(batchUpdate);
+
+  // Load selected video source directly onto canvas renderer and hide empty dashboard
+  if (currentSelectedAsset) {
+    if (currentSelectedAsset.isMissing) {
+      canvasRenderer.setOfflineState(true, currentSelectedAsset.path);
+    } else {
+      try {
+        const webSrc = convertFileSrc(currentSelectedAsset.path);
+        canvasRenderer.setVideoSource(webSrc);
+      } catch (e) {
+        console.error("Preset video source load failed:", e);
+      }
+    }
+    toggleDashboard(false);
+  }
+
+  // Re-render all imported video asset cards in the Left Panel Assets tab
+  assetListContainer.innerHTML = "";
+  if (stateManager.assets && stateManager.assets.length > 0) {
+    stateManager.assets.forEach(a => appendAssetCard(a));
+    highlightActiveAssetCard();
+  }
+
+  // Switch Left Panel view back to the Assets tab so all imported videos are shown immediately
+  if (leftTabAssets && leftTabPresets && leftPaneAssets && leftPanePresets) {
+    leftTabPresets.classList.remove("active");
+    leftTabAssets.classList.add("active");
+    const leftTabIndicator = document.querySelector("#left-tab-indicator") as HTMLElement | null;
+    if (leftTabIndicator) leftTabIndicator.style.transform = "translateX(0%)";
+
+    leftPanePresets.classList.remove("active");
+    leftPanePresets.classList.add("pane-exit-right");
+    leftPanePresets.classList.remove("pane-exit-left");
+
+    leftPaneAssets.classList.add("active");
+    leftPaneAssets.classList.remove("pane-exit-left");
+    leftPaneAssets.classList.remove("pane-exit-right");
+  }
+
+  // Rebuild clip timeline grid for all split parts
+  rebuildClipTimeline();
 
   syncConfigToUi();
   syncMediaOverlaysList();
   syncExtraOverlaysList();
-  refreshViewport();
+
+  if (domOverlay) domOverlay.reset();
+
+  if (preset.media_overlays && preset.media_overlays.length > 0) {
+    listMediaOverlays.value = "0";
+    domOverlay.setFocusedElement("media-0");
+  } else if (domOverlay) {
+    domOverlay.setFocusedElement("video");
+  }
+
+  refreshViewport(true);
   showToast(`Applied "${preset.name}" to project!`, "success");
 }
 
@@ -6147,6 +6336,22 @@ function renderPresetLibraryCards(presets: TextPreset[]) {
     // Check file paths if present
     let isMissing = false;
     let missingPath = "";
+    if (preset.media_overlays && preset.media_overlays.length > 0) {
+      for (const ov of preset.media_overlays) {
+        if (ov.path) {
+          try {
+            const exists = await invoke<boolean>("check_file_exists", { filePath: ov.path });
+            if (!exists) {
+              isMissing = true;
+              missingPath = ov.path;
+              break;
+            }
+          } catch (e) {
+            // ignore error
+          }
+        }
+      }
+    }
 
     card.innerHTML = `
       <div class="preset-card-header">
@@ -6174,8 +6379,8 @@ function renderPresetLibraryCards(presets: TextPreset[]) {
     applyBtn.addEventListener("click", async () => {
       const choice = await showChoiceModal({
         title: "Switch Preset — Save Current Setup?",
-        message: `Applying preset "${preset.name}" will overwrite your current text template, fonts, and overlay setup. Would you like to save your current setup as a preset first?`,
-        icon: "💾",
+        message: `Applying preset "${preset.name}" will overwrite current text & overlay styling. Save setup first?`,
+        icon: "",
         extraText: "Save Setup First",
         confirmText: "Apply Without Saving",
         cancelText: "Cancel"
@@ -6188,7 +6393,7 @@ function renderPresetLibraryCards(presets: TextPreset[]) {
         return;
       }
 
-      applyPresetToProject(preset);
+      await applyPresetToProject(preset);
     });
 
     const relinkBtn = card.querySelector(".preset-card-btn-relink") as HTMLButtonElement | null;

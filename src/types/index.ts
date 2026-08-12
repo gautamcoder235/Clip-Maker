@@ -48,10 +48,13 @@ export interface TextPreset {
   outline: boolean;
   letter_spacing?: number;
   font_weight?: number;
+  video_placement?: VideoPlacementConfig;
+  background?: BackgroundConfig;
   extra_overlays?: ExtraOverlay[];
   media_overlays?: MediaOverlay[];
   overlay_order?: string[];
   created_at?: string;
+  preset_asset_path?: string;
 }
 
 export interface ExtraOverlay {

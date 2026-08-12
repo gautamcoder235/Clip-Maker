@@ -9,14 +9,16 @@ export class DOMOverlay {
 
   private videoBox: HTMLDivElement | null = null;
   private textBox: HTMLDivElement | null = null;
-  private extraBoxes: HTMLDivElement[] = [];
-  private mediaBoxes: HTMLDivElement[] = [];
+  private extraBoxes: { [key: number]: HTMLDivElement } = {};
+  private mediaBoxes: { [key: number]: HTMLDivElement } = {};
 
   // Active Media Overlays live elements for editor sync
   private activeOverlayVideos: { [key: number]: HTMLVideoElement } = {};
   private activeOverlayImages: { [key: number]: HTMLImageElement } = {};
   private activeOverlayCanvases: { [key: number]: HTMLCanvasElement } = {};
   private syncAnimId = 0;
+  private lastUpdateFingerprint: string = "";
+  private ratioCorrectedKeys: Set<string> = new Set(); // track which overlays have been ratio-corrected
 
   // Dynamic snapping guide pool
   private guidePool: HTMLDivElement[] = [];
@@ -110,9 +112,83 @@ export class DOMOverlay {
     this.onLayoutChangeCallback = callback;
   }
 
+  /**
+   * Compute a lightweight fingerprint of all overlay-relevant project state.
+   * Used by update() to skip destructive DOM teardown/rebuild when nothing changed.
+   */
+  private computeUpdateFingerprint(project: ProjectData, cw: number, ch: number): string {
+    const vp = project.video_placement;
+    const ts = project.text_settings;
+    const parts: string[] = [
+      `${cw},${ch}`,
+      `vp:${vp.enabled},${vp.x},${vp.y},${vp.width},${vp.height},${vp.rotation || 0},${vp.crop_top || 0},${vp.crop_right || 0},${vp.crop_bottom || 0},${vp.crop_left || 0}`,
+      `ts:${ts.enabled},${ts.font_size},${ts.font_color},${ts.font_family},${ts.font_weight},${ts.letter_spacing},${ts.outline},${ts.x_position},${ts.y_position}`,
+      `tt:${project.text_template}`,
+      `tpm:${project.text_preset_mode}`,
+      `sci:${project.selected_clip_index}`,
+      `ow:${project.output_width},${project.output_height}`,
+      `ip:${project.input_path}`,
+    ];
+
+    // Extra overlays fingerprint
+    if (project.extra_overlays) {
+      project.extra_overlays.forEach((o, i) => {
+        parts.push(`e${i}:${o.text},${o.font_size},${o.font_family},${o.font_weight},${o.x_position},${o.y_position},${o.letter_spacing},${o.font_color},${o.placement}`);
+      });
+    }
+
+    // Media overlays fingerprint
+    if (project.media_overlays) {
+      project.media_overlays.forEach((o, i) => {
+        parts.push(`m${i}:${o.enabled},${o.path},${o.x},${o.y},${o.width},${o.height},${o.rotation || 0},${o.crop_top || 0},${o.crop_right || 0},${o.crop_bottom || 0},${o.crop_left || 0},${o.name}`);
+      });
+    }
+
+    // Cycle presets
+    if (project.text_presets) {
+      project.text_presets.forEach((p, i) => {
+        parts.push(`tp${i}:${p.font_size},${p.font_color},${p.font_family},${p.font_weight},${p.letter_spacing},${p.outline},${p.template_text},${p.x_position},${p.y_position}`);
+      });
+    }
+
+    return parts.join("|");
+  }
+
+  public reset() {
+    this.lastUpdateFingerprint = "";
+    this.ratioCorrectedKeys.clear();
+    this.focusedElement = null;
+    if (this.videoBox) { this.videoBox.remove(); this.videoBox = null; }
+    if (this.textBox) { this.textBox.remove(); this.textBox = null; }
+    Object.values(this.extraBoxes).forEach(b => b.remove());
+    this.extraBoxes = {};
+    Object.values(this.mediaBoxes).forEach(b => b.remove());
+    this.mediaBoxes = {};
+    Object.values(this.activeOverlayVideos).forEach(video => {
+      video.pause();
+      video.src = "";
+      if (video.parentNode) video.parentNode.removeChild(video);
+    });
+    this.activeOverlayVideos = {};
+    this.activeOverlayImages = {};
+    this.activeOverlayCanvases = {};
+    if (this.syncAnimId) {
+      cancelAnimationFrame(this.syncAnimId);
+      this.syncAnimId = 0;
+    }
+  }
+
   update(project: ProjectData, containerWidth: number, containerHeight: number, forceRebuild = false) {
     // Don't rebuild overlays while user is actively dragging/resizing unless forced
     if (!forceRebuild && (this.isDragging || this.isResizing)) return;
+
+    // Compute a fingerprint of overlay-relevant state to skip redundant rebuilds
+    // This prevents the visible flicker caused by tearing down and recreating all DOM elements
+    // when update() is called multiple times with identical data (e.g. click → state commit → listener → rAF)
+    const fp = this.computeUpdateFingerprint(project, containerWidth, containerHeight);
+    if (!forceRebuild && fp === this.lastUpdateFingerprint) return;
+    this.lastUpdateFingerprint = fp;
+
 
     // Clear dynamic overlay DOM elements except guidelines
     if (this.videoBox) {
@@ -124,27 +200,35 @@ export class DOMOverlay {
       this.textBox = null;
     }
 
-    this.extraBoxes.forEach(b => b.remove());
-    this.extraBoxes = [];
+    Object.values(this.extraBoxes).forEach(b => b.remove());
+    this.extraBoxes = {};
 
-    // Stop and clear previous overlay videos/elements
-    Object.values(this.activeOverlayVideos).forEach(video => {
-      video.pause();
-      video.src = "";
-      if (video.parentNode) {
-        video.parentNode.removeChild(video);
+    // Selective cleanup of active overlay videos and images whose path or type changed
+    const newMediaOverlays = project.media_overlays || [];
+    Object.keys(this.activeOverlayVideos).forEach(keyStr => {
+      const idx = parseInt(keyStr);
+      const ov = newMediaOverlays[idx];
+      if (!ov || ov.type !== "video" || convertFileSrc(ov.path) !== this.activeOverlayVideos[idx].src) {
+        const v = this.activeOverlayVideos[idx];
+        if (v) {
+          v.pause();
+          v.src = "";
+          if (v.parentNode) v.parentNode.removeChild(v);
+        }
+        delete this.activeOverlayVideos[idx];
       }
     });
-    this.activeOverlayVideos = {};
-    this.activeOverlayImages = {};
-    this.activeOverlayCanvases = {};
-    if (this.syncAnimId) {
-      cancelAnimationFrame(this.syncAnimId);
-      this.syncAnimId = 0;
-    }
 
-    this.mediaBoxes.forEach(b => b.remove());
-    this.mediaBoxes = [];
+    Object.keys(this.activeOverlayImages).forEach(keyStr => {
+      const idx = parseInt(keyStr);
+      const ov = newMediaOverlays[idx];
+      if (!ov || ov.type !== "image" || convertFileSrc(ov.path) !== this.activeOverlayImages[idx].src) {
+        delete this.activeOverlayImages[idx];
+      }
+    });
+
+    Object.values(this.mediaBoxes).forEach(b => b.remove());
+    this.mediaBoxes = {};
 
     const targetW = project.output_width || 1080;
     const targetH = project.output_height || 1920;
@@ -301,7 +385,7 @@ export class DOMOverlay {
 
         const box = this.createInteractiveBox(`extra-${idx}`, x, y, extraBoxW, extraBoxH, scale, extraTxt);
         this.overlayContainer.appendChild(box);
-        this.extraBoxes.push(box);
+        this.extraBoxes[idx] = box;
       });
     }
 
@@ -324,7 +408,6 @@ export class DOMOverlay {
 
         const box = this.createInteractiveBox(`media-${idx}`, boxX, boxY, boxW, boxH, scale, overlay.name, rot, cropT, cropR, cropB, cropL);
         this.overlayContainer.appendChild(box);
-        this.mediaBoxes.push(box);
 
         // Append canvas inside box for video/image rendering
         const canvas = document.createElement("canvas");
@@ -338,25 +421,56 @@ export class DOMOverlay {
         box.appendChild(canvas);
         this.activeOverlayCanvases[idx] = canvas;
 
+        const src = convertFileSrc(overlay.path);
         if (overlay.type === "video") {
-          const video = document.createElement("video");
-          video.crossOrigin = "anonymous";
-          video.src = convertFileSrc(overlay.path);
-          video.loop = true;
-          video.muted = true;
-          video.playsInline = true;
-          video.style.display = "none";
-          document.body.appendChild(video);
-          video.load();
-          this.activeOverlayVideos[idx] = video;
+          let video = this.activeOverlayVideos[idx];
+          if (!video || video.src !== src) {
+            if (video && video.parentNode) video.parentNode.removeChild(video);
+            video = document.createElement("video");
+            video.crossOrigin = "anonymous";
+            video.src = src;
+            video.loop = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.style.display = "none";
+            document.body.appendChild(video);
+            video.load();
+            this.activeOverlayVideos[idx] = video;
+          }
         } else {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = convertFileSrc(overlay.path);
-          this.activeOverlayImages[idx] = img;
+          let img = this.activeOverlayImages[idx];
+          if (!img || img.src !== src) {
+            img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+              if (canvas && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+                  canvas.width = img.naturalWidth;
+                  canvas.height = img.naturalHeight;
+                }
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                  ctx.clearRect(0, 0, img.naturalWidth, img.naturalHeight);
+                  ctx.drawImage(img, 0, 0);
+                }
+              }
+            };
+            img.src = src;
+            this.activeOverlayImages[idx] = img;
+          } else if (img.complete && img.naturalWidth > 0) {
+            if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+            }
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.clearRect(0, 0, img.naturalWidth, img.naturalHeight);
+              ctx.drawImage(img, 0, 0);
+            }
+          }
         }
 
-        this.mediaBoxes.push(box);
+        this.mediaBoxes[idx] = box;
       });
     }
 
@@ -1227,15 +1341,6 @@ export class DOMOverlay {
       this.resizeHandle = null;
 
       this.onLayoutChangeCallback();
-
-      // Deferred rebuild: the guard above skipped update() during state commit,
-      // so rebuild overlays on the next frame with committed positions
-      requestAnimationFrame(() => {
-        const p = this.stateManager.project;
-        const cw = this.overlayContainer.clientWidth;
-        const ch = this.overlayContainer.clientHeight;
-        this.update(p, cw, ch);
-      });
     });
   }
 
@@ -1254,8 +1359,8 @@ export class DOMOverlay {
     };
     addBox(this.videoBox, "video");
     addBox(this.textBox, "text");
-    this.extraBoxes.forEach((b, i) => addBox(b, `extra-${i}`));
-    this.mediaBoxes.forEach((b, i) => addBox(b, `media-${i}`));
+    Object.entries(this.extraBoxes).forEach(([i, b]) => addBox(b, `extra-${i}`));
+    Object.entries(this.mediaBoxes).forEach(([i, b]) => addBox(b, `media-${i}`));
     return targets;
   }
 
@@ -1400,7 +1505,7 @@ export class DOMOverlay {
   }
 
   private refreshFocus() {
-    const boxes = [this.videoBox, this.textBox, ...this.extraBoxes, ...this.mediaBoxes];
+    const boxes = [this.videoBox, this.textBox, ...Object.values(this.extraBoxes), ...Object.values(this.mediaBoxes)];
     boxes.forEach((box) => {
       if (!box) return;
       const matches = box.className.includes(`selection-${this.focusedElement}`);
@@ -1413,7 +1518,6 @@ export class DOMOverlay {
     if (this.onFocusChangeCallback) {
       this.onFocusChangeCallback(this.focusedElement);
     }
-    this.onLayoutChangeCallback();
   }
 
   private evaluatePosFormula(posStr: string, canvasDim: number, boxDim: number, scale: number, defaultPos: number): number {
@@ -1601,8 +1705,10 @@ export class DOMOverlay {
   }
 
   private startSyncLoop() {
-    const mainVideo = document.querySelector(".preview-video-element") as HTMLVideoElement | null;
-    if (!mainVideo) return;
+    if (this.syncAnimId) {
+      cancelAnimationFrame(this.syncAnimId);
+      this.syncAnimId = 0;
+    }
 
     const hexToRgb = (hex: string) => {
       const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
@@ -1623,8 +1729,10 @@ export class DOMOverlay {
     };
 
     const updateFrames = () => {
+      const mainVideo = document.querySelector(".preview-video-element") as HTMLVideoElement | null;
+      const isMainPlaying = mainVideo ? (!mainVideo.paused && !mainVideo.ended) : false;
+      const mainCurrentTime = mainVideo ? mainVideo.currentTime : 0;
       const project = this.stateManager.project;
-      const isMainPlaying = !mainVideo.paused && !mainVideo.ended;
 
       project.media_overlays.forEach((overlay, idx) => {
         if (!overlay.enabled) return;
@@ -1642,23 +1750,23 @@ export class DOMOverlay {
             let shouldPlay = isMainPlaying;
 
             if (loopMode === "repeat") {
-              targetTime = mainVideo.currentTime % duration;
+              targetTime = mainCurrentTime % duration;
               showOverlay = true;
             } else if (loopMode === "freeze") {
-              const isPast = mainVideo.currentTime >= duration;
-              targetTime = Math.min(mainVideo.currentTime, duration - 0.05);
+              const isPast = mainCurrentTime >= duration;
+              targetTime = Math.min(mainCurrentTime, duration - 0.05);
               showOverlay = true;
               if (isPast) {
                 shouldPlay = false;
               }
             } else if (loopMode === "stop") {
-              const isPast = mainVideo.currentTime >= duration;
+              const isPast = mainCurrentTime >= duration;
               if (isPast) {
                 targetTime = duration - 0.05;
                 showOverlay = false;
                 shouldPlay = false;
               } else {
-                targetTime = mainVideo.currentTime;
+                targetTime = mainCurrentTime;
                 showOverlay = true;
               }
             }
@@ -1704,18 +1812,13 @@ export class DOMOverlay {
 
           if (srcW > 0 && srcH > 0) {
             // Auto aspect ratio correction if overlay has squeezed or default aspect ratio
-            if (!(overlay as any).ratio_corrected) {
+            const correctionKey = `${overlay.path}:${idx}`;
+            if (!this.ratioCorrectedKeys.has(correctionKey)) {
+              this.ratioCorrectedKeys.add(correctionKey);
               const currentAspect = overlay.width / overlay.height;
               const trueAspect = srcW / srcH;
               if (Math.abs(currentAspect - trueAspect) > 0.05) {
                 overlay.height = Math.round(overlay.width / trueAspect);
-                (overlay as any).ratio_corrected = true;
-                this.stateManager.updateProjectDirectly(this.stateManager.project);
-                requestAnimationFrame(() => {
-                  this.update(this.stateManager.project, this.overlayContainer.clientWidth, this.overlayContainer.clientHeight);
-                });
-              } else {
-                (overlay as any).ratio_corrected = true;
               }
             }
 

@@ -195,17 +195,10 @@
                   </div>
                 </button>
                 <button id="dash-btn-open" class="dash-action-card">
-                  <span class="dash-card-icon">📂</span>
+                  <span class="dash-card-icon">📚</span>
                   <div class="dash-card-info">
-                    <h3>Open Project</h3>
-                    <p>Load an existing .clipmaker project file from your disk</p>
-                  </div>
-                </button>
-                <button id="dash-btn-import" class="dash-action-card">
-                  <span class="dash-card-icon">🎥</span>
-                  <div class="dash-card-info">
-                    <h3>Import Video File</h3>
-                    <p>Load a video file directly to begin splits instantly</p>
+                    <h3>Open Presets</h3>
+                    <p>Start a clean session and open your saved presets library</p>
                   </div>
                 </button>
               </div>
@@ -231,20 +224,32 @@
             <!-- Learn Tab Pane -->
             <div id="dash-tab-learn" class="dash-tab-content">
               <h1 class="dash-heading">Guidelines & Tutorials</h1>
-              <p class="dash-subheading">Learn how to make high-converting video overlays and splits in Clip Maker.</p>
+              <p class="dash-subheading">Learn how to create high-converting video clips, overlays, presets, and split queues in Clip Maker.</p>
               
               <div class="dash-tutorial-grid">
                 <div class="tutorial-card">
-                  <h4>⚡ Fast Batch splits</h4>
-                  <p>Input a video, configure the target clip length in the settings menu, and split parts will generate inside the timeline instantly. Select a range and hit <strong>Export Queue</strong> to process them in parallel.</p>
+                  <h4>⚡ Fast Batch Splits & GPU Rendering</h4>
+                  <p>Import raw video assets, set target clip length, and split parts will generate automatically. Enable <strong>GPU Acceleration (NVENC/AMF)</strong> and multi-worker parallel rendering to process queues 10x faster.</p>
                 </div>
                 <div class="tutorial-card">
-                  <h4>🎨 Multi-Layer text overlays</h4>
-                  <p>Double-click the editor preview box to edit the template text overlay. To add watermarks or subtitles, configure <strong>Additional Text Overlays</strong> inside the inspector cards.</p>
+                  <h4>🎨 Multi-Layer Typography & Subtitles</h4>
+                  <p>Double-click the editor box to edit main template text (e.g. <code>PART {part}</code>). Add <strong>Additional Text Overlays</strong> with custom system fonts, letter spacing, font weight boldness, and outline shadows.</p>
                 </div>
                 <div class="tutorial-card">
-                  <h4>🎯 Magnetic Snap Alignments</h4>
-                  <p>When dragging or resizing text overlays, green snapping coordinates will light up when aligning with borders or center axes to assure pixel precision.</p>
+                  <h4>🎭 Media Overlays & Chroma Keying</h4>
+                  <p>Import video/image stickers or facecam overlays. Open <strong>Chroma Key & Settings</strong> to remove green screen backgrounds with Eyedropper sampling, similarity tuning, spill suppression, and loop modes.</p>
+                </div>
+                <div class="tutorial-card">
+                  <h4>📐 Aspect Ratios, Framing & Backgrounds</h4>
+                  <p>Switch between <strong>9:16 Vertical (Shorts)</strong>, <strong>16:9 Horizontal</strong>, or <strong>Original Ratio</strong>. Adjust framing with Crop Anchors (Center, Top, Left, Right) or set solid background colors & background graphics.</p>
+                </div>
+                <div class="tutorial-card">
+                  <h4>📚 Global Presets & Auto-Link System</h4>
+                  <p>Save complete text styles, fonts, backgrounds, placements, and media overlays to your AppData preset library. Switching presets automatically restores main video placement and overlay media assets.</p>
+                </div>
+                <div class="tutorial-card">
+                  <h4>✂️ Raw Video Trimming & Audio Mapping</h4>
+                  <p>Click the ✂️ Trim icon on raw video cards to set custom start/end range bounds, map multi-track audio streams (e.g. mic vs game audio), or pick audio codecs (AAC, MP3, Opus, AC3, Copy, Mute).</p>
                 </div>
               </div>
               <button id="dash-btn-back-home" class="dash-back-btn">← Back to Home</button>
@@ -1144,7 +1149,7 @@
         <div class="manual-header">
           <div class="manual-title-group">
             <span class="manual-icon">📘</span>
-            <h3 class="manual-title">Clip Maker User Manual</h3>
+            <h3 class="manual-title">Clip Maker User Manual & Help Guide</h3>
           </div>
           <button id="manual-close" class="manual-close-btn">&times;</button>
         </div>
@@ -1152,7 +1157,7 @@
         <div class="manual-tabs">
           <button class="manual-tab-btn active" data-tab="tab-getting-started">Getting Started</button>
           <button class="manual-tab-btn" data-tab="tab-overlays-presets">Overlays & Presets</button>
-          <button class="manual-tab-btn" data-tab="tab-exporting">Exporting</button>
+          <button class="manual-tab-btn" data-tab="tab-exporting">Audio & Exporting</button>
           <button class="manual-tab-btn" data-tab="tab-shortcuts">Shortcuts</button>
           <button class="manual-tab-btn" data-tab="tab-contact">Contact</button>
         </div>
@@ -1163,61 +1168,73 @@
             <h4>Welcome to Clip Maker!</h4>
             <p>Clip Maker is a high-performance desktop application designed to crop, split, layout, overlay, and batch-render video clips for YouTube Shorts, TikTok, and Instagram Reels.</p>
             <ol>
-              <li><strong>Import Video:</strong> Click the <span class="highlight">Import +</span> button in the Left Panel to import your source MP4, MOV, or WebM video assets.</li>
-              <li><strong>Live Video Viewport & Canvas:</strong> Use the interactive canvas to reposition, drag, or resize video placement and text overlay boxes in real-time.</li>
-              <li><strong>Aspect Ratio & Crop Anchor:</strong> Choose <strong>9:16 Vertical Crop (Shorts)</strong> or <strong>16:9 Horizontal</strong> and select crop anchors (Center, Left, Right, Top, Bottom).</li>
-              <li><strong>Live Preview Player:</strong> Click the <span class="highlight">🎬 Live Preview</span> button in the top toolbar to generate and view an instant real-time FFmpeg draft video in the built-in modal player!</li>
-              <li><strong>Clips Queue:</strong> Imported videos are automatically split into target duration parts in the bottom queue ready for batch export.</li>
+              <li><strong>Importing Source Media:</strong> Click the <span class="highlight">Import +</span> button in the Left Panel (Assets tab) to load source MP4, MOV, or WebM video assets into your project library.</li>
+              <li><strong>Raw Trimming & Multi-Track Audio:</strong> Click the ✂️ Trim icon on any video asset to open the Trim modal. Adjust visual range bounds or numeric timestamps, and pick specific multi-track audio streams (Track 1, Track 2, etc.).</li>
+              <li><strong>Interactive Canvas Viewport:</strong> Position, scale, or rotate video framing, text headers, stickers, and facecam overlays directly on the zoomable canvas. Snapping guides and boundary constraints maintain precision layout.</li>
+              <li><strong>Aspect Ratio & Framing Anchors:</strong> Choose <strong>9:16 Vertical (Shorts)</strong>, <strong>16:9 Horizontal</strong>, or <strong>Original Ratio</strong> in Canvas & Background settings. Frame video content using Crop Anchors (Center, Left, Right, Top, Bottom) or custom crop margins.</li>
+              <li><strong>Live Draft Preview Player:</strong> Click <span class="highlight">🎬 Live Preview</span> in the top toolbar to instantly build and preview an FFmpeg draft video in the built-in player with seek slider, volume control, and looping.</li>
+              <li><strong>Missing Media Relink System:</strong> If project source files or preset media assets are moved or offline, Clip Maker alerts you with Premiere Pro style canvas hazard graphics and opens the <span class="highlight">Link Media</span> relocation modal.</li>
             </ol>
           </div>
           
           <!-- Overlays & Presets Tab -->
           <div id="tab-overlays-presets" class="manual-tab-content">
-            <h4>Layout, Backgrounds & Dynamic Overlays</h4>
-            <p>Personalize your clips with custom backgrounds, headers, captions, progress marks, or facecam footage:</p>
+            <h4>Layout, Backgrounds, Typography & Presets</h4>
+            <p>Personalize your video clips with custom background graphics, dynamic headers, text overlays, green screen stickers, and reusable global presets:</p>
             <ul>
-              <li><strong>Position & Scale Controls:</strong> Adjust X, Y, Width, and Height for video placement. Use the <span class="highlight">Aspect Ratio Lock (🔗)</span> button to toggle between proportional scaling and free un-constrained stretching.</li>
-              <li><strong>Canvas & Background:</strong> Choose between a solid <em>Background Color</em> or click <em>Select Background Image</em> to overlay custom background graphics behind cropped videos.</li>
-              <li><strong>Primary Text & Font Picker:</strong> Edit template text (e.g., <code>PART {part}</code>). Select custom system fonts using the integrated font search picker, adjust font size, letter spacing, font weight boldness, and text outline.</li>
-              <li><strong>Text Presets & Cycling:</strong> Switch between <em>Single Template</em> or <em>Cycle Presets</em> mode to loop dynamic titles automatically across clips in the queue.</li>
-              <li><strong>Additional Text Overlays:</strong> Add multiple independent text blocks with custom positions, colors, and font styles. Drag them anywhere on the viewport canvas!</li>
-              <li><strong>Media Overlays & Chroma Key:</strong> Add image/video stickers or facecam overlays. Toggle <strong>Chroma Key</strong> settings to remove green screen backgrounds automatically.</li>
+              <li><strong>Position, Scale & Ratio Lock:</strong> Adjust X, Y, Width, Height, and Rotation (°) in the Properties panel. Use the <span class="highlight">Aspect Ratio Lock (🔗)</span> button to toggle proportional scaling versus free stretching.</li>
+              <li><strong>Canvas & Background Modes:</strong> Choose between a solid <em>Background Color</em> (with custom hex/popover picker) or click <em>Select Background Image</em> to load custom background graphics behind cropped videos.</li>
+              <li><strong>Primary Text & Font Picker:</strong> Configure template text (e.g. <code>PART {part}</code>). Select system fonts using the searchable Font Picker dropdown, fine-tune font size, color, outline toggle, <span class="highlight">Letter Spacing</span> (-10 to 50), and <span class="highlight">Text Boldness</span> (100 to 900).</li>
+              <li><strong>Additional Text Overlays:</strong> Add and manage multiple independent text blocks on the canvas with dedicated placement, color, font family search, letter spacing, boldness, and outline settings.</li>
+              <li><strong>Media Overlays & Advanced Chroma Key:</strong> Add image/video stickers or facecam overlays. Click <em>Chroma Key & Settings</em> to open the keying modal featuring live preview canvas, Eyedropper color picker, YUV Chromakey vs RGB Colorkey modes, Similarity (Key Strength), Edge Blend (Smoothness), Despill (Spill Suppression), preset color chips (#00FF00, #0000FF, black, white), and Loop options (Repeat, Freeze, Stop).</li>
+              <li><strong>Global Presets Library:</strong> Save complete text styles, fonts, backgrounds, placements, and overlay arrangements to your AppData preset library with creation timestamps. Export/import preset <code>.json</code> files or apply presets with automatic missing file detection.</li>
             </ul>
           </div>
           
-          <!-- Exporting Tab -->
+          <!-- Audio & Exporting Tab -->
           <div id="tab-exporting" class="manual-tab-content">
-            <h4>Rendering & Batch Export</h4>
-            <p>Export single clips or batch render entire queues with GPU hardware acceleration:</p>
+            <h4>Rendering, Audio Formats & Batch Export</h4>
+            <p>Render individual clips or batch-export entire video queues with hardware acceleration and professional audio stream controls:</p>
             <ul>
-              <li><strong>Live Preview Testing:</strong> Click <em>Live Preview</em> to verify layout, font styles, text overlays, and background placement before running full exports.</li>
-              <li><strong>Batch Export Queue:</strong> Click <em>Export Queue</em> to render all clips in the queue simultaneously using multi-threaded parallel background workers.</li>
-              <li><strong>GPU Acceleration:</strong> Check <em>GPU Hardware Encoding</em> to enable NVENC/AMF/VAAPI acceleration for up to 10x faster export rendering.</li>
-              <li><strong>Render Queue Monitor:</strong> Switch to the <em>Render Queue</em> tab at the bottom to view real-time progress bars, completion timers, and detailed render logs.</li>
-              <li><strong>Project Save & Import:</strong> Save your entire project configuration via <code>Ctrl+S</code> or the Save toolbar button to reload your project setup anytime!</li>
+              <li><strong>Audio Format & Codec Selection:</strong> Choose output audio codec under Encoding & Advanced Settings:
+                <ul>
+                  <li><code>Copy Original Audio (Fastest)</code>: Direct stream pass-through without re-encoding.</li>
+                  <li><code>AAC Audio (Universal - 192 kbps)</code>: High compatibility AAC format.</li>
+                  <li><code>MP3 Audio (192 kbps)</code>: Standard universal MP3 audio.</li>
+                  <li><code>Opus Audio (160 kbps)</code>: Next-gen high quality audio codec.</li>
+                  <li><code>AC3 Dolby Audio (384 kbps)</code>: Multi-channel AC3 audio.</li>
+                  <li><code>FLAC Lossless / WAV PCM</code>: Uncompressed studio quality audio.</li>
+                  <li><code>Mute / Remove Audio Track 🔇</code>: Export silent video clips.</li>
+                </ul>
+              </li>
+              <li><strong>Per-Asset Audio Stream Mapping:</strong> Select multi-track audio streams (e.g. mic audio vs gameplay audio) directly inside the raw video trim modal dialog.</li>
+              <li><strong>GPU Hardware Acceleration:</strong> Enable <em>GPU Hardware Encoding</em> (NVENC / AMF / VAAPI) for up to 10x faster export rendering.</li>
+              <li><strong>Multi-Threaded Parallel Workers:</strong> Enable <em>Parallel Rendering</em> and set <em>Worker Slots</em> (1 to 16) to process multiple video split parts simultaneously.</li>
+              <li><strong>Export Scope & Range Bounds:</strong> Export selected video only or all imported assets. Set clip duration (s) and define export clip range bounds (Export From / Export To).</li>
+              <li><strong>Render Queue & Download:</strong> Switch to the <em>Render Queue</em> tab to view active worker progress bars, remaining time (ETA), live completion statistics, render logs, and download all clips as a single ZIP package.</li>
             </ul>
           </div>
           
           <!-- Shortcuts Tab -->
           <div id="tab-shortcuts" class="manual-tab-content">
-            <h4>Keyboard Shortcuts</h4>
-            <p>Speed up your video creation workflow with built-in hotkeys:</p>
+            <h4>Keyboard Shortcuts & Mouse Controls</h4>
+            <p>Accelerate your editing workflow with built-in hotkeys and mouse scrubbing controls:</p>
             <div class="shortcut-list">
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>K</kbd> <span>Open Command Palette</span></div>
               <div class="shortcut-item"><kbd>Space</kbd> <span>Toggle Play / Pause viewport video</span></div>
               <div class="shortcut-item"><kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> <span>Navigate controls & inspector headers</span></div>
-              <div class="shortcut-item"><kbd>Enter</kbd> / <kbd>Space</kbd> <span>Toggle focused accordion or trigger button</span></div>
+              <div class="shortcut-item"><kbd>Enter</kbd> / <kbd>Space</kbd> <span>Toggle active accordion section or button</span></div>
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>S</kbd> <span>Save Current Project</span></div>
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>O</kbd> <span>Open Existing Project</span></div>
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>N</kbd> <span>Create New Project</span></div>
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>Z</kbd> <span>Undo last configuration change</span></div>
               <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>Y</kbd> <span>Redo undone change</span></div>
-              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>B</kbd> <span>Toggle Left Sidebar</span></div>
-              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>J</kbd> <span>Toggle Bottom Queue</span></div>
-              <div class="shortcut-item"><kbd>Esc</kbd> <span>Close active modal or palette</span></div>
-              <div class="shortcut-item"><kbd>H</kbd> <span>Fit video layout horizontally</span></div>
-              <div class="shortcut-item"><kbd>V</kbd> <span>Fit video layout vertically</span></div>
-              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>D</kbd> <span>Deselect active focused element</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>B</kbd> <span>Toggle Left Sidebar (Assets / Presets)</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>J</kbd> <span>Toggle Bottom Panel (Clips / Render Queue)</span></div>
+              <div class="shortcut-item"><kbd>Esc</kbd> <span>Close active modal, popover, or palette</span></div>
+              <div class="shortcut-item"><kbd>H</kbd> <span>Fit video layout horizontally to canvas</span></div>
+              <div class="shortcut-item"><kbd>V</kbd> <span>Fit video layout vertically to canvas</span></div>
+              <div class="shortcut-item"><kbd>Ctrl</kbd> + <kbd>D</kbd> <span>Deselect active viewport element</span></div>
               <div class="shortcut-item"><kbd>Click & Drag Up/Down</kbd> <span>Scrub & adjust numeric values</span></div>
               <div class="shortcut-item"><kbd>Shift</kbd> + <kbd>Drag</kbd> <span>Fast scrub numeric values (10x speed)</span></div>
               <div class="shortcut-item"><kbd>Alt</kbd> + <kbd>Drag</kbd> <span>Precision scrub numeric values (0.1x step)</span></div>

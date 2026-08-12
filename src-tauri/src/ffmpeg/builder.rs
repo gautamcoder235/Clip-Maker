@@ -623,9 +623,9 @@ impl FFmpegBuilder {
         };
 
         if g >= r && g >= b {
-            Some("g")
+            Some("green")
         } else if b >= r && b >= g {
-            Some("b")
+            Some("blue")
         } else {
             None
         }

@@ -12,7 +12,10 @@ export interface WorkspaceLayout {
 
 export class AppStateManager {
   public project: ProjectData;
-  public history: HistoryManager;
+  public globalHistory: HistoryManager;
+  private assetHistories: Record<string, HistoryManager> = {};
+  public activeAssetId: string | null = null;
+
   public fonts: SystemFont[] = [];
   public assets: ImportedAsset[] = [];
   public renderQueue: RenderJob[] = [];
@@ -27,12 +30,29 @@ export class AppStateManager {
   private listeners: (() => void)[] = [];
 
   constructor() {
-    this.history = new HistoryManager();
+    this.globalHistory = new HistoryManager();
     this.project = this.createDefaultProject();
     
-    this.history.subscribe(() => {
+    this.globalHistory.subscribe(() => {
       this.notifyListeners();
     });
+  }
+
+  get history(): HistoryManager {
+    if (this.activeAssetId) {
+      if (!this.assetHistories[this.activeAssetId]) {
+        const hist = new HistoryManager();
+        hist.subscribe(() => this.notifyListeners());
+        this.assetHistories[this.activeAssetId] = hist;
+      }
+      return this.assetHistories[this.activeAssetId];
+    }
+    return this.globalHistory;
+  }
+
+  clearAllHistory() {
+    this.globalHistory.clear();
+    this.assetHistories = {};
   }
 
   createDefaultProject(): ProjectData {

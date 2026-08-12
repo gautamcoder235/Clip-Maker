@@ -68,6 +68,10 @@ pub struct TextPreset {
     #[serde(default = "default_font_weight")]
     pub font_weight: u32,
     #[serde(default)]
+    pub video_placement: Option<VideoPlacementConfig>,
+    #[serde(default)]
+    pub background: Option<BackgroundConfig>,
+    #[serde(default)]
     pub extra_overlays: Option<Vec<ExtraOverlay>>,
     #[serde(default)]
     pub media_overlays: Option<Vec<MediaOverlay>>,
@@ -75,6 +79,8 @@ pub struct TextPreset {
     pub overlay_order: Option<Vec<String>>,
     #[serde(default)]
     pub created_at: Option<String>,
+    #[serde(default)]
+    pub preset_asset_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
