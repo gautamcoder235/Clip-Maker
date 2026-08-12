@@ -795,18 +795,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     leftTabPresets.addEventListener("click", () => switchTab(true));
   }
 
-  // Custom Modal for Saving Global Presets
-  const openSavePresetModal = () => {
-    if (savePresetModal && inputPresetName) {
-      inputPresetName.value = `Preset ${Date.now().toString().slice(-4)}`;
-      savePresetModal.style.display = "flex";
-      setTimeout(() => inputPresetName.focus(), 50);
-    }
-  };
 
-  const closeSavePresetModal = () => {
-    if (savePresetModal) savePresetModal.style.display = "none";
-  };
 
   if (btnExportPresetAppData) {
     btnExportPresetAppData.addEventListener("click", openSavePresetModal);
@@ -3842,7 +3831,10 @@ function showModal(options: {
     const message = document.getElementById("modal-message")!;
     const icon = document.getElementById("modal-icon")!;
     const btnConfirm = document.getElementById("modal-confirm")! as HTMLButtonElement;
+    const btnExtra = document.getElementById("modal-extra")! as HTMLButtonElement;
     const btnCancel = document.getElementById("modal-cancel")! as HTMLButtonElement;
+
+    if (btnExtra) btnExtra.style.display = "none";
 
     title.innerText = options.title;
     message.innerText = options.message;
@@ -3888,6 +3880,77 @@ function showModal(options: {
 
     // Focus the confirm button
     btnConfirm.focus();
+  });
+}
+
+function showChoiceModal(options: {
+  title: string;
+  message: string;
+  icon?: string;
+  confirmText?: string;
+  extraText?: string;
+  cancelText?: string;
+}): Promise<"save" | "apply" | "cancel"> {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("custom-modal")!;
+    const title = document.getElementById("modal-title")!;
+    const message = document.getElementById("modal-message")!;
+    const icon = document.getElementById("modal-icon")!;
+    const btnConfirm = document.getElementById("modal-confirm")! as HTMLButtonElement;
+    const btnExtra = document.getElementById("modal-extra")! as HTMLButtonElement;
+    const btnCancel = document.getElementById("modal-cancel")! as HTMLButtonElement;
+
+    title.innerText = options.title;
+    message.innerText = options.message;
+    icon.innerText = options.icon || "💾";
+    btnConfirm.innerText = options.confirmText || "Apply Without Saving";
+    btnCancel.innerText = options.cancelText || "Cancel";
+
+    if (options.extraText && btnExtra) {
+      btnExtra.style.display = "inline-block";
+      btnExtra.innerText = options.extraText;
+    } else if (btnExtra) {
+      btnExtra.style.display = "none";
+    }
+
+    btnConfirm.classList.remove("danger");
+    overlay.style.display = "flex";
+
+    function cleanup() {
+      overlay.style.display = "none";
+      if (btnExtra) btnExtra.style.display = "none";
+      btnConfirm.removeEventListener("click", onConfirm);
+      if (btnExtra) btnExtra.removeEventListener("click", onExtra);
+      btnCancel.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+    }
+
+    function onConfirm() {
+      cleanup();
+      resolve("apply");
+    }
+
+    function onExtra() {
+      cleanup();
+      resolve("save");
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve("cancel");
+    }
+
+    function onBackdrop(e: Event) {
+      if (e.target === overlay) {
+        cleanup();
+        resolve("cancel");
+      }
+    }
+
+    btnConfirm.addEventListener("click", onConfirm);
+    if (btnExtra) btnExtra.addEventListener("click", onExtra);
+    btnCancel.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
   });
 }
 
@@ -5736,6 +5799,18 @@ interface MissingMediaItem {
   preset?: TextPreset;
 }
 
+function openSavePresetModal() {
+  if (savePresetModal && inputPresetName) {
+    inputPresetName.value = `Preset ${Date.now().toString().slice(-4)}`;
+    savePresetModal.style.display = "flex";
+    setTimeout(() => inputPresetName.focus(), 50);
+  }
+}
+
+function closeSavePresetModal() {
+  if (savePresetModal) savePresetModal.style.display = "none";
+}
+
 let activeMissingItems: MissingMediaItem[] = [];
 let activeRelinkIndex = 0;
 
@@ -5984,6 +6059,46 @@ async function scanProjectMissingFiles(project: ProjectData): Promise<MissingMed
   return missing;
 }
 
+function applyPresetToProject(preset: TextPreset) {
+  const textPresets = [...(stateManager.project.text_presets || [])];
+  textPresets.push(preset);
+  
+  const batchUpdate: Partial<ProjectData> = {
+    text_presets: textPresets,
+    text_template: preset.template_text || stateManager.project.text_template || "PART {part}",
+    text_settings: {
+      enabled: true,
+      font_size: preset.font_size,
+      font_color: preset.font_color,
+      font_family: preset.font_family,
+      placement: preset.placement || "Custom",
+      x_position: preset.x_position || "100",
+      y_position: preset.y_position || "100",
+      outline: preset.outline,
+      letter_spacing: preset.letter_spacing || 0,
+      font_weight: preset.font_weight || 400,
+    }
+  };
+
+  if (preset.extra_overlays) {
+    batchUpdate.extra_overlays = JSON.parse(JSON.stringify(preset.extra_overlays));
+  }
+  if (preset.media_overlays) {
+    batchUpdate.media_overlays = JSON.parse(JSON.stringify(preset.media_overlays));
+  }
+  if (preset.overlay_order) {
+    batchUpdate.overlay_order = [...preset.overlay_order];
+  }
+
+  stateManager.updateProjectBatch(batchUpdate);
+
+  syncConfigToUi();
+  syncMediaOverlaysList();
+  syncExtraOverlaysList();
+  refreshViewport();
+  showToast(`Applied "${preset.name}" to project!`, "success");
+}
+
 function renderPresetLibraryCards(presets: TextPreset[]) {
   if (!presetLibraryList) return;
   presetLibraryList.innerHTML = "";
@@ -6024,44 +6139,24 @@ function renderPresetLibraryCards(presets: TextPreset[]) {
     `;
 
     const applyBtn = card.querySelector(".preset-card-btn-apply") as HTMLButtonElement;
-    applyBtn.addEventListener("click", () => {
-      const textPresets = [...(stateManager.project.text_presets || [])];
-      textPresets.push(preset);
-      
-      const batchUpdate: Partial<ProjectData> = {
-        text_presets: textPresets,
-        text_template: preset.template_text || stateManager.project.text_template || "PART {part}",
-        text_settings: {
-          enabled: true,
-          font_size: preset.font_size,
-          font_color: preset.font_color,
-          font_family: preset.font_family,
-          placement: preset.placement || "Custom",
-          x_position: preset.x_position || "100",
-          y_position: preset.y_position || "100",
-          outline: preset.outline,
-          letter_spacing: preset.letter_spacing || 0,
-          font_weight: preset.font_weight || 400,
-        }
-      };
+    applyBtn.addEventListener("click", async () => {
+      const choice = await showChoiceModal({
+        title: "Switch Preset — Save Current Setup?",
+        message: `Applying preset "${preset.name}" will overwrite your current text template, fonts, and overlay setup. Would you like to save your current setup as a preset first?`,
+        icon: "💾",
+        extraText: "Save Setup First",
+        confirmText: "Apply Without Saving",
+        cancelText: "Cancel"
+      });
 
-      if (preset.extra_overlays) {
-        batchUpdate.extra_overlays = JSON.parse(JSON.stringify(preset.extra_overlays));
-      }
-      if (preset.media_overlays) {
-        batchUpdate.media_overlays = JSON.parse(JSON.stringify(preset.media_overlays));
-      }
-      if (preset.overlay_order) {
-        batchUpdate.overlay_order = [...preset.overlay_order];
+      if (choice === "cancel") return;
+
+      if (choice === "save") {
+        openSavePresetModal();
+        return;
       }
 
-      stateManager.updateProjectBatch(batchUpdate);
-
-      syncConfigToUi();
-      syncMediaOverlaysList();
-      syncExtraOverlaysList();
-      refreshViewport();
-      showToast(`Applied "${preset.name}" to project presets list`, "success");
+      applyPresetToProject(preset);
     });
 
     const relinkBtn = card.querySelector(".preset-card-btn-relink") as HTMLButtonElement | null;
