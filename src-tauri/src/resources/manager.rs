@@ -133,7 +133,7 @@ impl ResourceManager {
                         for i in 0..stream_count {
                             let audio_filename = format!("{}_track_{}.aac", hash_clone, i);
                             let final_dest = cache_dir.join(&audio_filename);
-                            let temp_dest = cache_dir.join(format!("{}.tmp", audio_filename));
+                            let temp_dest = cache_dir.join(format!("{}_track_{}.tmp.aac", hash_clone, i));
                             if !final_dest.exists() {
                                 let mut cmd = std::process::Command::new(&ffmpeg_path);
                                 cmd.args(&[
