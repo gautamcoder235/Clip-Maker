@@ -128,7 +128,7 @@ pub async fn get_extracted_audio_track(
     if final_dest.exists() {
         Ok(final_dest.to_string_lossy().replace("\\", "/"))
     } else {
-        Err(crate::errors::AppError::Generic("Audio track extraction timed out or failed".to_string()))
+        Err(crate::errors::AppError::Resource("Audio track extraction timed out or failed".to_string()))
     }
 }
 
