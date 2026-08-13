@@ -46,14 +46,12 @@ impl EncoderDetector {
 
         if is_nvenc {
             match value.as_str() {
-                "ultrafast" => "p1".to_string(),
-                "superfast" => "p2".to_string(),
-                "veryfast" => "p3".to_string(),
-                "faster" | "fast" => "p4".to_string(),
-                "medium" => "p5".to_string(),
-                "slow" => "p6".to_string(),
+                "ultrafast" | "superfast" | "veryfast" => "p1".to_string(),
+                "faster" | "fast" => "p2".to_string(),
+                "medium" => "p3".to_string(),
+                "slow" => "p5".to_string(),
                 "slower" | "veryslow" => "p7".to_string(),
-                _ => "p4".to_string(),
+                _ => "p2".to_string(),
             }
         } else if is_amf {
             match value.as_str() {

@@ -39,6 +39,7 @@ pub struct FFmpegBuilder {
     audio_stream_index: usize,
     preset: String,
     crf: u32,
+    parallel_workers: u32,
 }
 
 impl FFmpegBuilder {
@@ -71,6 +72,7 @@ impl FFmpegBuilder {
             audio_stream_index: 0,
             preset: "fast".to_string(),
             crf: 22,
+            parallel_workers: 1,
         }
     }
 
@@ -200,6 +202,11 @@ impl FFmpegBuilder {
         self
     }
 
+    pub fn set_parallel_workers(&mut self, workers: u32) -> &mut Self {
+        self.parallel_workers = workers.max(1);
+        self
+    }
+
     pub fn set_audio_codec(&mut self, codec: &str) -> &mut Self {
         if !codec.is_empty() {
             self.audio_codec = codec.to_string();
@@ -268,11 +275,26 @@ impl FFmpegBuilder {
         cmd.push("-hide_banner".to_string());
         cmd.push("-nostdin".to_string());
         cmd.push("-loglevel".to_string());
-        cmd.push("error".to_string()); // Change from warning to error to prevent swscaler/font warnings from flooding IPC
+        cmd.push("error".to_string());
         cmd.push("-stats".to_string());
-        cmd.push("-threads".to_string());
-        cmd.push("0".to_string());
 
+        // Scale threads based on parallel workers to avoid contention
+        let thread_count = if self.parallel_workers > 1 {
+            let total_cpus = std::thread::available_parallelism()
+                .map(|n| n.get() as u32)
+                .unwrap_or(8);
+            (total_cpus / self.parallel_workers).max(2)
+        } else {
+            0 // 0 = auto (use all available)
+        };
+        cmd.push("-threads".to_string());
+        cmd.push(thread_count.to_string());
+
+        // Hardware-accelerated decoding when GPU is enabled
+        if self.gpu_acceleration {
+            cmd.push("-hwaccel".to_string());
+            cmd.push("auto".to_string());
+        }
 
         // Fast seek input flags must come BEFORE -i
         if !ss_args.is_empty() {
@@ -329,6 +351,10 @@ impl FFmpegBuilder {
             cmd.push("-crf".to_string());
             cmd.push(self.crf.to_string());
         }
+
+        // Explicit pixel format for maximum encoder compatibility and speed
+        cmd.push("-pix_fmt".to_string());
+        cmd.push("yuv420p".to_string());
 
         match self.audio_codec.to_lowercase().as_str() {
             "none" | "mute" | "disabled" => {
@@ -475,24 +501,22 @@ impl FFmpegBuilder {
                     }
 
                     let mut filters = Vec::new();
-                    if overlay.r#type == "image" {
+                    // Single format=rgba conversion at the start (covers both image and chroma key needs)
+                    if overlay.r#type == "image" || overlay.chroma_key {
                         filters.push("format=rgba".to_string());
                     }
                     if overlay.chroma_key {
                         let norm_color = Self::normalize_color(&overlay.chroma_color);
                         let mode = if overlay.chroma_mode == "colorkey" { "colorkey" } else { "chromakey" };
-                        filters.push("format=rgba".to_string());
                         filters.push(format!(
                             "{}={}:{:.3}:{:.3}",
                             mode, norm_color, overlay.chroma_similarity.clamp(0.01, 1.0), overlay.chroma_blend.clamp(0.0, 1.0)
                         ));
                         if overlay.chroma_spill > 0.001 {
                             if let Some(spill_type) = Self::detect_spill_type(&overlay.chroma_color) {
-                                filters.push("format=rgba".to_string());
                                 filters.push(format!("despill=type={}:mix={:.2}", spill_type, overlay.chroma_spill));
                             }
                         }
-                        filters.push("format=rgba".to_string());
                     }
 
                     if overlay.width > 0 && overlay.height > 0 {

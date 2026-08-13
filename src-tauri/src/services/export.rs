@@ -119,6 +119,7 @@ impl ExportService {
         let processor = ProcessingService::new(self.app_handle.clone(), &self.ffmpeg_path);
         
         let mut builder = FFmpegBuilder::new(&self.ffmpeg_path);
+        builder.set_parallel_workers(config.parallel_workers);
         builder
             .input(input_path)
             .split(start_time, duration, true, 0.5);
@@ -353,6 +354,7 @@ impl ExportService {
             if active_gpu {
                 eprintln!("GPU rendering failed with error: {:?}. Retrying with CPU...", err);
                 let mut retry_builder = FFmpegBuilder::new(&self.ffmpeg_path);
+                retry_builder.set_parallel_workers(config.parallel_workers);
                 // rebuild identical configuration without GPU
                 retry_builder
                     .input(input_path)

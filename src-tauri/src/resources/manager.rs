@@ -133,7 +133,9 @@ impl ResourceManager {
                         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", // Ensure even dimensions
                         "-c:v", "libx264",
                         "-preset", "ultrafast",
-                        "-crf", "28",
+                        "-crf", "18", // Lower CRF for better color fidelity (chroma key accuracy)
+                        "-pix_fmt", "yuv420p",
+                        "-an", // Strip audio from proxy
                         &proxy_dest.to_string_lossy(),
                     ]);
                     
