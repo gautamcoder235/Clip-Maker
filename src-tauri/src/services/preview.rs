@@ -65,8 +65,12 @@ impl PreviewService {
             .find(|asset| asset.path == *input_path)
             .map(|asset| &asset.id);
 
+        let mut audio_stream_index = config.audio_stream_index;
         if let Some(id) = asset_id {
             if let Some(settings) = config.asset_settings.get(id) {
+                if let Some(stream_idx) = settings.audio_stream_index {
+                    audio_stream_index = stream_idx;
+                }
                 if let Some(trim) = &settings.trim {
                     if trim.enabled && trim.start >= 0.0 && trim.end > trim.start {
                         trim_start = trim.start;
@@ -95,6 +99,7 @@ impl PreviewService {
         // Split/trim clip preview using resolved parameters
         builder
             .input(input_path)
+            .set_audio_stream_index(audio_stream_index)
             .split(preview_start, preview_duration, true, 3.0)
             .set_fps(preview_fps);
 
@@ -338,8 +343,12 @@ impl PreviewService {
             overlay.chroma_key.hash(&mut hasher);
         }
 
+        config.audio_stream_index.hash(&mut hasher);
         for (key, settings) in &config.asset_settings {
             key.hash(&mut hasher);
+            if let Some(stream_idx) = settings.audio_stream_index {
+                stream_idx.hash(&mut hasher);
+            }
             if let Some(trim) = &settings.trim {
                 trim.enabled.hash(&mut hasher);
                 trim.start.to_bits().hash(&mut hasher);
