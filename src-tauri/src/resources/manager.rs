@@ -120,6 +120,45 @@ impl ResourceManager {
                     .collect();
             }
 
+            // Extract audio tracks in background
+            if let Some(ref meta) = video_metadata {
+                let stream_count = meta.audio_streams.len();
+                if stream_count > 0 {
+                    let ffmpeg_path = self.ffmpeg_path.clone();
+                    let cache_dir = self.cache.thumbnail_dir().to_path_buf();
+                    let hash_clone = hash.clone();
+                    let abs_path_clone = abs_path_str.clone();
+
+                    std::thread::spawn(move || {
+                        for i in 0..stream_count {
+                            let audio_filename = format!("{}_track_{}.aac", hash_clone, i);
+                            let final_dest = cache_dir.join(&audio_filename);
+                            let temp_dest = cache_dir.join(format!("{}.tmp", audio_filename));
+                            if !final_dest.exists() {
+                                let mut cmd = std::process::Command::new(&ffmpeg_path);
+                                cmd.args(&[
+                                    "-y",
+                                    "-i", &abs_path_clone,
+                                    "-map", &format!("0:a:{}", i),
+                                    "-c:a", "aac",
+                                    "-b:a", "192k",
+                                    &temp_dest.to_string_lossy(),
+                                ]);
+                                
+                                #[cfg(target_os = "windows")]
+                                cmd.creation_flags(0x08000000); // Hide console window
+                                
+                                if let Ok(status) = cmd.status() {
+                                    if status.success() {
+                                        let _ = std::fs::rename(temp_dest, final_dest);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
             // Generate Proxy for unsupported formats for live DOM preview
             if generate_proxy && !matches!(ext.as_str(), "mp4" | "webm") {
                 let proxy_filename = format!("{}_proxy.mp4", hash);

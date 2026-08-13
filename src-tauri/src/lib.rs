@@ -44,6 +44,7 @@ pub fn run() {
             commands::load_project,
             commands::save_project,
             commands::import_file,
+            commands::get_extracted_audio_track,
             commands::generate_preview_clip,
             commands::start_render_queue,
             commands::start_batch_render_queue,

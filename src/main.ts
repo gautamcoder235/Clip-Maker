@@ -2595,6 +2595,16 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
       
       const settings = stateManager.project.asset_settings?.[asset.id];
       const trim = settings?.trim;
+      const audioStreamIdx = settings?.audio_stream_index ?? (stateManager.project.audio_stream_index || 0);
+
+      // Fetch and set synced background audio track
+      invoke<string>("get_extracted_audio_track", { 
+        hash: asset.hash, 
+        streamIndex: audioStreamIdx 
+      }).then((audioPath) => {
+        canvasRenderer.setAudioSource(`${convertFileSrc(audioPath)}?cb=${Date.now()}`);
+      }).catch(e => console.warn("Failed to load audio track", e));
+
       if (trim && trim.enabled) {
         canvasRenderer.setCurrentTime(trim.start);
       }
@@ -5049,6 +5059,13 @@ function openTrimModal(asset: ImportedAsset) {
 
     if (currentSelectedAsset?.id === asset.id) {
       stateManager.project.audio_stream_index = audioStreamIdx;
+      // Fetch and set synced background audio track
+      invoke<string>("get_extracted_audio_track", { 
+        hash: asset.hash, 
+        streamIndex: audioStreamIdx 
+      }).then((audioPath) => {
+        canvasRenderer.setAudioSource(`${convertFileSrc(audioPath)}?cb=${Date.now()}`);
+      }).catch(e => console.warn("Failed to load audio track", e));
     }
     
     // Refresh asset card UI

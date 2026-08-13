@@ -109,6 +109,30 @@ pub async fn import_file(state: State<'_, AppState>, file_path: String, generate
 }
 
 #[tauri::command]
+pub async fn get_extracted_audio_track(
+    state: State<'_, AppState>,
+    hash: String,
+    stream_index: usize,
+) -> AppResult<String> {
+    let cache_dir = state.cache_manager.thumbnail_dir();
+    let audio_filename = format!("{}_track_{}.aac", hash, stream_index);
+    let final_dest = cache_dir.join(&audio_filename);
+    
+    // Wait for the file to be created by the background task, up to 10 seconds.
+    let mut attempts = 0;
+    while !final_dest.exists() && attempts < 100 {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        attempts += 1;
+    }
+
+    if final_dest.exists() {
+        Ok(final_dest.to_string_lossy().replace("\\", "/"))
+    } else {
+        Err(crate::errors::AppError::Generic("Audio track extraction timed out or failed".to_string()))
+    }
+}
+
+#[tauri::command]
 pub async fn generate_preview_clip(state: State<'_, AppState>, config: AppConfig) -> AppResult<String> {
     let preview_service = PreviewService::new(
         state.cache_manager.clone(),

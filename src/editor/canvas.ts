@@ -4,6 +4,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 export class CanvasRenderer {
   private container: HTMLDivElement;
   private videoElement: HTMLVideoElement;
+  private audioElement: HTMLAudioElement;
   private canvasElement: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null;
   private isMissing: boolean = false;
@@ -25,9 +26,37 @@ export class CanvasRenderer {
     this.videoElement.style.pointerEvents = "none";
     this.videoElement.style.display = "none";
 
+    this.videoElement.muted = true; // Video is always muted, audio comes from audioElement
+
     this.videoElement.onerror = () => {
       this.setOfflineState(true, this.videoElement.src);
     };
+
+    // Create synchronized audio player
+    this.audioElement = document.createElement("audio");
+    this.audioElement.autoplay = false;
+    this.audioElement.controls = false;
+    this.audioElement.loop = true;
+    this.audioElement.style.display = "none";
+    
+    // Sync events
+    this.videoElement.addEventListener("play", () => {
+      if (this.audioElement.src) {
+        this.audioElement.currentTime = this.videoElement.currentTime;
+        this.audioElement.play().catch(e => console.warn("Audio play blocked", e));
+      }
+    });
+    this.videoElement.addEventListener("pause", () => this.audioElement.pause());
+    this.videoElement.addEventListener("seeked", () => {
+      if (this.audioElement.src) this.audioElement.currentTime = this.videoElement.currentTime;
+    });
+    this.videoElement.addEventListener("waiting", () => this.audioElement.pause());
+    this.videoElement.addEventListener("playing", () => {
+      if (this.audioElement.src) {
+        this.audioElement.currentTime = this.videoElement.currentTime;
+        this.audioElement.play().catch(e => console.warn("Audio play blocked", e));
+      }
+    });
 
     // Create background canvas
     this.canvasElement = document.createElement("canvas");
@@ -42,6 +71,7 @@ export class CanvasRenderer {
     this.ctx = this.canvasElement.getContext("2d");
 
     this.container.appendChild(this.videoElement);
+    this.container.appendChild(this.audioElement);
     this.container.appendChild(this.canvasElement);
   }
 
@@ -67,11 +97,23 @@ export class CanvasRenderer {
     this.videoElement.style.display = "block";
   }
 
+  setAudioSource(src: string) {
+    this.audioElement.src = src;
+    this.audioElement.load();
+    if (!this.videoElement.paused) {
+      this.audioElement.currentTime = this.videoElement.currentTime;
+      this.audioElement.play().catch(e => console.warn("Audio play blocked", e));
+    }
+  }
+
   clearVideo() {
     this.setOfflineState(false);
     this.videoElement.pause();
+    this.audioElement.pause();
     this.videoElement.removeAttribute("src");
+    this.audioElement.removeAttribute("src");
     this.videoElement.load();
+    this.audioElement.load();
     this.videoElement.style.display = "none";
   }
 
@@ -85,6 +127,9 @@ export class CanvasRenderer {
 
   setCurrentTime(seconds: number) {
     this.videoElement.currentTime = seconds;
+    if (this.audioElement.src) {
+      this.audioElement.currentTime = seconds;
+    }
   }
 
   getCurrentTime(): number {
