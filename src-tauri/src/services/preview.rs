@@ -60,22 +60,26 @@ impl PreviewService {
         // Resolve trim settings if configured
         let mut trim_start = 0.0;
         let mut trim_end = f64::MAX;
+        let mut audio_stream_index = config.audio_stream_index;
+        let mut audio_codec = config.audio_codec.clone();
 
         let asset_id = config.imported_assets.iter()
             .find(|asset| asset.path == *input_path)
             .map(|asset| &asset.id);
 
-        let mut audio_stream_index = config.audio_stream_index;
         if let Some(id) = asset_id {
             if let Some(settings) = config.asset_settings.get(id) {
-                if let Some(stream_idx) = settings.audio_stream_index {
-                    audio_stream_index = stream_idx;
-                }
                 if let Some(trim) = &settings.trim {
                     if trim.enabled && trim.start >= 0.0 && trim.end > trim.start {
                         trim_start = trim.start;
                         trim_end = trim.end;
                     }
+                }
+                if let Some(stream_idx) = settings.audio_stream_index {
+                    audio_stream_index = stream_idx;
+                }
+                if let Some(ref codec) = &settings.audio_codec {
+                    audio_codec = codec.clone();
                 }
             }
         }
@@ -99,9 +103,10 @@ impl PreviewService {
         // Split/trim clip preview using resolved parameters
         builder
             .input(input_path)
-            .set_audio_stream_index(audio_stream_index)
             .split(preview_start, preview_duration, true, 3.0)
-            .set_fps(preview_fps);
+            .set_fps(preview_fps)
+            .set_audio_stream_index(audio_stream_index)
+            .set_audio_codec(&audio_codec);
 
         if config.aspect_ratio == "9:16" && !config.video_placement.enabled {
             builder.crop("9:16", &config.crop_anchor);
@@ -344,16 +349,17 @@ impl PreviewService {
         }
 
         config.audio_stream_index.hash(&mut hasher);
+        config.audio_codec.hash(&mut hasher);
+
         for (key, settings) in &config.asset_settings {
             key.hash(&mut hasher);
-            if let Some(stream_idx) = settings.audio_stream_index {
-                stream_idx.hash(&mut hasher);
-            }
             if let Some(trim) = &settings.trim {
                 trim.enabled.hash(&mut hasher);
                 trim.start.to_bits().hash(&mut hasher);
                 trim.end.to_bits().hash(&mut hasher);
             }
+            settings.audio_stream_index.hash(&mut hasher);
+            settings.audio_codec.hash(&mut hasher);
         }
 
         if let Ok(meta) = std::fs::metadata(input_path) {
