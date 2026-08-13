@@ -208,7 +208,8 @@ export class DOMOverlay {
     Object.keys(this.activeOverlayVideos).forEach(keyStr => {
       const idx = parseInt(keyStr);
       const ov = newMediaOverlays[idx];
-      if (!ov || ov.type !== "video" || convertFileSrc(ov.path) !== this.activeOverlayVideos[idx].src) {
+      const expectedSrc = ov && ov.type === "video" ? convertFileSrc(ov.proxy_path || ov.path) : null;
+      if (!ov || ov.type !== "video" || expectedSrc !== this.activeOverlayVideos[idx].src) {
         const v = this.activeOverlayVideos[idx];
         if (v) {
           v.pause();
@@ -222,7 +223,8 @@ export class DOMOverlay {
     Object.keys(this.activeOverlayImages).forEach(keyStr => {
       const idx = parseInt(keyStr);
       const ov = newMediaOverlays[idx];
-      if (!ov || ov.type !== "image" || convertFileSrc(ov.path) !== this.activeOverlayImages[idx].src) {
+      const expectedSrc = ov && ov.type === "image" ? convertFileSrc(ov.path) : null;
+      if (!ov || ov.type !== "image" || expectedSrc !== this.activeOverlayImages[idx].src) {
         delete this.activeOverlayImages[idx];
       }
     });
@@ -934,8 +936,8 @@ export class DOMOverlay {
       if (canvas) {
         canvas.style.left = `${-cropL}px`;
         canvas.style.top = `${-cropT}px`;
-        canvas.style.width = `${newW + cropL + cropR}px`;
-        canvas.style.height = `${newH + cropT + cropB}px`;
+        canvas.style.width = `calc(100% + ${cropL + cropR}px)`;
+        canvas.style.height = `calc(100% + ${cropT + cropB}px)`;
         if (cropT > 0 || cropR > 0 || cropB > 0 || cropL > 0) {
           canvas.style.clipPath = `inset(${cropT}px ${cropR}px ${cropB}px ${cropL}px)`;
         } else {
