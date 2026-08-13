@@ -2590,7 +2590,7 @@ function selectAsset(asset: ImportedAsset, autoPlay = false) {
     canvasRenderer.setOfflineState(true, asset.path);
   } else {
     try {
-      const webSrc = convertFileSrc(asset.path);
+      const webSrc = `${convertFileSrc(asset.path)}?cb=${asset.hash}`;
       canvasRenderer.setVideoSource(webSrc);
       
       const settings = stateManager.project.asset_settings?.[asset.id];
@@ -4609,7 +4609,7 @@ function openTrimModal(asset: ImportedAsset) {
 
   trimModalFilename.textContent = asset.name;
   trimLoadingOverlay.style.display = "flex";
-  trimModalVideo.src = convertFileSrc(asset.path);
+  trimModalVideo.src = `${convertFileSrc(asset.path)}?cb=${asset.hash}`;
   trimModalVideo.load();
 
   const trimAudioStreamSelect = document.querySelector("#trim-audio-stream-select") as HTMLSelectElement;
@@ -6288,7 +6288,7 @@ async function applyPresetToProject(preset: TextPreset) {
       canvasRenderer.setOfflineState(true, currentSelectedAsset.path);
     } else {
       try {
-        const webSrc = convertFileSrc(currentSelectedAsset.path);
+        const webSrc = `${convertFileSrc(currentSelectedAsset.path)}?cb=${currentSelectedAsset.hash}`;
         canvasRenderer.setVideoSource(webSrc);
       } catch (e) {
         console.error("Preset video source load failed:", e);
