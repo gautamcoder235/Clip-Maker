@@ -172,9 +172,10 @@ let selectTheme: HTMLSelectElement;
 let btnUserManual: HTMLButtonElement;
 
 // Trim Modal elements
-let trimModal: HTMLDivElement;
+let trimModal: HTMLElement;
 let trimModalVideo: HTMLVideoElement;
-let trimModalFilename: HTMLSpanElement;
+let trimModalAudio: HTMLAudioElement;
+let trimModalFilename: HTMLElement;
 let trimLoadingOverlay: HTMLDivElement;
 let trimTimelineTrack: HTMLDivElement;
 let trimTimelineRange: HTMLDivElement;
@@ -650,6 +651,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Bind Trim Modal elements
   trimModal = document.querySelector("#trim-modal")!;
   trimModalVideo = document.querySelector("#trim-modal-video")!;
+  trimModalAudio = document.createElement("audio");
+  trimModalAudio.style.display = "none";
+  document.body.appendChild(trimModalAudio);
+
   trimModalFilename = document.querySelector("#trim-modal-filename")!;
   trimLoadingOverlay = document.querySelector("#trim-loading-overlay")!;
   trimTimelineTrack = document.querySelector("#trim-timeline-track")!;
@@ -4654,12 +4659,56 @@ function openTrimModal(asset: ImportedAsset) {
     trimAudioStreamSelect.value = savedStreamIdx.toString();
   }
 
+  const fetchAudioForTrim = (streamIndex: number) => {
+    invoke<string>("get_extracted_audio_track", { 
+      hash: asset.hash, 
+      streamIndex
+    }).then((audioPath) => {
+      trimModalAudio.src = `${convertFileSrc(audioPath)}?cb=${Date.now()}`;
+      trimModalAudio.load();
+      if (!trimModalVideo.paused) {
+        trimModalAudio.currentTime = trimModalVideo.currentTime;
+        trimModalAudio.play().catch(e => console.warn("Trim audio play blocked", e));
+      }
+    }).catch(e => console.warn("Failed to load trim modal audio track", e));
+  };
+
+  const onAudioStreamChange = () => {
+    if (trimAudioStreamSelect) {
+      fetchAudioForTrim(parseInt(trimAudioStreamSelect.value) || 0);
+    }
+  };
+
+  if (trimAudioStreamSelect) {
+    trimAudioStreamSelect.addEventListener("change", onAudioStreamChange);
+    // Initial fetch
+    fetchAudioForTrim(parseInt(trimAudioStreamSelect.value) || 0);
+  }
+
+  const onTrimModalVideoPlaySync = () => {
+    if (trimModalAudio.src) {
+      trimModalAudio.currentTime = trimModalVideo.currentTime;
+      trimModalAudio.play().catch(e => console.warn("Trim audio play blocked", e));
+    }
+  };
+  const onTrimModalVideoPauseSync = () => trimModalAudio.pause();
+  const onTrimModalVideoSeekedSync = () => {
+    if (trimModalAudio.src) trimModalAudio.currentTime = trimModalVideo.currentTime;
+  };
+
+  trimModalVideo.addEventListener("play", onTrimModalVideoPlaySync);
+  trimModalVideo.addEventListener("pause", onTrimModalVideoPauseSync);
+  trimModalVideo.addEventListener("seeked", onTrimModalVideoSeekedSync);
+  trimModalVideo.addEventListener("waiting", onTrimModalVideoPauseSync);
+  trimModalVideo.addEventListener("playing", onTrimModalVideoPlaySync);
+
   // Custom playback controllers state
   let isScrubbing = false;
 
   // Reset custom controls visual states
-  trimModalVideo.muted = false;
-  trimModalVideo.volume = savedVolume / 100;
+  trimModalVideo.muted = true; // Video is permanently muted, audio is played via trimModalAudio
+  trimModalAudio.muted = false;
+  trimModalAudio.volume = savedVolume / 100;
   trimPlayIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
   trimVideoProgress.value = "0";
   trimVideoProgress.style.background = `rgba(255, 255, 255, 0.15)`;
@@ -4786,16 +4835,16 @@ function openTrimModal(asset: ImportedAsset) {
 
   const onVolumeSliderInput = () => {
     const volPct = parseInt(trimVolumeSlider.value) || 0;
-    trimModalVideo.volume = volPct / 100;
+    trimModalAudio.volume = volPct / 100;
     
     if (volPct > 0) {
-      trimModalVideo.muted = false;
+      trimModalAudio.muted = false;
       savedVolume = volPct;
     } else {
-      trimModalVideo.muted = true;
+      trimModalAudio.muted = true;
     }
     
-    updateVolumeUI(volPct, trimModalVideo.muted);
+    updateVolumeUI(volPct, trimModalAudio.muted);
   };
 
   const onVolumeToggle = () => {
@@ -5019,6 +5068,18 @@ function openTrimModal(asset: ImportedAsset) {
     btnTrimReset.removeEventListener("click", onResetClick);
     btnTrimCancel.removeEventListener("click", onCancelClick);
     btnTrimSave.removeEventListener("click", onSaveClick);
+    if (trimAudioStreamSelect) {
+      trimAudioStreamSelect.removeEventListener("change", onAudioStreamChange);
+    }
+    
+    trimModalVideo.removeEventListener("play", onTrimModalVideoPlaySync);
+    trimModalVideo.removeEventListener("pause", onTrimModalVideoPauseSync);
+    trimModalVideo.removeEventListener("seeked", onTrimModalVideoSeekedSync);
+    trimModalVideo.removeEventListener("waiting", onTrimModalVideoPauseSync);
+    trimModalVideo.removeEventListener("playing", onTrimModalVideoPlaySync);
+    
+    trimModalAudio.pause();
+    trimModalAudio.src = "";
     
     trimHandleLeft.removeEventListener("mousedown", onMouseDownLeft);
     trimHandleRight.removeEventListener("mousedown", onMouseDownRight);
