@@ -1,7 +1,29 @@
 {
-  "name": "tauri-app",
-  "private": true,
+  "name": "clip-maker",
   "version": "1.3.5",
+  "description": "A high-performance desktop application to crop, split, overlay, and batch-render video clips for YouTube Shorts, Reels, and TikTok.",
+  "private": true,
+  "author": "Gautam Sharma <sharmagautamkumar235@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/gautamcoder235/Clip-Maker#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gautamcoder235/Clip-Maker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gautamcoder235/Clip-Maker/issues"
+  },
+  "keywords": [
+    "tauri",
+    "tauri-v2",
+    "rust",
+    "typescript",
+    "video-editor",
+    "ffmpeg",
+    "shorts",
+    "reels",
+    "tiktok"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",

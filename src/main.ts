@@ -2899,7 +2899,7 @@ async function generateAndShowPreview() {
     };
 
     const path = await TauriService.generatePreviewClip(config);
-    const webSrc = `${convertFileSrc(path)}?cb=${Date.now()}`;
+    const webSrc = convertFileSrc(path);
     
     if (previewVideo) {
       previewVideo.src = webSrc;

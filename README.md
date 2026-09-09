@@ -9,15 +9,26 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blue?style=flat-square" alt="Version"/>
+  <a href="https://github.com/gautamcoder235/Clip-Maker/releases"><img src="https://img.shields.io/badge/version-1.3.5-blue?style=flat-square" alt="Version"/></a>
+  <a href="https://github.com/gautamcoder235/Clip-Maker/actions/workflows/ci.yml"><img src="https://github.com/gautamcoder235/Clip-Maker/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square&logo=windows" alt="Platform"/>
   <img src="https://img.shields.io/badge/built_with-Tauri_2-FFC131?style=flat-square&logo=tauri" alt="Tauri"/>
   <img src="https://img.shields.io/badge/backend-Rust-000000?style=flat-square&logo=rust" alt="Rust"/>
   <img src="https://img.shields.io/badge/frontend-TypeScript-3178C6?style=flat-square&logo=typescript" alt="TypeScript"/>
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"/>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"/></a>
 </p>
 
 ---
+
+## 📥 Download
+
+Pre-built binaries for Windows are available on the [**GitHub Releases**](https://github.com/gautamcoder235/Clip-Maker/releases) page:
+
+- **NSIS Setup (.exe):** Recommended for most Windows users (auto-updating & desktop shortcuts).
+- **Windows Installer (.msi):** Enterprise & clean machine installation.
+
+👉 [**Download Latest Release (v1.3.5)**](https://github.com/gautamcoder235/Clip-Maker/releases/latest)
+
 
 ## ✨ Features
 
@@ -81,10 +92,10 @@
 
 - [Node.js](https://nodejs.org/) (v18+)
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable)
-- [FFmpeg](https://ffmpeg.org/download.html) (must be available in PATH)
+- [FFmpeg & FFprobe](https://ffmpeg.org/download.html) (must be available in PATH or placed in `src-tauri/binaries/`)
 - [Tauri CLI](https://tauri.app/start/) (`npm install -g @tauri-apps/cli`)
 
-### Installation
+### Installation & Development
 
 ```bash
 # Clone the repository
@@ -95,15 +106,17 @@ cd Clip-Maker
 npm install
 
 # Run in development mode
-npx tauri dev
+npm run tauri dev
 
 # Build for production
-npx tauri build
+npm run tauri build
 ```
 
+> **FFmpeg Note for Contributors:** Clip Maker searches for `ffmpeg.exe` and `ffprobe.exe` either in your system `PATH` or inside the `src-tauri/binaries/` directory. For local development, ensure FFmpeg is installed or copy the binaries into `src-tauri/binaries/`.
+
 The compiled installer will be available at:
-- **MSI:** `src-tauri/target/release/bundle/msi/Clip Maker_0.1.0_x64_en-US.msi`
-- **NSIS Setup:** `src-tauri/target/release/bundle/nsis/Clip Maker_0.1.0_x64-setup.exe`
+- **MSI:** `src-tauri/target/release/bundle/msi/Clip Maker_1.3.5_x64_en-US.msi`
+- **NSIS Setup:** `src-tauri/target/release/bundle/nsis/Clip Maker_1.3.5_x64-setup.exe`
 
 ---
 
@@ -165,6 +178,15 @@ Clip-Maker/
 
 ---
 
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are very welcome!
+- Check out the [Contributing Guide](CONTRIBUTING.md) to get started.
+- Review the [Code of Conduct](CODE_OF_CONDUCT.md).
+- To report a security vulnerability, please refer to our [Security Policy](SECURITY.md).
+
+---
+
 ## ⭐ Show Your Support
 
 Give a ⭐ if you find this project useful!
@@ -173,4 +195,5 @@ Give a ⭐ if you find this project useful!
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
+

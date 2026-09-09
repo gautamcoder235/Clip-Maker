@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/gautamcoder235/Clip-Maker/discussions
+    about: Ask questions, share workflows, and discuss with the community.
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/gautamcoder235/Clip-Maker/blob/main/SECURITY.md
+    about: Privately report a security issue following our security policy.

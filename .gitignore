@@ -30,3 +30,14 @@ src-tauri/binaries/*
 src-tauri/.cache/
 src-tauri/src-tauri.lock
 
+# Standalone installers and large release bundles (>100MB)
+installers/
+*.msi
+*.exe
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+

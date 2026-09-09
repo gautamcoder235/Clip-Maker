@@ -1,9 +1,12 @@
 [package]
-name = "tauri-app"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+name = "clip-maker"
+version = "1.3.5"
+description = "High-performance desktop video clip maker for YouTube Shorts, Reels, and TikTok"
+authors = ["Gautam Sharma <sharmagautamkumar235@gmail.com>"]
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/gautamcoder235/Clip-Maker"
+homepage = "https://github.com/gautamcoder235/Clip-Maker"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
